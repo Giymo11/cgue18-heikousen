@@ -1,3 +1,0 @@
-/home/giymo11/dev/vulkan-testo/cmake-build-debug/CMakeFiles/rebuild_cache.dir
-/home/giymo11/dev/vulkan-testo/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/giymo11/dev/vulkan-testo/cmake-build-debug/CMakeFiles/vulkan_testo.dir

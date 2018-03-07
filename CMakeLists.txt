@@ -5,8 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_definitions(-DGLFW_INCLUDE_VULKAN)
 
-add_executable(vulkan_testo main.cpp)
-set(BINARY vulkan_testo)
+add_executable(heikousen main.cpp)
+set(BINARY heikousen)
 
 
 find_package(bullet REQUIRED CONFIGS "BulletConfig.cmake")
