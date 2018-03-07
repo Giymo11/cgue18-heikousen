@@ -3,7 +3,16 @@
 how to install deps:
 
 - install "bullet", "glfw-x11", "vulkan-headers", "vulkan-icd-loader", "vulkan-extra-layers", "spirv-tools", "glslang", "glm"
-- 
+- cmake .
+- make
+- ./heikousen
+
+TODO:
+- plan architecture
+- do concept
+
+lets also make sure to time the physics sim, etc
+
 
 
 ## game ideas
@@ -12,7 +21,8 @@ heikousen (= parrallel lines)
 - 3d movement (like elite dangerous)
 - plan your movement through the (static) level
 - then see your move played out with all the dynamic elements active
-ideas
+
+gameplay ideas
 - have static elements already present in planning
 - have elements react to your previous moves
 - have your previous ghost's explosions influence the current run
@@ -27,6 +37,11 @@ mandatory:
 - Physics Interaction (collision detection + collision response)
 - Heads-Up Display using Blending
 
+for sure:
+- (0.5) + separate texture light maps 
+- (1) scripting language?
+- (1) HDR rendering and tone mapping
+
 considered:
 - (1) GPU particle system
 - (1.5) blobby objects / metaballs
@@ -36,11 +51,6 @@ considered:
 - (1) procedural textures
 - (1) video textures
 - (0.5) simple normal mapping
-
-for sure:
-- (0.5) + separate texture light maps 
-- (1) scripting language?
-- (1) HDR rendering and tone mapping
 
 PBR shader?
 - https://learnopengl.com/PBR/Theory
@@ -54,19 +64,6 @@ PBR shader?
 - vulkan (graphics)
 - bullet (physics)
 - sound?
-    - AAA VR sound
-        - FMOD: https://fmod.com/api
-        - Wwise: https://www.audiokinetic.com/products/wwise/
-        - plus google resonance audio
-            - Resources: https://developers.google.com/resonance-audio/
-            - DEMO: https://www.youtube.com/watch?v=IYdx9cnHN8I
-    - indie sound
-        - fabric + elias
-    - old school
-        - BASS: https://www.un4seen.com/ 
-        - OpenAL: https://github.com/kcat/openal-soft
-    
-    
 
 
 ## resources
@@ -79,7 +76,17 @@ sound
 - https://www.reddit.com/r/gamedev/comments/28h6wf/c_audio_libraries/
 - https://www.reddit.com/r/GameAudio/comments/3ipbys/fmod_vs_wwise/
 - http://danikog.github.io/GameAudioTable/
-- 
+- AAA VR sound
+    - FMOD: https://fmod.com/api
+        - Wwise: https://www.audiokinetic.com/products/wwise/
+        - plus google resonance audio
+            - Resources: https://developers.google.com/resonance-audio/
+            - DEMO: https://www.youtube.com/watch?v=IYdx9cnHN8I
+    - indie sound
+        - fabric + elias
+    - old school
+        - BASS: https://www.un4seen.com/ 
+        - OpenAL: https://github.com/kcat/openal-soft
 
 bullet
 - CMAKE: https://cmake.org/cmake/help/v3.0/modgoogle vr audioule/FindBullet.html
@@ -99,6 +106,7 @@ models
 - https://www.remix3d.com/discover
 - https://www.blender.org/2-8/
 - I have some more resources at home, please remind me to add them here
+- level editor: gtkRadiant
 
 
 ### raffy recommends:
