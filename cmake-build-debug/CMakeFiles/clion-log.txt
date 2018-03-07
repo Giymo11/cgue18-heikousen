@@ -1,0 +1,4 @@
+/opt/JetBrains/apps/CLion/ch-0/181.3986.16/bin/cmake/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - Unix Makefiles" /home/giymo11/dev/vulkan-testo
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/giymo11/dev/vulkan-testo/cmake-build-debug
