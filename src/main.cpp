@@ -12,12 +12,78 @@ int initVulkan();
 
 VkInstance instance;
 
-int main () {
-    std::cout << "Hello World!" << std::endl;
+int main() {
+    std::cout << "Hello World!" << std::endl << std::endl;
 
     initVulkan();
 
     return 0;
+}
+
+void printStats(VkPhysicalDevice &device) {
+
+    VkPhysicalDeviceProperties properties;
+    vkGetPhysicalDeviceProperties(device, &properties);
+
+    std::cout << "GPU Name: " << properties.deviceName << std::endl;
+    uint32_t version = properties.apiVersion;
+    std::cout << "Max API Version: " <<
+              VK_VERSION_MAJOR(version) << "." <<
+              VK_VERSION_MINOR(version) << "." <<
+              VK_VERSION_PATCH(version) << std::endl;
+
+    version = properties.driverVersion;
+    std::cout << "Driver Version: " <<
+              VK_VERSION_MAJOR(version) << "." <<
+              VK_VERSION_MINOR(version) << "." <<
+              VK_VERSION_PATCH(version) << std::endl;
+
+    std::cout << "Vendor ID: " << properties.vendorID << std::endl;
+    std::cout << "Device ID: " << properties.deviceID << std::endl;
+
+    auto deviceType = properties.deviceType;
+    auto deviceTypeDescription =
+            (deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ?
+                "discrete" :
+                (deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU ?
+                    "integrated" :
+                    "other"
+                )
+            );
+    std::cout << "Device Type: " << deviceTypeDescription << " (type " << deviceType << ")" << std::endl;
+
+
+    VkPhysicalDeviceFeatures features;
+    vkGetPhysicalDeviceFeatures(device, &features);
+    // ...
+    std::cout << "can it do multi-viewport: " << features.multiViewport << std::endl;
+
+
+    VkPhysicalDeviceMemoryProperties memoryProperties;
+    vkGetPhysicalDeviceMemoryProperties(device, &memoryProperties);
+    // ...
+
+
+    uint32_t amountOfQueueFamilies = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &amountOfQueueFamilies, NULL);
+
+    auto *queueFamilyProperties = new VkQueueFamilyProperties[amountOfQueueFamilies];
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &amountOfQueueFamilies, queueFamilyProperties);
+
+    std::cout << "Amount of Queue Families: " << amountOfQueueFamilies << std::endl << std::endl;
+
+    for (int i = 0; i < amountOfQueueFamilies; ++i) {
+        std::cout << "Queue Family #" << i << std::endl;
+        auto flags = queueFamilyProperties[i].queueFlags;
+        std::cout << "VK_QUEUE_GRAPHICS_BIT " << ((flags & VK_QUEUE_GRAPHICS_BIT) != 0) << std::endl;
+        std::cout << "VK_QUEUE_COMPUTE_BIT " << ((flags & VK_QUEUE_COMPUTE_BIT) != 0) << std::endl;
+        std::cout << "VK_QUEUE_TRANSFER_BIT " << ((flags & VK_QUEUE_TRANSFER_BIT) != 0) << std::endl;
+        std::cout << "Queue Count: " << queueFamilyProperties[i].queueCount << std::endl;
+        std::cout << "Timestamp Valid Bits: " << queueFamilyProperties[i].timestampValidBits << std::endl;
+    }
+
+    std::cout << std::endl;
+    delete[] queueFamilyProperties;
 }
 
 int initVulkan() {
@@ -39,13 +105,13 @@ int initVulkan() {
     VkInstanceCreateInfo instanceCreateInfo = {};
     instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instanceCreateInfo.pNext = NULL;
-    // reserved for future use
+    // Flags are reserved for future use
     instanceCreateInfo.flags = 0;
     instanceCreateInfo.pApplicationInfo = &applicationInfo;
-    // used for debugging, profiling, error handling,
+    // Layers are used for debugging, profiling, error handling,
     instanceCreateInfo.enabledLayerCount = 0;
     instanceCreateInfo.ppEnabledLayerNames = NULL;
-    // used to extend vulkan functionality
+    // Extensions are used to extend vulkan functionality
     instanceCreateInfo.enabledExtensionCount = 0;
     instanceCreateInfo.ppEnabledExtensionNames = NULL;
 
@@ -55,7 +121,29 @@ int initVulkan() {
     result = vkCreateInstance(&instanceCreateInfo, NULL, &instance);
     ASSERT_VULKAN(result);
 
+
+    uint32_t amountOfPhysicalDevices = 0;
+
+    // if passed NULL as third parameter, outputs the number of GPUs to the second parameter
+    result = vkEnumeratePhysicalDevices(instance, &amountOfPhysicalDevices, NULL);
+    ASSERT_VULKAN(result);
+
+    auto *physicalDevices = new VkPhysicalDevice[amountOfPhysicalDevices];
+    // actually enumerates the GPUs for use
+    result = vkEnumeratePhysicalDevices(instance, &amountOfPhysicalDevices, physicalDevices);
+    ASSERT_VULKAN(result);
+
+    std::cout << "GPUs Found: " << amountOfPhysicalDevices << std::endl << std::endl;
+
+    for (int i = 0; i < amountOfPhysicalDevices; ++i) {
+        printStats(physicalDevices[i]);
+    }
+
+
+
     vkDestroyInstance(instance, NULL);
+
+    delete[] physicalDevices;
 
     return 0;
 }
