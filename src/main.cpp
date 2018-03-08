@@ -11,6 +11,7 @@ if(val != VK_SUCCESS)\
 int initVulkan();
 
 VkInstance instance;
+VkDevice device;
 
 int main() {
     std::cout << "Hello World!" << std::endl << std::endl;
@@ -27,19 +28,19 @@ void printStats(VkPhysicalDevice &device) {
 
     std::cout << "GPU Name: " << properties.deviceName << std::endl;
     uint32_t version = properties.apiVersion;
-    std::cout << "Max API Version: " <<
+    std::cout << "Max API Version:           " <<
               VK_VERSION_MAJOR(version) << "." <<
               VK_VERSION_MINOR(version) << "." <<
               VK_VERSION_PATCH(version) << std::endl;
 
     version = properties.driverVersion;
-    std::cout << "Driver Version: " <<
+    std::cout << "Driver Version:            " <<
               VK_VERSION_MAJOR(version) << "." <<
               VK_VERSION_MINOR(version) << "." <<
               VK_VERSION_PATCH(version) << std::endl;
 
-    std::cout << "Vendor ID: " << properties.vendorID << std::endl;
-    std::cout << "Device ID: " << properties.deviceID << std::endl;
+    std::cout << "Vendor ID:                 " << properties.vendorID << std::endl;
+    std::cout << "Device ID:                 " << properties.deviceID << std::endl;
 
     auto deviceType = properties.deviceType;
     auto deviceTypeDescription =
@@ -50,13 +51,13 @@ void printStats(VkPhysicalDevice &device) {
                     "other"
                 )
             );
-    std::cout << "Device Type: " << deviceTypeDescription << " (type " << deviceType << ")" << std::endl;
-
+    std::cout << "Device Type:               " << deviceTypeDescription << " (type " << deviceType << ")" << std::endl;
+    std::cout << "discreteQueuePrioritis:    " << properties.limits.discreteQueuePriorities << std::endl;
 
     VkPhysicalDeviceFeatures features;
     vkGetPhysicalDeviceFeatures(device, &features);
     // ...
-    std::cout << "can it do multi-viewport: " << features.multiViewport << std::endl;
+    std::cout << "can it do multi-viewport:  " << features.multiViewport << std::endl;
 
 
     VkPhysicalDeviceMemoryProperties memoryProperties;
@@ -70,15 +71,15 @@ void printStats(VkPhysicalDevice &device) {
     auto *queueFamilyProperties = new VkQueueFamilyProperties[amountOfQueueFamilies];
     vkGetPhysicalDeviceQueueFamilyProperties(device, &amountOfQueueFamilies, queueFamilyProperties);
 
-    std::cout << "Amount of Queue Families: " << amountOfQueueFamilies << std::endl << std::endl;
+    std::cout << "Amount of Queue Families:  " << amountOfQueueFamilies << std::endl << std::endl;
 
     for (int i = 0; i < amountOfQueueFamilies; ++i) {
         std::cout << "Queue Family #" << i << std::endl;
         auto flags = queueFamilyProperties[i].queueFlags;
         std::cout << "VK_QUEUE_GRAPHICS_BIT " << ((flags & VK_QUEUE_GRAPHICS_BIT) != 0) << std::endl;
-        std::cout << "VK_QUEUE_COMPUTE_BIT " << ((flags & VK_QUEUE_COMPUTE_BIT) != 0) << std::endl;
+        std::cout << "VK_QUEUE_COMPUTE_BIT  " << ((flags & VK_QUEUE_COMPUTE_BIT) != 0) << std::endl;
         std::cout << "VK_QUEUE_TRANSFER_BIT " << ((flags & VK_QUEUE_TRANSFER_BIT) != 0) << std::endl;
-        std::cout << "Queue Count: " << queueFamilyProperties[i].queueCount << std::endl;
+        std::cout << "Queue Count:          " << queueFamilyProperties[i].queueCount << std::endl;
         std::cout << "Timestamp Valid Bits: " << queueFamilyProperties[i].timestampValidBits << std::endl;
     }
 
@@ -138,6 +139,33 @@ int initVulkan() {
     for (int i = 0; i < amountOfPhysicalDevices; ++i) {
         printStats(physicalDevices[i]);
     }
+
+
+    VkDeviceQueueCreateInfo deviceQueueCreateInfo;
+    deviceQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    deviceQueueCreateInfo.pNext = NULL;
+    deviceQueueCreateInfo.flags = 0;
+    deviceQueueCreateInfo.queueFamilyIndex = 0; // TODO: choose the best queue family
+    deviceQueueCreateInfo.queueCount = 1; // TODO: check how many families are supported
+    deviceQueueCreateInfo.pQueuePriorities = NULL;
+
+    VkPhysicalDeviceFeatures usedFeatures = {};
+
+    VkDeviceCreateInfo deviceCreateInfo;
+    deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    deviceCreateInfo.pNext = NULL;
+    deviceCreateInfo.flags = 0;
+    deviceCreateInfo.queueCreateInfoCount = 1;
+    deviceCreateInfo.pQueueCreateInfos = &deviceQueueCreateInfo;
+    deviceCreateInfo.enabledLayerCount = 0;
+    deviceCreateInfo.ppEnabledLayerNames = NULL;
+    deviceCreateInfo.enabledExtensionCount = 0;
+    deviceCreateInfo.ppEnabledExtensionNames = NULL;
+    deviceCreateInfo.pEnabledFeatures = &usedFeatures;
+
+
+    result = vkCreateDevice(physicalDevices[0], &deviceCreateInfo, NULL, &device); // TODO: choose right physical device
+    ASSERT_VULKAN(result)
 
 
 
