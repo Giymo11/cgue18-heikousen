@@ -11,8 +11,27 @@ TODO:
 - plan architecture
 - do concept
 
-lets also make sure to time the physics sim, etc
-
+0. configuration
+1. hello world vulkan
+1. val layers
+1. refactor for hotkey use
+1. pipeline rebuild (wireframe etc)
+1. bullet colldet/collresp test (= game over condition)
+1. script engine
+1. movement in planning phase, bullet based (= win condition)
+1. movement tracking / replay system
+1. model loading
+1. textures (multiple maps)
+1. level design (= moving objects)
+1. GAME DAY
+1. Frustum Culling
+1. Hierarchical Animation Using Physics Engine
+1. HDR
+1. HUD
+1. EFFECTS
+1. level design
+1. sound design
+1. polishing
 
 
 ## game ideas
@@ -72,6 +91,7 @@ scripting
 - https://github.com/underscorediscovery/v8-tutorials
 - http://syskall.com/how-to-roll-out-your-own-javascript-api-with
 
+
 sound
 - https://www.reddit.com/r/gamedev/comments/28h6wf/c_audio_libraries/
 - https://www.reddit.com/r/GameAudio/comments/3ipbys/fmod_vs_wwise/
@@ -88,15 +108,18 @@ sound
         - BASS: https://www.un4seen.com/ 
         - OpenAL: https://github.com/kcat/openal-soft
 
+
 bullet
 - CMAKE: https://cmake.org/cmake/help/v3.0/modgoogle vr audioule/FindBullet.html
 - https://www.sjbaker.org/wiki/index.php?title=Physics_-_Bullet_HelloWorld_example
 - http://www.bulletphysics.org/mediawiki-1.5.8/index.php/Hello_World
 - http://www.bulletphysics.org/mediawiki-1.5.8/index.php/Creating_a_project_from_scratch
 
+
 vulkan
 - https://github.com/SaschaWillems/Vulkan
 - 
+
 
 cmake
 

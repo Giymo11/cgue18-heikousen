@@ -9,16 +9,26 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 add_definitions(-DGLFW_INCLUDE_VULKAN)
 
-add_executable(heikousen main.cpp)
+file(GLOB SOURCE_FILES "src/*.cpp")
+file(GLOB INCLUDE_FILES "include/*.cpp")
+
+add_executable(heikousen ${SOURCE_FILES})
 set(BINARY heikousen)
 
-
 find_package(bullet REQUIRED CONFIGS "BulletConfig.cmake" HINTS "${LIB_DIR}")
-include_directories(${BULLET_INCLUDE_DIRS})
+find_package(Vulkan REQUIRED)
+
+message("Vulkan found? " ${Vulkan_FOUND})
+message("Bullet found? " ${BULLET_FOUND})
+
+include_directories(${CMAKE_SOURCE_DIR}/include)
+include_directories(${BULLET_INCLUDE_DIRS} ${Vulkan_INCLUDE_DIRS})
 if (UNIX)
     include_directories("/usr/include/bullet")
 endif(UNIX)
-target_link_libraries(${BINARY} ${BULLET_LIBRARIES})
+
+# case sensitive!
+target_link_libraries(${BINARY} ${BULLET_LIBRARIES} ${Vulkan_LIBRARIES})
 
 
 
