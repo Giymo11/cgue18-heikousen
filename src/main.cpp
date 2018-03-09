@@ -16,8 +16,14 @@ if(val != VK_SUCCESS)\
 VkInstance instance;
 VkSurfaceKHR surface;
 VkDevice device;
+VkSwapchainKHR swapchain;
+std::vector<VkImageView> imageViews;
 
 GLFWwindow *window;
+
+// TODO: read from resource
+const uint32_t width = 1200;
+const uint32_t height = 720;
 
 
 void printStats(VkPhysicalDevice &device);
@@ -27,7 +33,7 @@ void startGlfw() {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-    window = glfwCreateWindow(1200, 720, "heikousen", nullptr, nullptr);
+    window = glfwCreateWindow(width, height, "heikousen", nullptr, nullptr);
 }
 
 void startVulkan() {
@@ -103,24 +109,24 @@ void startVulkan() {
     // by telling vulkan which extensions we plan on using, it can disregard all others
     // -> performance gain in comparison to openGL
     result = vkCreateInstance(&instanceCreateInfo, nullptr, &instance);
-    ASSERT_VULKAN(result);
+    ASSERT_VULKAN(result)
 
 
     result = glfwCreateWindowSurface(instance, window, nullptr, &surface);
-    ASSERT_VULKAN(result);
+    ASSERT_VULKAN(result)
 
 
     uint32_t numberOfPhysicalDevices = 0;
 
     // if passed nullptr as third parameter, outputs the number of GPUs to the second parameter
     result = vkEnumeratePhysicalDevices(instance, &numberOfPhysicalDevices, nullptr);
-    ASSERT_VULKAN(result);
+    ASSERT_VULKAN(result)
 
     std::vector<VkPhysicalDevice> physicalDevices;
     physicalDevices.resize(numberOfPhysicalDevices);
     // actually enumerates the GPUs for use
     result = vkEnumeratePhysicalDevices(instance, &numberOfPhysicalDevices, physicalDevices.data());
-    ASSERT_VULKAN(result);
+    ASSERT_VULKAN(result)
 
     std::cout << std::endl << "GPUs Found: " << numberOfPhysicalDevices << std::endl << std::endl;
 
@@ -130,16 +136,21 @@ void startVulkan() {
 
 
     float queuePriorities[]{1.0f};
+    uint32_t chosenQueueFamilyIndex = 0; // TODO: choose the best queue family
 
     VkDeviceQueueCreateInfo deviceQueueCreateInfo;
     deviceQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     deviceQueueCreateInfo.pNext = nullptr;
     deviceQueueCreateInfo.flags = 0;
-    deviceQueueCreateInfo.queueFamilyIndex = 0; // TODO: choose the best queue family
+    deviceQueueCreateInfo.queueFamilyIndex = chosenQueueFamilyIndex;
     deviceQueueCreateInfo.queueCount = 1; // TODO: check how many families are supported, 4 would be better
     deviceQueueCreateInfo.pQueuePriorities = queuePriorities;
 
     VkPhysicalDeviceFeatures usedFeatures = {};
+
+    const std::vector<const char *> usedDeviceExtensions = {
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    };
 
     VkDeviceCreateInfo deviceCreateInfo;
     deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -149,17 +160,88 @@ void startVulkan() {
     deviceCreateInfo.pQueueCreateInfos = &deviceQueueCreateInfo;
     deviceCreateInfo.enabledLayerCount = 0;
     deviceCreateInfo.ppEnabledLayerNames = nullptr;
-    deviceCreateInfo.enabledExtensionCount = 0;
-    deviceCreateInfo.ppEnabledExtensionNames = nullptr;
+    deviceCreateInfo.enabledExtensionCount = usedDeviceExtensions.size();
+    deviceCreateInfo.ppEnabledExtensionNames = usedDeviceExtensions.data();
     deviceCreateInfo.pEnabledFeatures = &usedFeatures;
 
-
     // TODO: choose right physical device
-    result = vkCreateDevice(physicalDevices[0], &deviceCreateInfo, nullptr, &device);
+    auto chosenDevice = physicalDevices[0];
+
+    result = vkCreateDevice(chosenDevice, &deviceCreateInfo, nullptr, &device);
     ASSERT_VULKAN(result)
+
 
     VkQueue queue;
     vkGetDeviceQueue(device, 0, 0, &queue);
+
+
+    VkBool32 surfaceSupport = false;
+    result = vkGetPhysicalDeviceSurfaceSupportKHR(chosenDevice, chosenQueueFamilyIndex, surface, &surfaceSupport);
+    ASSERT_VULKAN(result)
+    if (!surfaceSupport) {
+        std::cerr << "Surface not supported!" << std::endl;
+        psnip_trap();
+    }
+
+    auto chosenImageFormat = VK_FORMAT_B8G8R8A8_UNORM;   // TODO: check if valid via surfaceFormats[i].format
+
+    VkSwapchainCreateInfoKHR swapchainCreateInfo;
+    swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    swapchainCreateInfo.pNext = nullptr;
+    swapchainCreateInfo.flags = 0;
+    swapchainCreateInfo.surface = surface;
+    swapchainCreateInfo.minImageCount = 3; // TODO: check if valid via surfaceCapabilitiesKHR.maxImageCount
+    swapchainCreateInfo.imageFormat = chosenImageFormat;
+    swapchainCreateInfo.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;    // TODO: check if valid via surfaceFormats
+    swapchainCreateInfo.imageExtent = VkExtent2D{width, height};
+    swapchainCreateInfo.imageArrayLayers = 1;
+    swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    swapchainCreateInfo.queueFamilyIndexCount = 0;
+    swapchainCreateInfo.pQueueFamilyIndices = nullptr;
+    swapchainCreateInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+    swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    swapchainCreateInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR; // TODO: maybe mailbox?
+    swapchainCreateInfo.clipped = VK_TRUE;
+    swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE; // TODO: for resizing
+
+    result = vkCreateSwapchainKHR(device, &swapchainCreateInfo, nullptr, &swapchain);
+    ASSERT_VULKAN(result)
+
+
+    uint32_t numberOfImagesInSwapchain = 0;
+    vkGetSwapchainImagesKHR(device, swapchain, &numberOfImagesInSwapchain, nullptr);
+
+    std::vector<VkImage> swapchainImages;
+    swapchainImages.resize(numberOfImagesInSwapchain);
+    result = vkGetSwapchainImagesKHR(device, swapchain, &numberOfImagesInSwapchain, swapchainImages.data());
+    ASSERT_VULKAN(result)
+
+
+    VkImageViewCreateInfo imageViewCreateInfo;
+    imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    imageViewCreateInfo.pNext = nullptr;
+    imageViewCreateInfo.flags = 0;
+    imageViewCreateInfo.image = swapchainImages[0];
+    imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    imageViewCreateInfo.format = chosenImageFormat;
+    imageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+    imageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+    imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+    imageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+    imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageViewCreateInfo.subresourceRange.levelCount = 1;
+    imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+    imageViewCreateInfo.subresourceRange.layerCount = 1;
+    imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+
+    imageViews.resize(numberOfImagesInSwapchain);
+    for (int i = 0; i < numberOfImagesInSwapchain; ++i) {
+        imageViewCreateInfo.image = swapchainImages[i];
+        result = vkCreateImageView(device, &imageViewCreateInfo, nullptr, &imageViews[i]);
+        ASSERT_VULKAN(result)
+    }
+
 }
 
 void gameloop() {
@@ -172,6 +254,10 @@ void shutdownVulkan() {
     // block until vulkan has finished
     vkDeviceWaitIdle(device);
 
+    for (auto &imageView : imageViews) {
+        vkDestroyImageView(device, imageView, nullptr);
+    }
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
     vkDestroyDevice(device, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyInstance(instance, nullptr);
@@ -262,9 +348,10 @@ void printStats(VkPhysicalDevice &device) {
     VkSurfaceCapabilitiesKHR surfaceCapabilitiesKHR;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &surfaceCapabilitiesKHR);
     std::cout << std::endl << std::endl << "Surface Capabilities" << std::endl << std::endl;
+    std::cout << "minImageCount: " << surfaceCapabilitiesKHR.minImageCount << std::endl;
+    std::cout << "maxImageCount: " << surfaceCapabilitiesKHR.maxImageCount << std::endl; // a 0 means no limit
     std::cout << "maxImageArrayLayers: " << surfaceCapabilitiesKHR.maxImageArrayLayers << std::endl;
     // ...
-    // TODO: check if triple buffering is supported with surfaceCapabilitiesKHR.maxImageCount
 
 
     uint32_t numberOfSurfaceFormats;
@@ -278,7 +365,6 @@ void printStats(VkPhysicalDevice &device) {
     for (int i = 0; i < numberOfSurfaceFormats; ++i) {
         std::cout << "Format: " << surfaceFormats[i].format << std::endl;
     }
-    // TODO: check for availability of what we want, for my GPU: 44, 50
 
     uint32_t numberOfPresentationModes = 0;
     vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &numberOfPresentationModes, nullptr);
@@ -291,7 +377,6 @@ void printStats(VkPhysicalDevice &device) {
     for (int i = 0; i < numberOfPresentationModes; ++i) {
         std::cout << "Mode " << presentationModes[i] << std::endl;
     }
-    // TODO: check if mailbox mode is supported, otherwise take FIFO
 
 
     std::cout << std::endl;
