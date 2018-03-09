@@ -33,7 +33,6 @@ void startGlfw() {
 void startVulkan() {
     VkResult result;
 
-
     VkApplicationInfo applicationInfo = {};
     // describes what kind of struct this is, because otherwise the type info is lost when passed to the driver
     applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -48,8 +47,11 @@ void startVulkan() {
 
     uint32_t numberOfLayers = 0;
     vkEnumerateInstanceLayerProperties(&numberOfLayers, nullptr);
-    auto *layers = new VkLayerProperties[numberOfLayers];
-    vkEnumerateInstanceLayerProperties(&numberOfLayers, layers);
+    //auto *layers = new VkLayerProperties[numberOfLayers];
+    std::vector<VkLayerProperties> layers;
+    layers.resize(numberOfLayers);
+
+    vkEnumerateInstanceLayerProperties(&numberOfLayers, layers.data());
 
     std::cout << std::endl << "Amount of instance layers: " << numberOfLayers << std::endl << std::endl;
     for (int i = 0; i < numberOfLayers; ++i) {
@@ -61,8 +63,9 @@ void startVulkan() {
 
     uint32_t numberOfExtensions = 0;
     vkEnumerateInstanceExtensionProperties(nullptr, &numberOfExtensions, nullptr);
-    auto *extensions = new VkExtensionProperties[numberOfExtensions];
-    vkEnumerateInstanceExtensionProperties(nullptr, &numberOfExtensions, extensions);
+    std::vector<VkExtensionProperties> extensions;
+    extensions.resize(numberOfExtensions);
+    vkEnumerateInstanceExtensionProperties(nullptr, &numberOfExtensions, extensions.data());
 
     std::cout << std::endl << "Amount of instance extensions: " << numberOfExtensions << std::endl << std::endl;
     for (int i = 0; i < numberOfExtensions; ++i) {
@@ -70,12 +73,16 @@ void startVulkan() {
         std::cout << "Spec Version:    " << extensions[i].specVersion << std::endl << std::endl;
     }
 
-    const std::vector<const char *> usedValidationLayers = {
+    const std::vector<const char *> usedLayers = {
             "VK_LAYER_LUNARG_standard_validation"
     };
 
-    uint32_t numberOfGlfwExtensions = 0;
-    auto glfwExtensions = glfwGetRequiredInstanceExtensions(&numberOfGlfwExtensions);
+    uint32_t indexOfNumberOfGlfwExtensions = 0;
+    auto glfwExtensions = glfwGetRequiredInstanceExtensions(&indexOfNumberOfGlfwExtensions);
+
+    // vector constructor parameters take begin and end pointer
+    std::vector<const char *> usedExtensions(glfwExtensions, glfwExtensions + indexOfNumberOfGlfwExtensions);
+    // TODO: add validation layer callback extension - https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Validation_layers#page_Message_callback
 
 
     VkInstanceCreateInfo instanceCreateInfo = {};
@@ -85,11 +92,11 @@ void startVulkan() {
     instanceCreateInfo.flags = 0;
     instanceCreateInfo.pApplicationInfo = &applicationInfo;
     // Layers are used for debugging, profiling, error handling,
-    instanceCreateInfo.enabledLayerCount = static_cast<uint32_t>(usedValidationLayers.size());
-    instanceCreateInfo.ppEnabledLayerNames = usedValidationLayers.data();
+    instanceCreateInfo.enabledLayerCount = static_cast<uint32_t>(usedLayers.size());
+    instanceCreateInfo.ppEnabledLayerNames = usedLayers.data();
     // Extensions are used to extend vulkan functionality
-    instanceCreateInfo.enabledExtensionCount = numberOfExtensions;
-    instanceCreateInfo.ppEnabledExtensionNames = glfwExtensions;
+    instanceCreateInfo.enabledExtensionCount = usedExtensions.size();
+    instanceCreateInfo.ppEnabledExtensionNames = usedExtensions.data();
 
 
     // vulkan instance is similar to OpenGL context
@@ -108,9 +115,10 @@ void startVulkan() {
     result = vkEnumeratePhysicalDevices(instance, &numberOfPhysicalDevices, nullptr);
     ASSERT_VULKAN(result);
 
-    auto *physicalDevices = new VkPhysicalDevice[numberOfPhysicalDevices];
+    std::vector<VkPhysicalDevice> physicalDevices;
+    physicalDevices.resize(numberOfPhysicalDevices);
     // actually enumerates the GPUs for use
-    result = vkEnumeratePhysicalDevices(instance, &numberOfPhysicalDevices, physicalDevices);
+    result = vkEnumeratePhysicalDevices(instance, &numberOfPhysicalDevices, physicalDevices.data());
     ASSERT_VULKAN(result);
 
     std::cout << std::endl << "GPUs Found: " << numberOfPhysicalDevices << std::endl << std::endl;
@@ -151,11 +159,6 @@ void startVulkan() {
 
     VkQueue queue;
     vkGetDeviceQueue(device, 0, 0, &queue);
-
-
-    delete[] layers;
-    delete[] extensions;
-    delete[] physicalDevices;
 }
 
 void gameloop() {
@@ -238,8 +241,9 @@ void printStats(VkPhysicalDevice &device) {
     uint32_t numberOfQueueFamilies = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &numberOfQueueFamilies, nullptr);
 
-    auto *queueFamilyProperties = new VkQueueFamilyProperties[numberOfQueueFamilies];
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &numberOfQueueFamilies, queueFamilyProperties);
+    std::vector<VkQueueFamilyProperties> queueFamilyProperties;
+    queueFamilyProperties.resize(numberOfQueueFamilies);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &numberOfQueueFamilies, queueFamilyProperties.data());
 
     std::cout << "Amount of Queue Families:  " << numberOfQueueFamilies << std::endl << std::endl;
 
@@ -254,5 +258,4 @@ void printStats(VkPhysicalDevice &device) {
     }
 
     std::cout << std::endl;
-    delete[] queueFamilyProperties;
 }
