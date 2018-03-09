@@ -8,6 +8,7 @@
 
 #include "debug_trap.h"
 
+
 #define ASSERT_VULKAN(val)\
 if(val != VK_SUCCESS)\
     psnip_trap();\
