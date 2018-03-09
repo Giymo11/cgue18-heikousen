@@ -11,10 +11,34 @@ set(LIB_DIR "${CMAKE_BINARY_DIR}/extern")
 
 add_definitions(-DGLFW_INCLUDE_VULKAN)
 
+
 file(GLOB SOURCE_FILES "src/*.cpp")
 file(GLOB INCLUDE_FILES "include/*.cpp")
+file(GLOB SHADER_FILES "shader/*.[vf]*")
 
-add_executable(heikousen ${SOURCE_FILES})
+
+find_program(GLSL_EXECUTABLE glslangValidator)
+function(preprocess_glsl out_var)
+    set(result)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/Shaders)
+    foreach (in_f ${ARGN})
+        file(RELATIVE_PATH out_f ${CMAKE_CURRENT_SOURCE_DIR} ${in_f})
+        set(out_f "${CMAKE_CURRENT_BINARY_DIR}/${out_f}.spv")
+        add_custom_command(OUTPUT ${out_f}
+                COMMAND ${GLSL_EXECUTABLE} -V -o ${out_f} ${in_f}
+                DEPENDS ${in_f}
+                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+                COMMENT "Compiling shader ${in_f}"
+                VERBATIM
+                )
+        list(APPEND result ${out_f})
+    endforeach ()
+    set(${out_var} "${result}" PARENT_SCOPE)
+endfunction()
+
+preprocess_glsl(COMPILED_SHADERS ${SHADER_FILES})
+
+add_executable(heikousen ${SOURCE_FILES} ${SHADER_FILES} ${COMPILED_SHADERS})
 set(BINARY heikousen)
 
 find_package(bullet REQUIRED

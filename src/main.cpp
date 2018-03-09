@@ -28,6 +28,7 @@ const uint32_t height = 720;
 
 void printStats(VkPhysicalDevice &device);
 
+
 void startGlfw() {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -53,9 +54,9 @@ void startVulkan() {
 
     uint32_t numberOfLayers = 0;
     vkEnumerateInstanceLayerProperties(&numberOfLayers, nullptr);
+
     std::vector<VkLayerProperties> layers;
     layers.resize(numberOfLayers);
-
     vkEnumerateInstanceLayerProperties(&numberOfLayers, layers.data());
 
     std::cout << std::endl << "Amount of instance layers: " << numberOfLayers << std::endl << std::endl;
@@ -68,6 +69,7 @@ void startVulkan() {
 
     uint32_t numberOfExtensions = 0;
     vkEnumerateInstanceExtensionProperties(nullptr, &numberOfExtensions, nullptr);
+
     std::vector<VkExtensionProperties> extensions;
     extensions.resize(numberOfExtensions);
     vkEnumerateInstanceExtensionProperties(nullptr, &numberOfExtensions, extensions.data());
@@ -77,6 +79,7 @@ void startVulkan() {
         std::cout << "Name:            " << extensions[i].extensionName << std::endl;
         std::cout << "Spec Version:    " << extensions[i].specVersion << std::endl << std::endl;
     }
+
 
     const std::vector<const char *> usedLayers = {
             "VK_LAYER_LUNARG_standard_validation"
@@ -117,7 +120,6 @@ void startVulkan() {
 
 
     uint32_t numberOfPhysicalDevices = 0;
-
     // if passed nullptr as third parameter, outputs the number of GPUs to the second parameter
     result = vkEnumeratePhysicalDevices(instance, &numberOfPhysicalDevices, nullptr);
     ASSERT_VULKAN(result)
@@ -210,7 +212,8 @@ void startVulkan() {
 
 
     uint32_t numberOfImagesInSwapchain = 0;
-    vkGetSwapchainImagesKHR(device, swapchain, &numberOfImagesInSwapchain, nullptr);
+    result = vkGetSwapchainImagesKHR(device, swapchain, &numberOfImagesInSwapchain, nullptr);
+    ASSERT_VULKAN(result)
 
     std::vector<VkImage> swapchainImages;
     swapchainImages.resize(numberOfImagesInSwapchain);
@@ -241,7 +244,6 @@ void startVulkan() {
         result = vkCreateImageView(device, &imageViewCreateInfo, nullptr, &imageViews[i]);
         ASSERT_VULKAN(result)
     }
-
 }
 
 void gameloop() {
@@ -314,6 +316,7 @@ void printStats(VkPhysicalDevice &device) {
     std::cout << "Device Type:               " << deviceTypeDescription << " (type " << deviceType << ")" << std::endl;
     std::cout << "discreteQueuePrioritis:    " << properties.limits.discreteQueuePriorities << std::endl;
 
+
     VkPhysicalDeviceFeatures features;
     vkGetPhysicalDeviceFeatures(device, &features);
     // ...
@@ -365,6 +368,7 @@ void printStats(VkPhysicalDevice &device) {
     for (int i = 0; i < numberOfSurfaceFormats; ++i) {
         std::cout << "Format: " << surfaceFormats[i].format << std::endl;
     }
+
 
     uint32_t numberOfPresentationModes = 0;
     vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &numberOfPresentationModes, nullptr);
