@@ -692,6 +692,9 @@ void recreateSwapchain() {
 
     vkDeviceWaitIdle(device);
 
+    // TODO: check how to handle the semaphores so that the validation layers are happy
+    // TODO: don't recreate the pipeline, but use dynamic states
+
     destroySwapchainChildren();
 
     VkSwapchainKHR oldSwapchain = swapchain;
