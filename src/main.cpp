@@ -14,6 +14,7 @@ if(val != VK_SUCCESS)\
 
 
 VkInstance instance;
+VkSurfaceKHR surface;
 VkDevice device;
 
 GLFWwindow *window;
@@ -73,6 +74,9 @@ void startVulkan() {
             "VK_LAYER_LUNARG_standard_validation"
     };
 
+    uint32_t numberOfGlfwExtensions = 0;
+    auto glfwExtensions = glfwGetRequiredInstanceExtensions(&numberOfGlfwExtensions);
+
 
     VkInstanceCreateInfo instanceCreateInfo = {};
     instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -84,13 +88,17 @@ void startVulkan() {
     instanceCreateInfo.enabledLayerCount = static_cast<uint32_t>(usedValidationLayers.size());
     instanceCreateInfo.ppEnabledLayerNames = usedValidationLayers.data();
     // Extensions are used to extend vulkan functionality
-    instanceCreateInfo.enabledExtensionCount = 0;
-    instanceCreateInfo.ppEnabledExtensionNames = nullptr;
+    instanceCreateInfo.enabledExtensionCount = numberOfExtensions;
+    instanceCreateInfo.ppEnabledExtensionNames = glfwExtensions;
 
 
     // vulkan instance is similar to OpenGL context
     // by telling vulkan which extensions we plan on using, it can disregard all others -> performance gain in comparison to openGL
     result = vkCreateInstance(&instanceCreateInfo, nullptr, &instance);
+    ASSERT_VULKAN(result);
+
+
+    result = glfwCreateWindowSurface(instance, window, nullptr, &surface);
     ASSERT_VULKAN(result);
 
 
@@ -161,6 +169,7 @@ void shutdownVulkan() {
     vkDeviceWaitIdle(device);
 
     vkDestroyDevice(device, nullptr);
+    vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyInstance(instance, nullptr);
 }
 
