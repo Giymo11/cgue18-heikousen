@@ -47,7 +47,6 @@ void startVulkan() {
 
     uint32_t numberOfLayers = 0;
     vkEnumerateInstanceLayerProperties(&numberOfLayers, nullptr);
-    //auto *layers = new VkLayerProperties[numberOfLayers];
     std::vector<VkLayerProperties> layers;
     layers.resize(numberOfLayers);
 
@@ -82,7 +81,8 @@ void startVulkan() {
 
     // vector constructor parameters take begin and end pointer
     std::vector<const char *> usedExtensions(glfwExtensions, glfwExtensions + indexOfNumberOfGlfwExtensions);
-    // TODO: add validation layer callback extension - https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Validation_layers#page_Message_callback
+    // TODO: add validation layer callback extension -
+    // TODO: https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Validation_layers#page_Message_callback
 
 
     VkInstanceCreateInfo instanceCreateInfo = {};
@@ -100,7 +100,8 @@ void startVulkan() {
 
 
     // vulkan instance is similar to OpenGL context
-    // by telling vulkan which extensions we plan on using, it can disregard all others -> performance gain in comparison to openGL
+    // by telling vulkan which extensions we plan on using, it can disregard all others
+    // -> performance gain in comparison to openGL
     result = vkCreateInstance(&instanceCreateInfo, nullptr, &instance);
     ASSERT_VULKAN(result);
 
@@ -153,8 +154,8 @@ void startVulkan() {
     deviceCreateInfo.pEnabledFeatures = &usedFeatures;
 
 
-    result = vkCreateDevice(physicalDevices[0], &deviceCreateInfo, nullptr,
-                            &device); // TODO: choose right physical device
+    // TODO: choose right physical device
+    result = vkCreateDevice(physicalDevices[0], &deviceCreateInfo, nullptr, &device);
     ASSERT_VULKAN(result)
 
     VkQueue queue;
@@ -256,6 +257,42 @@ void printStats(VkPhysicalDevice &device) {
         std::cout << "Queue Count:          " << queueFamilyProperties[i].queueCount << std::endl;
         std::cout << "Timestamp Valid Bits: " << queueFamilyProperties[i].timestampValidBits << std::endl;
     }
+
+
+    VkSurfaceCapabilitiesKHR surfaceCapabilitiesKHR;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &surfaceCapabilitiesKHR);
+    std::cout << std::endl << std::endl << "Surface Capabilities" << std::endl << std::endl;
+    std::cout << "maxImageArrayLayers: " << surfaceCapabilitiesKHR.maxImageArrayLayers << std::endl;
+    // ...
+    // TODO: check if triple buffering is supported with surfaceCapabilitiesKHR.maxImageCount
+
+
+    uint32_t numberOfSurfaceFormats;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &numberOfSurfaceFormats, nullptr);
+
+    std::vector<VkSurfaceFormatKHR> surfaceFormats;
+    surfaceFormats.resize(numberOfSurfaceFormats);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &numberOfSurfaceFormats, surfaceFormats.data());
+
+    std::cout << std::endl << "Amount of Surface Formats: " << numberOfSurfaceFormats << std::endl;
+    for (int i = 0; i < numberOfSurfaceFormats; ++i) {
+        std::cout << "Format: " << surfaceFormats[i].format << std::endl;
+    }
+    // TODO: check for availability of what we want, for my GPU: 44, 50
+
+    uint32_t numberOfPresentationModes = 0;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &numberOfPresentationModes, nullptr);
+
+    std::vector<VkPresentModeKHR> presentationModes;
+    presentationModes.resize(numberOfPresentationModes);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &numberOfPresentationModes, presentationModes.data());
+
+    std::cout << std::endl << "Amount of Presentation Modes: " << numberOfPresentationModes << std::endl;
+    for (int i = 0; i < numberOfPresentationModes; ++i) {
+        std::cout << "Mode " << presentationModes[i] << std::endl;
+    }
+    // TODO: check if mailbox mode is supported, otherwise take FIFO
+
 
     std::cout << std::endl;
 }
