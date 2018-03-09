@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vulkan/vulkan.h>
+#include <vector>
 
 #include "debug_trap.h"
 
@@ -45,11 +46,11 @@ void printStats(VkPhysicalDevice &device) {
     auto deviceType = properties.deviceType;
     auto deviceTypeDescription =
             (deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ?
-                "discrete" :
-                (deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU ?
-                    "integrated" :
-                    "other"
-                )
+             "discrete" :
+             (deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU ?
+              "integrated" :
+              "other"
+             )
             );
     std::cout << "Device Type:               " << deviceTypeDescription << " (type " << deviceType << ")" << std::endl;
     std::cout << "discreteQueuePrioritis:    " << properties.limits.discreteQueuePriorities << std::endl;
@@ -65,15 +66,15 @@ void printStats(VkPhysicalDevice &device) {
     // ...
 
 
-    uint32_t amountOfQueueFamilies = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &amountOfQueueFamilies, NULL);
+    uint32_t numberOfQueueFamilies = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &numberOfQueueFamilies, NULL);
 
-    auto *queueFamilyProperties = new VkQueueFamilyProperties[amountOfQueueFamilies];
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &amountOfQueueFamilies, queueFamilyProperties);
+    auto *queueFamilyProperties = new VkQueueFamilyProperties[numberOfQueueFamilies];
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &numberOfQueueFamilies, queueFamilyProperties);
 
-    std::cout << "Amount of Queue Families:  " << amountOfQueueFamilies << std::endl << std::endl;
+    std::cout << "Amount of Queue Families:  " << numberOfQueueFamilies << std::endl << std::endl;
 
-    for (int i = 0; i < amountOfQueueFamilies; ++i) {
+    for (int i = 0; i < numberOfQueueFamilies; ++i) {
         std::cout << "Queue Family #" << i << std::endl;
         auto flags = queueFamilyProperties[i].queueFlags;
         std::cout << "VK_QUEUE_GRAPHICS_BIT " << ((flags & VK_QUEUE_GRAPHICS_BIT) != 0) << std::endl;
@@ -103,6 +104,35 @@ int initVulkan() {
     applicationInfo.apiVersion = VK_API_VERSION_1_0;
 
 
+    uint32_t numberOfLayers = 0;
+    vkEnumerateInstanceLayerProperties(&numberOfLayers, NULL);
+    auto *layers = new VkLayerProperties[numberOfLayers];
+    vkEnumerateInstanceLayerProperties(&numberOfLayers, layers);
+
+    std::cout << std::endl << "Amount of instance layers: " << numberOfLayers << std::endl << std::endl;
+    for (int i = 0; i < numberOfLayers; ++i) {
+        std::cout << "Name:            " << layers[i].layerName << std::endl;
+        std::cout << "Spec Version:    " << layers[i].specVersion << std::endl;
+        std::cout << "Description:     " << layers[i].description << std::endl << std::endl;
+    }
+
+
+    uint32_t numberOfExtensions = 0;
+    vkEnumerateInstanceExtensionProperties(NULL, &numberOfExtensions, NULL);
+    auto *extensions = new VkExtensionProperties[numberOfExtensions];
+    vkEnumerateInstanceExtensionProperties(NULL, &numberOfExtensions, extensions);
+
+    std::cout << std::endl << "Amount of instance extensions: " << numberOfExtensions << std::endl << std::endl;
+    for (int i = 0; i < numberOfExtensions; ++i) {
+        std::cout << "Name:            " << extensions[i].extensionName << std::endl;
+        std::cout << "Spec Version:    " << extensions[i].specVersion << std::endl << std::endl;
+    }
+
+    const std::vector<const char *> usedValidationLayers = {
+            "VK_LAYER_LUNARG_standard_validation"
+    };
+
+
     VkInstanceCreateInfo instanceCreateInfo = {};
     instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instanceCreateInfo.pNext = NULL;
@@ -110,8 +140,8 @@ int initVulkan() {
     instanceCreateInfo.flags = 0;
     instanceCreateInfo.pApplicationInfo = &applicationInfo;
     // Layers are used for debugging, profiling, error handling,
-    instanceCreateInfo.enabledLayerCount = 0;
-    instanceCreateInfo.ppEnabledLayerNames = NULL;
+    instanceCreateInfo.enabledLayerCount = static_cast<uint32_t>(usedValidationLayers.size());
+    instanceCreateInfo.ppEnabledLayerNames = usedValidationLayers.data();
     // Extensions are used to extend vulkan functionality
     instanceCreateInfo.enabledExtensionCount = 0;
     instanceCreateInfo.ppEnabledExtensionNames = NULL;
@@ -123,31 +153,33 @@ int initVulkan() {
     ASSERT_VULKAN(result);
 
 
-    uint32_t amountOfPhysicalDevices = 0;
+    uint32_t numberOfPhysicalDevices = 0;
 
     // if passed NULL as third parameter, outputs the number of GPUs to the second parameter
-    result = vkEnumeratePhysicalDevices(instance, &amountOfPhysicalDevices, NULL);
+    result = vkEnumeratePhysicalDevices(instance, &numberOfPhysicalDevices, NULL);
     ASSERT_VULKAN(result);
 
-    auto *physicalDevices = new VkPhysicalDevice[amountOfPhysicalDevices];
+    auto *physicalDevices = new VkPhysicalDevice[numberOfPhysicalDevices];
     // actually enumerates the GPUs for use
-    result = vkEnumeratePhysicalDevices(instance, &amountOfPhysicalDevices, physicalDevices);
+    result = vkEnumeratePhysicalDevices(instance, &numberOfPhysicalDevices, physicalDevices);
     ASSERT_VULKAN(result);
 
-    std::cout << "GPUs Found: " << amountOfPhysicalDevices << std::endl << std::endl;
+    std::cout << std::endl << "GPUs Found: " << numberOfPhysicalDevices << std::endl << std::endl;
 
-    for (int i = 0; i < amountOfPhysicalDevices; ++i) {
+    for (int i = 0; i < numberOfPhysicalDevices; ++i) {
         printStats(physicalDevices[i]);
     }
 
+
+    float queuePriorities[]{1.0f};
 
     VkDeviceQueueCreateInfo deviceQueueCreateInfo;
     deviceQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     deviceQueueCreateInfo.pNext = NULL;
     deviceQueueCreateInfo.flags = 0;
     deviceQueueCreateInfo.queueFamilyIndex = 0; // TODO: choose the best queue family
-    deviceQueueCreateInfo.queueCount = 1; // TODO: check how many families are supported
-    deviceQueueCreateInfo.pQueuePriorities = NULL;
+    deviceQueueCreateInfo.queueCount = 1; // TODO: check how many families are supported, 4 would be better
+    deviceQueueCreateInfo.pQueuePriorities = queuePriorities;
 
     VkPhysicalDeviceFeatures usedFeatures = {};
 
@@ -168,9 +200,14 @@ int initVulkan() {
     ASSERT_VULKAN(result)
 
 
+    // block until vulkan has finished
+    vkDeviceWaitIdle(device);
 
+    vkDestroyDevice(device, NULL);
     vkDestroyInstance(instance, NULL);
 
+    delete[] layers;
+    delete[] extensions;
     delete[] physicalDevices;
 
     return 0;
