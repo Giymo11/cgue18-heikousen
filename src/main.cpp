@@ -19,9 +19,12 @@ VkInstance instance;
 VkSurfaceKHR surface;
 VkDevice device;
 VkSwapchainKHR swapchain;
+VkQueue queue;
 
 std::vector<VkImageView> imageViews;
 std::vector<VkFramebuffer> framebuffers;
+std::vector<VkCommandBuffer> commandBuffers;
+
 VkShaderModule shaderModuleVert;
 VkShaderModule shaderModuleFrag;
 
@@ -29,6 +32,10 @@ VkPipelineLayout pipelineLayout;
 VkRenderPass renderPass;
 VkPipeline pipeline;
 VkCommandPool commandPool;
+
+VkSemaphore semaphoreImageAvailable;
+VkSemaphore semaphoreRenderingDone;
+
 
 GLFWwindow *window;
 
@@ -98,7 +105,7 @@ void startVulkan() {
     vkEnumerateInstanceLayerProperties(&numberOfLayers, layers.data());
 
     std::cout << std::endl << "Amount of instance layers: " << numberOfLayers << std::endl << std::endl;
-    for (int i = 0; i < numberOfLayers; ++i) {
+    for (size_t i = 0; i < numberOfLayers; ++i) {
         std::cout << "Name:            " << layers[i].layerName << std::endl;
         std::cout << "Spec Version:    " << layers[i].specVersion << std::endl;
         std::cout << "Description:     " << layers[i].description << std::endl << std::endl;
@@ -113,7 +120,7 @@ void startVulkan() {
     vkEnumerateInstanceExtensionProperties(nullptr, &numberOfExtensions, extensions.data());
 
     std::cout << std::endl << "Amount of instance extensions: " << numberOfExtensions << std::endl << std::endl;
-    for (int i = 0; i < numberOfExtensions; ++i) {
+    for (size_t i = 0; i < numberOfExtensions; ++i) {
         std::cout << "Name:            " << extensions[i].extensionName << std::endl;
         std::cout << "Spec Version:    " << extensions[i].specVersion << std::endl << std::endl;
     }
@@ -170,7 +177,7 @@ void startVulkan() {
 
     std::cout << std::endl << "GPUs Found: " << numberOfPhysicalDevices << std::endl << std::endl;
 
-    for (int i = 0; i < numberOfPhysicalDevices; ++i) {
+    for (size_t i = 0; i < numberOfPhysicalDevices; ++i) {
         printStats(physicalDevices[i]);
     }
 
@@ -211,7 +218,6 @@ void startVulkan() {
     ASSERT_VULKAN(result)
 
 
-    VkQueue queue;
     vkGetDeviceQueue(device, 0, 0, &queue);
 
 
@@ -277,7 +283,7 @@ void startVulkan() {
     imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
 
     imageViews.resize(numberOfImagesInSwapchain);
-    for (int i = 0; i < numberOfImagesInSwapchain; ++i) {
+    for (size_t i = 0; i < numberOfImagesInSwapchain; ++i) {
         imageViewCreateInfo.image = swapchainImages[i];
         result = vkCreateImageView(device, &imageViewCreateInfo, nullptr, &(imageViews[i]));
         ASSERT_VULKAN(result)
@@ -454,6 +460,17 @@ void startVulkan() {
     subpassDescription.preserveAttachmentCount = 0;
     subpassDescription.pPreserveAttachments = nullptr;
 
+    // because vulkan provides two additional subpasses to transform the image layouts (see attachment description)
+    // one from initial to ours (see attachmentReference), and then from ours to final
+    VkSubpassDependency subpassDependency;
+    subpassDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    subpassDependency.dstSubpass = 0;
+    subpassDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    subpassDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    subpassDependency.srcAccessMask = 0;
+    subpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    subpassDependency.dependencyFlags = 0;
+
 
     VkRenderPassCreateInfo renderPassCreateInfo;
     renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -463,8 +480,8 @@ void startVulkan() {
     renderPassCreateInfo.pAttachments = &attachmentDescription;
     renderPassCreateInfo.subpassCount = 1;
     renderPassCreateInfo.pSubpasses = &subpassDescription;
-    renderPassCreateInfo.dependencyCount = 0;
-    renderPassCreateInfo.pDependencies = nullptr;
+    renderPassCreateInfo.dependencyCount = 1;
+    renderPassCreateInfo.pDependencies = &subpassDependency;
 
     result = vkCreateRenderPass(device, &renderPassCreateInfo, nullptr, &renderPass);
     ASSERT_VULKAN(result)
@@ -495,7 +512,7 @@ void startVulkan() {
     ASSERT_VULKAN(result)
 
     framebuffers.resize(numberOfImagesInSwapchain);
-    for (int i = 0; i < numberOfImagesInSwapchain; ++i) {
+    for (size_t i = 0; i < numberOfImagesInSwapchain; ++i) {
         VkFramebufferCreateInfo framebufferCreateInfo;
         framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         framebufferCreateInfo.pNext = nullptr;
@@ -520,11 +537,107 @@ void startVulkan() {
     // the chosen queue has to be chosen to support Graphics Queue
 
     vkCreateCommandPool(device, &commandPoolCreateInfo, nullptr, &commandPool);
+
+
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo;
+    commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    commandBufferAllocateInfo.pNext = nullptr;
+    commandBufferAllocateInfo.commandPool = commandPool;
+    commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    commandBufferAllocateInfo.commandBufferCount = numberOfImagesInSwapchain;
+
+
+    commandBuffers.resize(numberOfImagesInSwapchain);
+    result = vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, commandBuffers.data());
+    ASSERT_VULKAN(result)
+
+
+    VkCommandBufferBeginInfo commandBufferBeginInfo;
+    commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    commandBufferBeginInfo.pNext = nullptr;
+    // to be able to submit the command buffer to a queue that is (still) holding it
+    commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+    commandBufferBeginInfo.pInheritanceInfo = nullptr;
+
+    VkClearValue clearValue = {0.0f, 0.0f, 0.0f, 1.0f};
+    for (size_t i = 0; i < numberOfImagesInSwapchain; ++i) {
+        result = vkBeginCommandBuffer(commandBuffers[i], &commandBufferBeginInfo);
+        ASSERT_VULKAN(result)
+
+
+        VkRenderPassBeginInfo renderPassBeginInfo;
+        renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassBeginInfo.pNext = nullptr;
+        renderPassBeginInfo.renderPass = renderPass;
+        renderPassBeginInfo.framebuffer = framebuffers[i];
+        renderPassBeginInfo.renderArea.offset = {0, 0};
+        renderPassBeginInfo.renderArea.extent = {width, height};
+        renderPassBeginInfo.clearValueCount = 1;
+        renderPassBeginInfo.pClearValues = &clearValue;
+
+        // _INLINE means to only use primary command buffers
+        vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+        vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+
+        vkCmdEndRenderPass(commandBuffers[i]);
+
+        result = vkEndCommandBuffer(commandBuffers[i]);
+        ASSERT_VULKAN(result)
+    }
+
+    VkSemaphoreCreateInfo semaphoreCreateInfo;
+    semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    semaphoreCreateInfo.pNext = nullptr;
+    semaphoreCreateInfo.flags = 0;
+
+    result = vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &semaphoreImageAvailable);
+    ASSERT_VULKAN(result)
+    result = vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &semaphoreRenderingDone);
+    ASSERT_VULKAN(result)
+}
+
+void drawFrame() {
+    uint32_t imageIndex;
+    vkAcquireNextImageKHR(device, swapchain, std::numeric_limits<uint64_t>::max(), semaphoreImageAvailable,
+                          VK_NULL_HANDLE, &imageIndex);
+
+    VkPipelineStageFlags waitStageMask[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+
+    VkSubmitInfo submitInfo;
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.pNext = nullptr;
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = &semaphoreImageAvailable;
+    submitInfo.pWaitDstStageMask = waitStageMask;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &(commandBuffers[imageIndex]);
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &semaphoreRenderingDone;
+
+    VkResult result = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+    ASSERT_VULKAN(result)
+
+    VkPresentInfoKHR presentInfo;
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.pNext = nullptr;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = &semaphoreRenderingDone;
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = &swapchain;
+    presentInfo.pImageIndices = &imageIndex;
+    presentInfo.pResults = nullptr;
+
+    result = vkQueuePresentKHR(queue, &presentInfo);
+    ASSERT_VULKAN(result)
 }
 
 void gameloop() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
+        drawFrame();
     }
 }
 
@@ -532,6 +645,10 @@ void shutdownVulkan() {
     // block until vulkan has finished
     vkDeviceWaitIdle(device);
 
+    vkDestroySemaphore(device, semaphoreImageAvailable, nullptr);
+    vkDestroySemaphore(device, semaphoreRenderingDone, nullptr);
+
+    vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
     vkDestroyCommandPool(device, commandPool, nullptr);
     for (auto &framebuffer : framebuffers) {
         vkDestroyFramebuffer(device, framebuffer, nullptr);
@@ -622,7 +739,7 @@ void printStats(VkPhysicalDevice &device) {
 
     std::cout << "Amount of Queue Families:  " << numberOfQueueFamilies << std::endl << std::endl;
 
-    for (int i = 0; i < numberOfQueueFamilies; ++i) {
+    for (size_t i = 0; i < numberOfQueueFamilies; ++i) {
         std::cout << "Queue Family #" << i << std::endl;
         auto flags = queueFamilyProperties[i].queueFlags;
         std::cout << "VK_QUEUE_GRAPHICS_BIT " << ((flags & VK_QUEUE_GRAPHICS_BIT) != 0) << std::endl;
@@ -650,7 +767,7 @@ void printStats(VkPhysicalDevice &device) {
     vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &numberOfSurfaceFormats, surfaceFormats.data());
 
     std::cout << std::endl << "Amount of Surface Formats: " << numberOfSurfaceFormats << std::endl;
-    for (int i = 0; i < numberOfSurfaceFormats; ++i) {
+    for (size_t i = 0; i < numberOfSurfaceFormats; ++i) {
         std::cout << "Format: " << surfaceFormats[i].format << std::endl;
     }
 
@@ -663,7 +780,7 @@ void printStats(VkPhysicalDevice &device) {
     vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &numberOfPresentationModes, presentationModes.data());
 
     std::cout << std::endl << "Amount of Presentation Modes: " << numberOfPresentationModes << std::endl;
-    for (int i = 0; i < numberOfPresentationModes; ++i) {
+    for (size_t i = 0; i < numberOfPresentationModes; ++i) {
         std::cout << "Mode " << presentationModes[i] << std::endl;
     }
 
