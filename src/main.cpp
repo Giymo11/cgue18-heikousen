@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <algorithm>
 
 // #include <vulkan/vulkan.h>
 #define GLFW_INCLUDE_VULKAN
@@ -17,8 +18,9 @@ if(val != VK_SUCCESS)\
 
 VkInstance instance;
 VkSurfaceKHR surface;
+VkPhysicalDevice chosenDevice;
 VkDevice device;
-VkSwapchainKHR swapchain;
+VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 VkQueue queue;
 
 std::vector<VkImageView> imageViews;
@@ -40,11 +42,13 @@ VkSemaphore semaphoreRenderingDone;
 GLFWwindow *window;
 
 // TODO: read from resource
-const uint32_t width = 1200;
-const uint32_t height = 720;
+uint32_t width = 1200;
+uint32_t height = 720;
 
 
 void printStats(VkPhysicalDevice &device);
+
+void recreateSwapchain();
 
 VkResult createShaderModule(const std::vector<char> &code, VkShaderModule *shaderModule) {
     VkShaderModuleCreateInfo shaderModuleCreateInfo;
@@ -73,13 +77,25 @@ std::vector<char> readFile(const std::string &filename) {
     }
 }
 
+void onWindowResized(GLFWwindow *window, int newWidth, int newHeight) {
+    if (newWidth > 0 && newHeight > 0) {
+        VkSurfaceCapabilitiesKHR surfaceCapabilitiesKHR;
+        VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(chosenDevice, surface, &surfaceCapabilitiesKHR);
+        ASSERT_VULKAN(result)
+
+        width = std::min(newWidth, (int) surfaceCapabilitiesKHR.maxImageExtent.width);;
+        height = std::min(newHeight, (int) surfaceCapabilitiesKHR.maxImageExtent.height);
+        recreateSwapchain();
+    }
+}
 
 void startGlfw() {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     window = glfwCreateWindow(width, height, "heikousen", nullptr, nullptr);
+    glfwSetWindowSizeCallback(window, onWindowResized);
 }
 
 VkResult createInstance() {
@@ -226,7 +242,7 @@ VkResult createSwapchain(VkFormat chosenImageFormat) {
     swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     swapchainCreateInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR; // TODO: maybe mailbox?
     swapchainCreateInfo.clipped = VK_TRUE;
-    swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE; // TODO: for resizing
+    swapchainCreateInfo.oldSwapchain = swapchain; // TODO: for resizing
 
     return vkCreateSwapchainKHR(device, &swapchainCreateInfo, nullptr, &swapchain);
 }
@@ -548,44 +564,25 @@ VkResult createSemaphore(VkSemaphore *semaphore) {
     return vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, semaphore);
 }
 
-void startVulkan() {
+void destroySwapchainChildren() {
+    vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
+    vkDestroyCommandPool(device, commandPool, nullptr);
+    for (auto &framebuffer : framebuffers) {
+        vkDestroyFramebuffer(device, framebuffer, nullptr);
+    }
+    vkDestroyPipeline(device, pipeline, nullptr);
+    vkDestroyRenderPass(device, renderPass, nullptr);
+    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+    vkDestroyShaderModule(device, shaderModuleVert, nullptr);
+    vkDestroyShaderModule(device, shaderModuleFrag, nullptr);
+    for (auto &imageView : imageViews) {
+        vkDestroyImageView(device, imageView, nullptr);
+    }
+}
+
+void createSwapchainAndChildren() {
     VkResult result;
-
-    result = createInstance();
-    ASSERT_VULKAN(result)
-
-    printInstanceLayers();
-    printInstanceExtensions();
-
-    result = glfwCreateWindowSurface(instance, window, nullptr, &surface);
-    ASSERT_VULKAN(result)
-
-    uint32_t numberOfPhysicalDevices = 0;
-    // if passed nullptr as third parameter, outputs the number of GPUs to the second parameter
-    result = vkEnumeratePhysicalDevices(instance, &numberOfPhysicalDevices, nullptr);
-    ASSERT_VULKAN(result)
-
-    std::vector<VkPhysicalDevice> physicalDevices;
-    physicalDevices.resize(numberOfPhysicalDevices);
-    // actually enumerates the GPUs for use
-    result = vkEnumeratePhysicalDevices(instance, &numberOfPhysicalDevices, physicalDevices.data());
-    ASSERT_VULKAN(result)
-
-    std::cout << std::endl << "GPUs Found: " << numberOfPhysicalDevices << std::endl << std::endl;
-    for (size_t i = 0; i < numberOfPhysicalDevices; ++i)
-        printStats(physicalDevices[i]);
-
-    auto chosenDevice = physicalDevices[0];     // TODO: choose right physical device
-    uint32_t chosenQueueFamilyIndex = 0;        // TODO: choose the best queue family
-
-    result = createLogicalDevice(chosenDevice, chosenQueueFamilyIndex);
-    ASSERT_VULKAN(result)
-
-    vkGetDeviceQueue(device, chosenQueueFamilyIndex, 0, &queue);
-
-    result = checkSurfaceSupport(chosenDevice, chosenQueueFamilyIndex);
-    ASSERT_VULKAN(result)
-
+    auto chosenQueueFamilyIndex = 0;
     auto chosenImageFormat = VK_FORMAT_B8G8R8A8_UNORM;   // TODO: check if valid via surfaceFormats[i].format
 
     result = createSwapchain(chosenImageFormat);
@@ -640,11 +637,68 @@ void startVulkan() {
         result = recordCommandBuffer(commandBuffers[i], framebuffers[i]);
         ASSERT_VULKAN(result)
     }
+}
+
+void startVulkan() {
+    VkResult result;
+
+    result = createInstance();
+    ASSERT_VULKAN(result)
+
+    printInstanceLayers();
+    printInstanceExtensions();
+
+    result = glfwCreateWindowSurface(instance, window, nullptr, &surface);
+    ASSERT_VULKAN(result)
+
+    uint32_t numberOfPhysicalDevices = 0;
+    // if passed nullptr as third parameter, outputs the number of GPUs to the second parameter
+    result = vkEnumeratePhysicalDevices(instance, &numberOfPhysicalDevices, nullptr);
+    ASSERT_VULKAN(result)
+
+    std::vector<VkPhysicalDevice> physicalDevices;
+    physicalDevices.resize(numberOfPhysicalDevices);
+    // actually enumerates the GPUs for use
+    result = vkEnumeratePhysicalDevices(instance, &numberOfPhysicalDevices, physicalDevices.data());
+    ASSERT_VULKAN(result)
+
+    std::cout << std::endl << "GPUs Found: " << numberOfPhysicalDevices << std::endl << std::endl;
+    for (size_t i = 0; i < numberOfPhysicalDevices; ++i)
+        printStats(physicalDevices[i]);
+
+    chosenDevice = physicalDevices[0];     // TODO: choose right physical device
+    auto chosenQueueFamilyIndex = 0;        // TODO: choose the best queue family
+
+    result = createLogicalDevice(chosenDevice, chosenQueueFamilyIndex);
+    ASSERT_VULKAN(result)
+
+    vkGetDeviceQueue(device, chosenQueueFamilyIndex, 0, &queue);
+
+    result = checkSurfaceSupport(chosenDevice, chosenQueueFamilyIndex);
+    ASSERT_VULKAN(result)
+
+    auto chosenImageFormat = VK_FORMAT_B8G8R8A8_UNORM;   // TODO: check if valid via surfaceFormats[i].format
+
+    createSwapchainAndChildren();
 
     result = createSemaphore(&semaphoreImageAvailable);
     ASSERT_VULKAN(result)
     result = createSemaphore(&semaphoreRenderingDone);
     ASSERT_VULKAN(result)
+}
+
+void recreateSwapchain() {
+    VkResult result;
+
+    vkDeviceWaitIdle(device);
+
+    destroySwapchainChildren();
+
+    VkSwapchainKHR oldSwapchain = swapchain;
+
+    createSwapchainAndChildren();
+
+    vkDestroySwapchainKHR(device, oldSwapchain, nullptr);
 }
 
 void drawFrame() {
@@ -696,19 +750,7 @@ void shutdownVulkan() {
     vkDestroySemaphore(device, semaphoreImageAvailable, nullptr);
     vkDestroySemaphore(device, semaphoreRenderingDone, nullptr);
 
-    vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
-    vkDestroyCommandPool(device, commandPool, nullptr);
-    for (auto &framebuffer : framebuffers) {
-        vkDestroyFramebuffer(device, framebuffer, nullptr);
-    }
-    vkDestroyPipeline(device, pipeline, nullptr);
-    vkDestroyRenderPass(device, renderPass, nullptr);
-    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-    vkDestroyShaderModule(device, shaderModuleVert, nullptr);
-    vkDestroyShaderModule(device, shaderModuleFrag, nullptr);
-    for (auto &imageView : imageViews) {
-        vkDestroyImageView(device, imageView, nullptr);
-    }
+    destroySwapchainChildren();
     vkDestroySwapchainKHR(device, swapchain, nullptr);
     vkDestroyDevice(device, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
