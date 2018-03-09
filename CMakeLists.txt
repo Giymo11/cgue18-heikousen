@@ -18,7 +18,7 @@ set(BINARY heikousen)
 find_package(bullet REQUIRED
         CONFIGS "BulletConfig.cmake") #  HINTS "${LIB_DIR}"
 find_package(Vulkan REQUIRED)
-find_package(glfw3 REQUIRED)
+find_package(glfw3 3.2 REQUIRED)
 
 message("Vulkan found? " ${Vulkan_FOUND})
 message("Bullet found? " ${BULLET_FOUND})
