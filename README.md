@@ -3,9 +3,11 @@
 how to install deps:
 
 - install "bullet", "glfw-x11", "vulkan-headers", "vulkan-icd-loader", "vulkan-extra-layers", "spirv-tools", "glslang", "glm"
-- cmake .
-- make
-- ./heikousen
+- `mkdir build`
+- `cd build`
+- `cmake ..`
+- `make`
+- `bin/heikousen`
 
 TODO:
 - plan architecture

@@ -7,6 +7,8 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+set(LIB_DIR "${CMAKE_BINARY_DIR}/extern")
+
 add_definitions(-DGLFW_INCLUDE_VULKAN)
 
 file(GLOB SOURCE_FILES "src/*.cpp")
@@ -16,9 +18,15 @@ add_executable(heikousen ${SOURCE_FILES})
 set(BINARY heikousen)
 
 find_package(bullet REQUIRED
-        CONFIGS "BulletConfig.cmake") #  HINTS "${LIB_DIR}"
+        CONFIGS "BulletConfig.cmake")
 find_package(Vulkan REQUIRED)
-find_package(glfw3 3.2 REQUIRED)
+
+if (UNIX)
+    find_package(PkgConfig REQUIRED)
+    pkg_search_module(GLFW REQUIRED glfw3)
+else()
+    find_package(glfw3 REQUIRED HINTS "${LIB_DIR}")
+endif()
 
 message("Vulkan found? " ${Vulkan_FOUND})
 message("Bullet found? " ${BULLET_FOUND})
@@ -32,14 +40,16 @@ include_directories(
 
 if (UNIX)
     include_directories("/usr/include/bullet")
-endif(UNIX)
+endif()
+
 
 # case sensitive!
 target_link_libraries(
         ${BINARY}
         ${BULLET_LIBRARIES}
         ${Vulkan_LIBRARIES}
-        ${GLFW_STATIC_LIBRARIES})
+        ${GLFW_STATIC_LIBRARIES}
+        )
 
 
 

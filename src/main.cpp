@@ -3,6 +3,7 @@
 
 // #include <vulkan/vulkan.h>
 #define GLFW_INCLUDE_VULKAN
+
 #include <GLFW/glfw3.h>
 
 #include "debug_trap.h"
@@ -68,10 +69,9 @@ void startVulkan() {
         std::cout << "Spec Version:    " << extensions[i].specVersion << std::endl << std::endl;
     }
 
-    const std::vector<const char*> usedValidationLayers = {
+    const std::vector<const char *> usedValidationLayers = {
             "VK_LAYER_LUNARG_standard_validation"
     };
-
 
 
     VkInstanceCreateInfo instanceCreateInfo = {};
@@ -137,12 +137,12 @@ void startVulkan() {
     deviceCreateInfo.pEnabledFeatures = &usedFeatures;
 
 
-    result = vkCreateDevice(physicalDevices[0], &deviceCreateInfo, nullptr, &device); // TODO: choose right physical device
+    result = vkCreateDevice(physicalDevices[0], &deviceCreateInfo, nullptr,
+                            &device); // TODO: choose right physical device
     ASSERT_VULKAN(result)
 
     VkQueue queue;
     vkGetDeviceQueue(device, 0, 0, &queue);
-
 
 
     delete[] layers;
@@ -151,8 +151,8 @@ void startVulkan() {
 }
 
 void gameloop() {
-    while(true) {
-
+    while (!glfwWindowShouldClose(window)) {
+        glfwPollEvents();
     }
 }
 
@@ -165,7 +165,7 @@ void shutdownVulkan() {
 }
 
 void shutdownGlfw() {
-
+    glfwDestroyWindow(window);
 }
 
 int main() {
