@@ -21,11 +21,14 @@ VkDevice device;
 VkSwapchainKHR swapchain;
 
 std::vector<VkImageView> imageViews;
+std::vector<VkFramebuffer> framebuffers;
 VkShaderModule shaderModuleVert;
 VkShaderModule shaderModuleFrag;
 
 VkPipelineLayout pipelineLayout;
 VkRenderPass renderPass;
+VkPipeline pipeline;
+VkCommandPool commandPool;
 
 GLFWwindow *window;
 
@@ -276,7 +279,7 @@ void startVulkan() {
     imageViews.resize(numberOfImagesInSwapchain);
     for (int i = 0; i < numberOfImagesInSwapchain; ++i) {
         imageViewCreateInfo.image = swapchainImages[i];
-        result = vkCreateImageView(device, &imageViewCreateInfo, nullptr, &imageViews[i]);
+        result = vkCreateImageView(device, &imageViewCreateInfo, nullptr, &(imageViews[i]));
         ASSERT_VULKAN(result)
     }
 
@@ -390,7 +393,8 @@ void startVulkan() {
     colorBlendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     colorBlendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
     colorBlendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
-    colorBlendAttachmentState.colorWriteMask = VK_COLOR_COMPONENT_FLAG_BITS_MAX_ENUM; // maybe | them myself
+    colorBlendAttachmentState.colorWriteMask =
+            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
 
     VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo;
@@ -464,6 +468,58 @@ void startVulkan() {
 
     result = vkCreateRenderPass(device, &renderPassCreateInfo, nullptr, &renderPass);
     ASSERT_VULKAN(result)
+
+
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo;
+    pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineCreateInfo.pNext = nullptr;
+    pipelineCreateInfo.flags = 0;   // used for pipeline derivation
+    pipelineCreateInfo.stageCount = 2;
+    pipelineCreateInfo.pStages = shaderStages;
+    pipelineCreateInfo.pVertexInputState = &vertexInputStateCreateInfo;
+    pipelineCreateInfo.pInputAssemblyState = &inputAssemblyStateCreateInfo;
+    pipelineCreateInfo.pTessellationState = nullptr;
+    pipelineCreateInfo.pViewportState = &viewportStateCreateInfo;
+    pipelineCreateInfo.pRasterizationState = &rasterizationStateCreateInfo;
+    pipelineCreateInfo.pMultisampleState = &multisampleStateCreateInfo;
+    pipelineCreateInfo.pDepthStencilState = nullptr;
+    pipelineCreateInfo.pColorBlendState = &colorBlendStateCreateInfo;
+    pipelineCreateInfo.pDynamicState = nullptr;
+    pipelineCreateInfo.layout = pipelineLayout;
+    pipelineCreateInfo.renderPass = renderPass;
+    pipelineCreateInfo.subpass = 0;
+    pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
+    pipelineCreateInfo.basePipelineIndex = -1;
+
+    result = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &pipeline);
+    ASSERT_VULKAN(result)
+
+    framebuffers.resize(numberOfImagesInSwapchain);
+    for (int i = 0; i < numberOfImagesInSwapchain; ++i) {
+        VkFramebufferCreateInfo framebufferCreateInfo;
+        framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferCreateInfo.pNext = nullptr;
+        framebufferCreateInfo.flags = 0;
+        framebufferCreateInfo.renderPass = renderPass;
+        framebufferCreateInfo.attachmentCount = 1;
+        framebufferCreateInfo.pAttachments = &(imageViews[i]);
+        framebufferCreateInfo.width = width;
+        framebufferCreateInfo.height = height;
+        framebufferCreateInfo.layers = 1;
+
+        result = vkCreateFramebuffer(device, &framebufferCreateInfo, nullptr, &(framebuffers[i]));
+        ASSERT_VULKAN(result)
+    }
+
+
+    VkCommandPoolCreateInfo commandPoolCreateInfo;
+    commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    commandPoolCreateInfo.pNext = nullptr;
+    commandPoolCreateInfo.flags = 0;
+    commandPoolCreateInfo.queueFamilyIndex = chosenQueueFamilyIndex;
+    // the chosen queue has to be chosen to support Graphics Queue
+
+    vkCreateCommandPool(device, &commandPoolCreateInfo, nullptr, &commandPool);
 }
 
 void gameloop() {
@@ -476,6 +532,11 @@ void shutdownVulkan() {
     // block until vulkan has finished
     vkDeviceWaitIdle(device);
 
+    vkDestroyCommandPool(device, commandPool, nullptr);
+    for (auto &framebuffer : framebuffers) {
+        vkDestroyFramebuffer(device, framebuffer, nullptr);
+    }
+    vkDestroyPipeline(device, pipeline, nullptr);
     vkDestroyRenderPass(device, renderPass, nullptr);
     vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
     vkDestroyShaderModule(device, shaderModuleVert, nullptr);
