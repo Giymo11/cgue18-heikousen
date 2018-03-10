@@ -1,16 +1,21 @@
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include <algorithm>
+#include <chrono>
 
 // #include <vulkan/vulkan.h>
 #define GLFW_INCLUDE_VULKAN
 
 #include <GLFW/glfw3.h>
+
+#define GLM_FORCE_RADIANS
+
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "debug_trap.h"
 
@@ -31,6 +36,8 @@ VkBuffer vertexBuffer;
 VkDeviceMemory vertexBufferDeviceMemory;
 VkBuffer indexBuffer;
 VkDeviceMemory indexBufferDeviceMemory;
+VkBuffer uniformBuffer;
+VkDeviceMemory uniformBufferDeviceMemory;
 
 std::vector<VkImageView> imageViews;
 std::vector<VkFramebuffer> framebuffers;
@@ -47,12 +54,19 @@ VkCommandPool commandPool;
 VkSemaphore semaphoreImageAvailable;
 VkSemaphore semaphoreRenderingDone;
 
+VkDescriptorSetLayout descriptorSetLayout;
+VkDescriptorPool descriptorPool;
+VkDescriptorSet descriptorSet;
+
 
 GLFWwindow *window;
 
 // TODO: read from resource
 uint32_t width = 1200;
 uint32_t height = 720;
+
+glm::mat4 mvp;
+
 
 class Vertex {
 public:
@@ -393,6 +407,24 @@ VkResult createRenderpass(VkFormat chosenImageFormat) {
     return vkCreateRenderPass(device, &renderPassCreateInfo, nullptr, &renderPass);
 }
 
+VkResult createDescriptorSetLayout() {
+    VkDescriptorSetLayoutBinding descriptorSetLayoutBinding;
+    descriptorSetLayoutBinding.binding = 0;
+    descriptorSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorSetLayoutBinding.descriptorCount = 1;
+    descriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    descriptorSetLayoutBinding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo;
+    descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptorSetLayoutCreateInfo.pNext = nullptr;
+    descriptorSetLayoutCreateInfo.flags = 0;
+    descriptorSetLayoutCreateInfo.bindingCount = 1;
+    descriptorSetLayoutCreateInfo.pBindings = &descriptorSetLayoutBinding;
+
+    return vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCreateInfo, nullptr, &descriptorSetLayout);
+}
+
 VkResult createPipeline(const VkPipelineShaderStageCreateInfo *shaderStages) {
 
     auto vertexBindingDescription = Vertex::getBindingDescription();
@@ -448,7 +480,7 @@ VkResult createPipeline(const VkPipelineShaderStageCreateInfo *shaderStages) {
     rasterizationStateCreateInfo.rasterizerDiscardEnable = VK_FALSE;
     rasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizationStateCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;  // backface culling!
-    rasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_CLOCKWISE; // TODO: check if this is correct
+    rasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; // TODO: check if this is correct
     rasterizationStateCreateInfo.depthBiasEnable = VK_FALSE;
     rasterizationStateCreateInfo.depthBiasConstantFactor = 0.0f;
     rasterizationStateCreateInfo.depthBiasClamp = 0.0f;
@@ -510,8 +542,8 @@ VkResult createPipeline(const VkPipelineShaderStageCreateInfo *shaderStages) {
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutCreateInfo.pNext = nullptr;
     pipelineLayoutCreateInfo.flags = 0;
-    pipelineLayoutCreateInfo.setLayoutCount = 0;
-    pipelineLayoutCreateInfo.pSetLayouts = nullptr;
+    pipelineLayoutCreateInfo.setLayoutCount = 1;
+    pipelineLayoutCreateInfo.pSetLayouts = &descriptorSetLayout;
     pipelineLayoutCreateInfo.pushConstantRangeCount = 0;
     pipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
 
@@ -630,6 +662,9 @@ VkResult recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer frameb
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     vkCmdDrawIndexed(commandBuffer, indices.size(), 1, 0, 0, 0);
+
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0,
+                            nullptr);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -759,7 +794,6 @@ void createBuffer(VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsageFlags, 
     result = vkCreateBuffer(device, &bufferCreateInfo, nullptr, &buffer);
     ASSERT_VULKAN(result)
 
-
     VkMemoryRequirements memoryRequirements;
     vkGetBufferMemoryRequirements(device, buffer, &memoryRequirements);
 
@@ -859,6 +893,53 @@ void createAndUploadBuffer(std::vector<T> data, VkBufferUsageFlags usageFlags, V
 }
 
 
+VkResult createDescriptorPool() {
+    VkDescriptorPoolSize descriptorPoolSize;
+    descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorPoolSize.descriptorCount = 1;
+
+    VkDescriptorPoolCreateInfo descriptorPoolCreateInfo;
+    descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    descriptorPoolCreateInfo.pNext = nullptr;
+    descriptorPoolCreateInfo.flags = 0;
+    descriptorPoolCreateInfo.maxSets = 1;
+    descriptorPoolCreateInfo.poolSizeCount = 1;
+    descriptorPoolCreateInfo.pPoolSizes = &descriptorPoolSize;
+
+    return vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, nullptr, &descriptorPool);
+}
+
+void createAndUpdateDescriptorSet() {
+    VkDescriptorSetAllocateInfo descriptorSetAllocateInfo;
+    descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    descriptorSetAllocateInfo.pNext = nullptr;
+    descriptorSetAllocateInfo.descriptorPool = descriptorPool;
+    descriptorSetAllocateInfo.descriptorSetCount = 1;
+    descriptorSetAllocateInfo.pSetLayouts = &descriptorSetLayout;
+
+    VkResult result = vkAllocateDescriptorSets(device, &descriptorSetAllocateInfo, &descriptorSet);
+    ASSERT_VULKAN(result)
+
+    VkDescriptorBufferInfo descriptorBufferInfo;
+    descriptorBufferInfo.buffer = uniformBuffer;
+    descriptorBufferInfo.offset = 0;
+    descriptorBufferInfo.range = sizeof(mvp);
+
+    VkWriteDescriptorSet writeDescriptorSet;
+    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet.pNext = nullptr;
+    writeDescriptorSet.dstSet = descriptorSet;
+    writeDescriptorSet.dstBinding = 0;
+    writeDescriptorSet.dstArrayElement = 0;
+    writeDescriptorSet.descriptorCount = 1;
+    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writeDescriptorSet.pImageInfo = nullptr;
+    writeDescriptorSet.pBufferInfo = &descriptorBufferInfo;
+    writeDescriptorSet.pTexelBufferView = nullptr;
+
+    vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
+}
+
 void startVulkan() {
     VkResult result;
 
@@ -905,7 +986,21 @@ void startVulkan() {
     createAndUploadBuffer(vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vertexBuffer, vertexBufferDeviceMemory);
     createAndUploadBuffer(indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, indexBuffer, indexBufferDeviceMemory);
 
+    VkDeviceSize bufferSize = sizeof(mvp);
+    createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, uniformBuffer,
+                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBufferDeviceMemory);
+
+    result = createDescriptorPool();
+    ASSERT_VULKAN(result)
+
+    result = createDescriptorSetLayout();
+    ASSERT_VULKAN(result)
+
+    createAndUpdateDescriptorSet();
+
+
     createSwapchainAndChildren(false);
+
 
     result = createSemaphore(&semaphoreImageAvailable);
     ASSERT_VULKAN(result)
@@ -986,9 +1081,32 @@ void drawFrame() {
     ASSERT_VULKAN(result)
 }
 
+auto gameStartTime = std::chrono::high_resolution_clock::now();
+
+void updateMvp() {
+    auto now = std::chrono::high_resolution_clock::now();
+    float timeSinceStart = std::chrono::duration_cast<std::chrono::milliseconds>(now - gameStartTime).count() / 1000.0f;
+
+    glm::mat4 model = glm::rotate(glm::mat4(), timeSinceStart * glm::radians(30.0f), glm::vec3(0, 0, 1));
+    glm::mat4 view = glm::lookAt(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::mat4 projection = glm::perspective(glm::radians(60.0f), width / (float) height, 0.001f, 100.0f);
+    // openGL has the z dir flipped
+    projection[1][1] *= -1;
+
+    mvp = projection * view * model;
+    void *rawData;
+    VkResult result = vkMapMemory(device, uniformBufferDeviceMemory, 0, sizeof(mvp), 0, &rawData);
+    ASSERT_VULKAN(result)
+    memcpy(rawData, &mvp, sizeof(mvp));
+    vkUnmapMemory(device, uniformBufferDeviceMemory);
+}
+
 void gameloop() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
+
+        updateMvp();
+
         drawFrame();
     }
 }
@@ -997,6 +1115,11 @@ void shutdownVulkan() {
     // block until vulkan has finished
     VkResult result = vkDeviceWaitIdle(device);
     ASSERT_VULKAN(result)
+
+    vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+    vkFreeMemory(device, uniformBufferDeviceMemory, nullptr);
+    vkDestroyBuffer(device, uniformBuffer, nullptr);
 
     vkFreeMemory(device, indexBufferDeviceMemory, nullptr);
     vkDestroyBuffer(device, indexBuffer, nullptr);

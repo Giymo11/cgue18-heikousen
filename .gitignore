@@ -5,6 +5,7 @@ bin
 .idea
 cmake-build-debug
 build
+*.spv
 
 CMakeFiles
 cmake_install.cmake

@@ -13,6 +13,8 @@ vulkan window resize,       2018-03-09,     0.5
 vulkan fix semaphores,      2018-03-10,     0.5
 vulkan dynamic pipeline,    2018-03-10.     0.5
 vulkan vertex buffers,      2018-03-10,     1
+vulkan indices & staging,   2018-03-10,     1
+vulkan uniforms & mvp,      2018-03-10,     1
 
 
 
