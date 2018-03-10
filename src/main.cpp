@@ -79,13 +79,8 @@ std::vector<char> readFile(const std::string &filename) {
 
 void onWindowResized(GLFWwindow *window, int newWidth, int newHeight) {
     if (newWidth > 0 && newHeight > 0) {
-        VkSurfaceCapabilitiesKHR surfaceCapabilitiesKHR;
-        VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(chosenDevice, surface, &surfaceCapabilitiesKHR);
-        ASSERT_VULKAN(result)
 
-        width = std::min(newWidth, (int) surfaceCapabilitiesKHR.maxImageExtent.width);;
-        height = std::min(newHeight, (int) surfaceCapabilitiesKHR.maxImageExtent.height);
-        recreateSwapchain();
+        //recreateSwapchain();
     }
 }
 
@@ -566,7 +561,7 @@ VkResult createSemaphore(VkSemaphore *semaphore) {
 
 void destroySwapchainChildren() {
     vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
-    vkDestroyCommandPool(device, commandPool, nullptr);
+
     for (auto &framebuffer : framebuffers) {
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
@@ -627,9 +622,6 @@ void createSwapchainAndChildren() {
         ASSERT_VULKAN(result)
     }
 
-    result = createCommandPool(chosenQueueFamilyIndex);
-    ASSERT_VULKAN(result)
-
     result = allocateCommandBuffers(numberOfImagesInSwapchain);
     ASSERT_VULKAN(result)
 
@@ -679,6 +671,9 @@ void startVulkan() {
 
     auto chosenImageFormat = VK_FORMAT_B8G8R8A8_UNORM;   // TODO: check if valid via surfaceFormats[i].format
 
+    result = createCommandPool(chosenQueueFamilyIndex);
+    ASSERT_VULKAN(result)
+
     createSwapchainAndChildren();
 
     result = createSemaphore(&semaphoreImageAvailable);
@@ -690,7 +685,18 @@ void startVulkan() {
 void recreateSwapchain() {
     VkResult result;
 
-    vkDeviceWaitIdle(device);
+    result = vkDeviceWaitIdle(device);
+    ASSERT_VULKAN(result)
+
+    VkSurfaceCapabilitiesKHR surfaceCapabilitiesKHR;
+    result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(chosenDevice, surface, &surfaceCapabilitiesKHR);
+    ASSERT_VULKAN(result)
+
+    int newWidth, newHeight;
+    glfwGetWindowSize(window, &newWidth, &newHeight);
+
+    width = std::min(newWidth, (int) surfaceCapabilitiesKHR.maxImageExtent.width);;
+    height = std::min(newHeight, (int) surfaceCapabilitiesKHR.maxImageExtent.height);
 
     destroySwapchainChildren();
 
@@ -703,8 +709,13 @@ void recreateSwapchain() {
 
 void drawFrame() {
     uint32_t imageIndex;
-    vkAcquireNextImageKHR(device, swapchain, std::numeric_limits<uint64_t>::max(),
-                          semaphoreImageAvailable, VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(device, swapchain, std::numeric_limits<uint64_t>::max(),
+                                            semaphoreImageAvailable, VK_NULL_HANDLE, &imageIndex);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+        recreateSwapchain();
+        result = VK_SUCCESS;
+    }
+    ASSERT_VULKAN(result)
 
     VkPipelineStageFlags waitStageMask[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
@@ -719,7 +730,7 @@ void drawFrame() {
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = &semaphoreRenderingDone;
 
-    VkResult result = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+    result = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
     ASSERT_VULKAN(result)
 
     VkPresentInfoKHR presentInfo;
@@ -733,6 +744,10 @@ void drawFrame() {
     presentInfo.pResults = nullptr;
 
     result = vkQueuePresentKHR(queue, &presentInfo);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+        recreateSwapchain();
+        result = VK_SUCCESS;
+    }
     ASSERT_VULKAN(result)
 }
 
@@ -752,6 +767,7 @@ void shutdownVulkan() {
 
     destroySwapchainChildren();
     vkDestroySwapchainKHR(device, swapchain, nullptr);
+    vkDestroyCommandPool(device, commandPool, nullptr);
     vkDestroyDevice(device, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyInstance(instance, nullptr);
