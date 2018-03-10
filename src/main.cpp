@@ -1,3 +1,6 @@
+#include <stdio.h>
+#include <string.h>
+
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -23,6 +26,8 @@ VkPhysicalDevice chosenDevice;
 VkDevice device;
 VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 VkQueue queue;
+VkBuffer vertexBuffer;
+VkDeviceMemory vertexBufferDeviceMemory;
 
 std::vector<VkImageView> imageViews;
 std::vector<VkFramebuffer> framebuffers;
@@ -46,6 +51,46 @@ GLFWwindow *window;
 uint32_t width = 1200;
 uint32_t height = 720;
 
+class Vertex {
+public:
+    glm::vec2 pos;
+    glm::vec3 color;
+
+    Vertex(glm::vec2 pos, glm::vec3 color)
+            : pos(pos), color(color) {}
+
+    static VkVertexInputBindingDescription getBindingDescription() {
+        VkVertexInputBindingDescription vertexInputBindingDescription;
+
+        vertexInputBindingDescription.binding = 0;
+        vertexInputBindingDescription.stride = sizeof(Vertex);
+        vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        return vertexInputBindingDescription;
+    }
+
+    static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
+        std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions(2);
+        vertexInputAttributeDescriptions[0].location = 0;   // location in shader
+        vertexInputAttributeDescriptions[0].binding = 0;
+        vertexInputAttributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;   // for vec2 in shader
+        vertexInputAttributeDescriptions[0].offset = offsetof(Vertex, pos);
+
+        vertexInputAttributeDescriptions[1].location = 1;
+        vertexInputAttributeDescriptions[1].binding = 0;
+        vertexInputAttributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;   // for vec3 in shader
+        vertexInputAttributeDescriptions[1].offset = offsetof(Vertex, color);
+
+        return vertexInputAttributeDescriptions;
+    }
+};
+
+std::vector<Vertex> vertices = {
+        Vertex({0.0f, -0.5f}, {1.0f, 0.0f, 1.0f}),
+        Vertex({0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}),
+        Vertex({-0.5f, 0.5f}, {0.0f, 1.0f, 1.0f})
+
+};
 
 void printStats(VkPhysicalDevice &device);
 
@@ -64,6 +109,7 @@ VkResult createShaderModule(const std::vector<char> &code, VkShaderModule *shade
 }
 
 std::vector<char> readFile(const std::string &filename) {
+    std::cout << "Reading file " << std::endl;
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
     if (file) {
         size_t fileSize = file.tellg();
@@ -341,14 +387,17 @@ VkResult createRenderpass(VkFormat chosenImageFormat) {
 
 VkResult createPipeline(const VkPipelineShaderStageCreateInfo *shaderStages) {
 
+    auto vertexBindingDescription = Vertex::getBindingDescription();
+    auto vertexAttributeDesciptions = Vertex::getAttributeDescriptions();
+
     VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo;
     vertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInputStateCreateInfo.pNext = nullptr;
     vertexInputStateCreateInfo.flags = 0;
-    vertexInputStateCreateInfo.vertexBindingDescriptionCount = 0;
-    vertexInputStateCreateInfo.pVertexBindingDescriptions = nullptr;
-    vertexInputStateCreateInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputStateCreateInfo.pVertexAttributeDescriptions = nullptr;
+    vertexInputStateCreateInfo.vertexBindingDescriptionCount = 1;
+    vertexInputStateCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
+    vertexInputStateCreateInfo.vertexAttributeDescriptionCount = vertexAttributeDesciptions.size();
+    vertexInputStateCreateInfo.pVertexAttributeDescriptions = vertexAttributeDesciptions.data();
 
 
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo;
@@ -484,8 +533,7 @@ VkResult createPipeline(const VkPipelineShaderStageCreateInfo *shaderStages) {
     pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
     pipelineCreateInfo.basePipelineIndex = -1;
 
-    result = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &pipeline);
-    ASSERT_VULKAN(result)
+    return vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &pipeline);
 }
 
 VkResult createFramebuffer(VkImageView *attachments, VkFramebuffer *framebuffer) {
@@ -568,6 +616,9 @@ VkResult recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer frameb
     scissor.offset = {0, 0};
     scissor.extent = {width, height};
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
 
     vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
@@ -670,6 +721,60 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
     }
 }
 
+uint32_t findMemoryTypeIndex(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+    VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
+    vkGetPhysicalDeviceMemoryProperties(chosenDevice, &physicalDeviceMemoryProperties);
+    for (uint32_t i = 0; i < physicalDeviceMemoryProperties.memoryTypeCount; ++i) {
+        // typefilter is a bitfield marking the indices of valid memory types
+        // also, check if that memory type has all the properties we want set
+        if (typeFilter & (1 << i) &&
+            (physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+}
+
+void createAndBindVertexBuffer() {
+    VkResult result;
+
+    VkBufferCreateInfo bufferCreateInfo;
+    bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferCreateInfo.pNext = nullptr;
+    bufferCreateInfo.flags = 0;
+    bufferCreateInfo.size = sizeof(Vertex) * vertices.size();
+    bufferCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    bufferCreateInfo.queueFamilyIndexCount = 0;
+    bufferCreateInfo.pQueueFamilyIndices = nullptr;
+
+    result = vkCreateBuffer(device, &bufferCreateInfo, nullptr, &vertexBuffer);
+    ASSERT_VULKAN(result)
+
+    VkMemoryRequirements memoryRequirements;
+    vkGetBufferMemoryRequirements(device, vertexBuffer, &memoryRequirements);
+
+    VkMemoryAllocateInfo memoryAllocateInfo;
+    memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    memoryAllocateInfo.pNext = nullptr;
+    memoryAllocateInfo.allocationSize = memoryRequirements.size;
+    memoryAllocateInfo.memoryTypeIndex = findMemoryTypeIndex(memoryRequirements.memoryTypeBits,
+                                                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    result = vkAllocateMemory(device, &memoryAllocateInfo, nullptr, &vertexBufferDeviceMemory);
+    ASSERT_VULKAN(result)
+
+    result = vkBindBufferMemory(device, vertexBuffer, vertexBufferDeviceMemory, 0);
+    ASSERT_VULKAN(result)
+
+    void *rawData;
+    result = vkMapMemory(device, vertexBufferDeviceMemory, 0, bufferCreateInfo.size, 0, &rawData);
+    ASSERT_VULKAN(result)
+    memcpy(rawData, vertices.data(), bufferCreateInfo.size);
+    vkUnmapMemory(device, vertexBufferDeviceMemory);
+    // would have to use vkFlushMappedMemoryRanges(), but HOSTCOHERENT_BIT is set
+}
+
 void startVulkan() {
     VkResult result;
 
@@ -712,6 +817,8 @@ void startVulkan() {
 
     result = createCommandPool(chosenQueueFamilyIndex);
     ASSERT_VULKAN(result)
+
+    createAndBindVertexBuffer();
 
     createSwapchainAndChildren(false);
 
@@ -803,7 +910,11 @@ void gameloop() {
 
 void shutdownVulkan() {
     // block until vulkan has finished
-    vkDeviceWaitIdle(device);
+    VkResult result = vkDeviceWaitIdle(device);
+    ASSERT_VULKAN(result)
+
+    vkFreeMemory(device, vertexBufferDeviceMemory, nullptr);
+    vkDestroyBuffer(device, vertexBuffer, nullptr);
 
     vkDestroySemaphore(device, semaphoreImageAvailable, nullptr);
     vkDestroySemaphore(device, semaphoreRenderingDone, nullptr);
@@ -818,6 +929,7 @@ void shutdownVulkan() {
 
 void shutdownGlfw() {
     glfwDestroyWindow(window);
+    glfwTerminate();
 }
 
 int main() {
