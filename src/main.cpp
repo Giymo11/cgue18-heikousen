@@ -436,6 +436,18 @@ VkResult createPipeline(const VkPipelineShaderStageCreateInfo *shaderStages) {
     colorBlendStateCreateInfo.blendConstants[2] = 0.0f;
     colorBlendStateCreateInfo.blendConstants[3] = 0.0f;
 
+    VkDynamicState dynamicStates[] = {
+            VK_DYNAMIC_STATE_VIEWPORT,
+            VK_DYNAMIC_STATE_SCISSOR
+    };
+
+    VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo;
+    dynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamicStateCreateInfo.pNext = nullptr;
+    dynamicStateCreateInfo.flags = 0;
+    dynamicStateCreateInfo.dynamicStateCount = 2;
+    dynamicStateCreateInfo.pDynamicStates = dynamicStates;
+
 
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo;
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -465,7 +477,7 @@ VkResult createPipeline(const VkPipelineShaderStageCreateInfo *shaderStages) {
     pipelineCreateInfo.pMultisampleState = &multisampleStateCreateInfo;
     pipelineCreateInfo.pDepthStencilState = nullptr;
     pipelineCreateInfo.pColorBlendState = &colorBlendStateCreateInfo;
-    pipelineCreateInfo.pDynamicState = nullptr;
+    pipelineCreateInfo.pDynamicState = &dynamicStateCreateInfo;
     pipelineCreateInfo.layout = pipelineLayout;
     pipelineCreateInfo.renderPass = renderPass;
     pipelineCreateInfo.subpass = 0;
@@ -543,6 +555,20 @@ VkResult recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer frameb
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
+    VkViewport viewport;
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = width;
+    viewport.height = height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    VkRect2D scissor;
+    scissor.offset = {0, 0};
+    scissor.extent = {width, height};
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
     vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
@@ -559,29 +585,36 @@ VkResult createSemaphore(VkSemaphore *semaphore) {
     return vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, semaphore);
 }
 
-void destroySwapchainChildren() {
+void destroySwapchainChildren(bool preservePipeline = false) {
     vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
 
     for (auto &framebuffer : framebuffers) {
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
-    vkDestroyPipeline(device, pipeline, nullptr);
+
+    if (!preservePipeline) {
+        vkDestroyPipeline(device, pipeline, nullptr);
+        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+        vkDestroyShaderModule(device, shaderModuleVert, nullptr);
+        vkDestroyShaderModule(device, shaderModuleFrag, nullptr);
+    }
+
     vkDestroyRenderPass(device, renderPass, nullptr);
-    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-    vkDestroyShaderModule(device, shaderModuleVert, nullptr);
-    vkDestroyShaderModule(device, shaderModuleFrag, nullptr);
+
     for (auto &imageView : imageViews) {
         vkDestroyImageView(device, imageView, nullptr);
     }
 }
 
-void createSwapchainAndChildren() {
+void createSwapchainAndChildren(bool preservePipeline = false) {
     VkResult result;
     auto chosenQueueFamilyIndex = 0;
     auto chosenImageFormat = VK_FORMAT_B8G8R8A8_UNORM;   // TODO: check if valid via surfaceFormats[i].format
 
+
     result = createSwapchain(chosenImageFormat);
     ASSERT_VULKAN(result)
+
 
     uint32_t numberOfImagesInSwapchain = 0;
     result = vkGetSwapchainImagesKHR(device, swapchain, &numberOfImagesInSwapchain, nullptr);
@@ -598,29 +631,35 @@ void createSwapchainAndChildren() {
         ASSERT_VULKAN(result)
     }
 
-    VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert;
-    result = createShaderStageCreateInfo("../shader/shader.vert.spv", &shaderStageCreateInfoVert, &shaderModuleVert,
-                                         VK_SHADER_STAGE_VERTEX_BIT);
-    ASSERT_VULKAN(result)
-
-    VkPipelineShaderStageCreateInfo shaderStageCreateInfoFrag;
-    result = createShaderStageCreateInfo("../shader/shader.frag.spv", &shaderStageCreateInfoFrag, &shaderModuleFrag,
-                                         VK_SHADER_STAGE_FRAGMENT_BIT);
-    ASSERT_VULKAN(result)
-
-    VkPipelineShaderStageCreateInfo shaderStages[] = {shaderStageCreateInfoVert, shaderStageCreateInfoFrag};
 
     result = createRenderpass(chosenImageFormat);
     ASSERT_VULKAN(result)
 
-    result = createPipeline(shaderStages);
-    ASSERT_VULKAN(result)
+
+    if (!preservePipeline) {
+        VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert;
+        result = createShaderStageCreateInfo("../shader/shader.vert.spv", &shaderStageCreateInfoVert, &shaderModuleVert,
+                                             VK_SHADER_STAGE_VERTEX_BIT);
+        ASSERT_VULKAN(result)
+
+        VkPipelineShaderStageCreateInfo shaderStageCreateInfoFrag;
+        result = createShaderStageCreateInfo("../shader/shader.frag.spv", &shaderStageCreateInfoFrag, &shaderModuleFrag,
+                                             VK_SHADER_STAGE_FRAGMENT_BIT);
+        ASSERT_VULKAN(result)
+
+        VkPipelineShaderStageCreateInfo shaderStages[] = {shaderStageCreateInfoVert, shaderStageCreateInfoFrag};
+
+        result = createPipeline(shaderStages);
+        ASSERT_VULKAN(result)
+    }
+
 
     framebuffers.resize(numberOfImagesInSwapchain);
     for (size_t i = 0; i < numberOfImagesInSwapchain; ++i) {
         result = createFramebuffer(&(imageViews[i]), &(framebuffers[i]));
         ASSERT_VULKAN(result)
     }
+
 
     result = allocateCommandBuffers(numberOfImagesInSwapchain);
     ASSERT_VULKAN(result)
@@ -674,7 +713,7 @@ void startVulkan() {
     result = createCommandPool(chosenQueueFamilyIndex);
     ASSERT_VULKAN(result)
 
-    createSwapchainAndChildren();
+    createSwapchainAndChildren(false);
 
     result = createSemaphore(&semaphoreImageAvailable);
     ASSERT_VULKAN(result)
@@ -700,11 +739,11 @@ void recreateSwapchain() {
 
     // TODO: don't recreate the pipeline, but use dynamic states
 
-    destroySwapchainChildren();
+    destroySwapchainChildren(true);
 
     VkSwapchainKHR oldSwapchain = swapchain;
 
-    createSwapchainAndChildren();
+    createSwapchainAndChildren(true);
 
     vkDestroySwapchainKHR(device, oldSwapchain, nullptr);
 }
@@ -769,7 +808,7 @@ void shutdownVulkan() {
     vkDestroySemaphore(device, semaphoreImageAvailable, nullptr);
     vkDestroySemaphore(device, semaphoreRenderingDone, nullptr);
 
-    destroySwapchainChildren();
+    destroySwapchainChildren(false);
     vkDestroySwapchainKHR(device, swapchain, nullptr);
     vkDestroyCommandPool(device, commandPool, nullptr);
     vkDestroyDevice(device, nullptr);
