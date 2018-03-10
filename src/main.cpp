@@ -716,7 +716,8 @@ void drawFrame() {
                                             semaphoreImageAvailable, VK_NULL_HANDLE, &imageIndex);
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         recreateSwapchain();
-        result = VK_SUCCESS;
+        return; // throw away this frame, because after recreating the swapchain, the vkAcquireNexImageKHR is
+        // not signaling the semaphoreImageAvailable anymore
     }
     ASSERT_VULKAN(result)
 
@@ -749,7 +750,8 @@ void drawFrame() {
     result = vkQueuePresentKHR(queue, &presentInfo);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
         recreateSwapchain();
-        result = VK_SUCCESS;
+        return;
+        // same as with vkAcquireNextImageKHR
     }
     ASSERT_VULKAN(result)
 }
