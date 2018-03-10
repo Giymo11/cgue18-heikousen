@@ -10,6 +10,8 @@ vulkan until vkDevice,  2018-03-08,     2.5
 vulkan until triangle,  2018-03-09,     6.5
 vulkan refactor,        2018-03-09,     1.5
 vulkan window resize,   2018-03-09,     0.5
+vulkan fix semaphores,  2018-03-10,     0.5
+
 
 
 
