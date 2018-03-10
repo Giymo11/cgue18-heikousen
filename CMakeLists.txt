@@ -12,7 +12,7 @@ set(LIB_DIR "${CMAKE_BINARY_DIR}/extern")
 add_definitions(-DGLFW_INCLUDE_VULKAN)
 
 
-file(GLOB SOURCE_FILES "src/*.cpp")
+file(GLOB SOURCE_FILES "src/*.[ch]pp")
 file(GLOB INCLUDE_FILES "include/*.cpp")
 file(GLOB SHADER_FILES "shader/*.[vf]*")
 
