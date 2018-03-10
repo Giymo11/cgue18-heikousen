@@ -44,6 +44,7 @@ set(BINARY heikousen)
 find_package(bullet REQUIRED
         CONFIGS "BulletConfig.cmake")
 find_package(Vulkan REQUIRED)
+find_package(glm REQUIRED)
 
 if (UNIX)
     find_package(PkgConfig REQUIRED)
@@ -55,12 +56,14 @@ endif()
 message("Vulkan found? " ${Vulkan_FOUND})
 message("Bullet found? " ${BULLET_FOUND})
 message("GLFW3 found? " ${GLFW_FOUND})
+message("GLM found? " ${GLM_FOUND})
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(
         ${BULLET_INCLUDE_DIRS}
         ${Vulkan_INCLUDE_DIRS}
-        ${GLFW_INCLUDE_DIRS})
+        ${GLFW_INCLUDE_DIRS}
+        ${GLM_INCLUDE_DIRS})
 
 if (UNIX)
     include_directories("/usr/include/bullet")
@@ -73,6 +76,7 @@ target_link_libraries(
         ${BULLET_LIBRARIES}
         ${Vulkan_LIBRARIES}
         ${GLFW_STATIC_LIBRARIES}
+        ${GLM_LIBRARIES}
         )
 
 

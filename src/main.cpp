@@ -7,6 +7,7 @@
 #define GLFW_INCLUDE_VULKAN
 
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
 #include "debug_trap.h"
 
@@ -61,7 +62,6 @@ VkResult createShaderModule(const std::vector<char> &code, VkShaderModule *shade
 
     return vkCreateShaderModule(device, &shaderModuleCreateInfo, nullptr, shaderModule);
 }
-
 
 std::vector<char> readFile(const std::string &filename) {
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
@@ -822,6 +822,10 @@ void shutdownGlfw() {
 
 int main() {
     std::cout << "Hello World!" << std::endl << std::endl;
+
+    glm::mat4 matrix;
+    glm::vec4 vector;
+    glm::vec4 testo = matrix * vector;
 
     startGlfw();
     startVulkan();
