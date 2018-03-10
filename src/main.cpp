@@ -26,8 +26,11 @@ VkPhysicalDevice chosenDevice;
 VkDevice device;
 VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 VkQueue queue;
+
 VkBuffer vertexBuffer;
 VkDeviceMemory vertexBufferDeviceMemory;
+VkBuffer indexBuffer;
+VkDeviceMemory indexBufferDeviceMemory;
 
 std::vector<VkImageView> imageViews;
 std::vector<VkFramebuffer> framebuffers;
@@ -86,10 +89,15 @@ public:
 };
 
 std::vector<Vertex> vertices = {
-        Vertex({0.0f, -0.5f}, {1.0f, 0.0f, 1.0f}),
+        Vertex({-0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}),
         Vertex({0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}),
-        Vertex({-0.5f, 0.5f}, {0.0f, 1.0f, 1.0f})
+        Vertex({-0.5f, 0.5f}, {0.0f, 1.0f, 1.0f}),
+        Vertex({0.5f, -0.5f}, {1.0f, 1.0f, 1.0f})
+};
 
+std::vector<uint32_t> indices = {
+        0, 1, 2,
+        0, 3, 1
 };
 
 void printStats(VkPhysicalDevice &device);
@@ -619,8 +627,9 @@ VkResult recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer frameb
 
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, indices.size(), 1, 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 
@@ -821,10 +830,12 @@ void copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) {
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 }
 
-void createAndBindVertexBuffer() {
+template<typename T>
+void createAndUploadBuffer(std::vector<T> data, VkBufferUsageFlags usageFlags, VkBuffer &buffer,
+                           VkDeviceMemory &deviceMemory) {
     VkResult result;
 
-    VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
+    VkDeviceSize bufferSize = sizeof(T) * data.size();
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
@@ -835,17 +846,18 @@ void createAndBindVertexBuffer() {
     void *rawData;
     result = vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &rawData);
     ASSERT_VULKAN(result)
-    memcpy(rawData, vertices.data(), bufferSize);
+    memcpy(rawData, data.data(), bufferSize);
     vkUnmapMemory(device, stagingBufferMemory);
 
-    createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, vertexBuffer,
-                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBufferDeviceMemory);
+    createBuffer(bufferSize, usageFlags | VK_BUFFER_USAGE_TRANSFER_DST_BIT, buffer,
+                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, deviceMemory);
 
-    copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+    copyBuffer(stagingBuffer, buffer, bufferSize);
 
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
+
 
 void startVulkan() {
     VkResult result;
@@ -890,7 +902,8 @@ void startVulkan() {
     result = createCommandPool(chosenQueueFamilyIndex);
     ASSERT_VULKAN(result)
 
-    createAndBindVertexBuffer();
+    createAndUploadBuffer(vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vertexBuffer, vertexBufferDeviceMemory);
+    createAndUploadBuffer(indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, indexBuffer, indexBufferDeviceMemory);
 
     createSwapchainAndChildren(false);
 
@@ -984,6 +997,9 @@ void shutdownVulkan() {
     // block until vulkan has finished
     VkResult result = vkDeviceWaitIdle(device);
     ASSERT_VULKAN(result)
+
+    vkFreeMemory(device, indexBufferDeviceMemory, nullptr);
+    vkDestroyBuffer(device, indexBuffer, nullptr);
 
     vkFreeMemory(device, vertexBufferDeviceMemory, nullptr);
     vkDestroyBuffer(device, vertexBuffer, nullptr);
