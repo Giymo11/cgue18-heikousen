@@ -1,7 +1,9 @@
 //
 // Created by giymo11 on 3/11/18.
 //
+
 #pragma once
+
 
 #include <vector>
 #include <vulkan/vulkan.h>
@@ -9,6 +11,10 @@
 #include "debug_trap.h"
 #include "jojo_utils.hpp"
 #include "jojo_vulkan_utils.hpp"
+
+
+// TODO: encapsulate most of this in a class with VkDevice, VkSurfaceKHR etc inside
+// TODO: encapsulate height, width and maybe chosenImageFormat, chosenPhysicalDevice, etc in a class
 
 VkResult createShaderModule(const VkDevice device, const std::vector<char> &code, VkShaderModule *shaderModule) {
     VkShaderModuleCreateInfo shaderModuleCreateInfo;
@@ -445,4 +451,70 @@ VkResult createCommandPool(const VkDevice device, VkCommandPool *commandPool, co
 
     return vkCreateCommandPool(device, &commandPoolCreateInfo, nullptr, commandPool);
 }
+
+
+VkResult allocateCommandBuffers(const VkDevice device, const VkCommandPool commandPool,
+                                std::vector<VkCommandBuffer> &commandBuffers,
+                                const uint32_t numberOfImagesInSwapchain) {
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo;
+    commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    commandBufferAllocateInfo.pNext = nullptr;
+    commandBufferAllocateInfo.commandPool = commandPool;
+    commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    commandBufferAllocateInfo.commandBufferCount = numberOfImagesInSwapchain;
+
+
+    commandBuffers.resize(numberOfImagesInSwapchain);
+    return vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, commandBuffers.data());
+}
+
+VkResult beginCommandBuffer(const VkCommandBuffer commandBuffer) {
+    VkCommandBufferBeginInfo commandBufferBeginInfo;
+    commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    commandBufferBeginInfo.pNext = nullptr;
+    // to be able to submit the command buffer to a queue that is (still) holding it
+    commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+    commandBufferBeginInfo.pInheritanceInfo = nullptr;
+
+    return vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
+}
+
+VkResult createSemaphore(const VkDevice device, VkSemaphore *semaphore) {
+    VkSemaphoreCreateInfo semaphoreCreateInfo;
+    semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    semaphoreCreateInfo.pNext = nullptr;
+    semaphoreCreateInfo.flags = 0;
+
+    return vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, semaphore);
+}
+
+VkResult createDescriptorPool(const VkDevice device, VkDescriptorPool *descriptorPool) {
+    VkDescriptorPoolSize descriptorPoolSize;
+    descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorPoolSize.descriptorCount = 1;
+
+    VkDescriptorPoolCreateInfo descriptorPoolCreateInfo;
+    descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    descriptorPoolCreateInfo.pNext = nullptr;
+    descriptorPoolCreateInfo.flags = 0;
+    descriptorPoolCreateInfo.maxSets = 1;
+    descriptorPoolCreateInfo.poolSizeCount = 1;
+    descriptorPoolCreateInfo.pPoolSizes = &descriptorPoolSize;
+
+    return vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, nullptr, descriptorPool);
+}
+
+VkResult allocateDescriptorSet(const VkDevice device, const VkDescriptorPool descriptorPool,
+                               const VkDescriptorSetLayout descriptorSetLayout,
+                               VkDescriptorSet *descriptorSet) {
+    VkDescriptorSetAllocateInfo descriptorSetAllocateInfo;
+    descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    descriptorSetAllocateInfo.pNext = nullptr;
+    descriptorSetAllocateInfo.descriptorPool = descriptorPool;
+    descriptorSetAllocateInfo.descriptorSetCount = 1;
+    descriptorSetAllocateInfo.pSetLayouts = &descriptorSetLayout;
+
+    return vkAllocateDescriptorSets(device, &descriptorSetAllocateInfo, descriptorSet);
+}
+
 

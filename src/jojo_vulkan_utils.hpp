@@ -4,6 +4,9 @@
 
 #pragma once
 
+
+#include <cstring>
+
 #include "debug_trap.h"
 
 
@@ -25,6 +28,7 @@ uint32_t findMemoryTypeIndex(VkPhysicalDevice chosenDevice, uint32_t typeFilter,
         }
     }
 }
+
 
 void createBuffer(VkDevice device, VkPhysicalDevice chosenDevice,
                   VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsageFlags, VkBuffer &buffer,
@@ -59,7 +63,6 @@ void createBuffer(VkDevice device, VkPhysicalDevice chosenDevice,
     result = vkBindBufferMemory(device, buffer, deviceMemory, 0);
     ASSERT_VULKAN(result)
 }
-
 
 void copyBuffer(VkDevice device, VkCommandPool commandPool, VkQueue queue,
                 VkBuffer src, VkBuffer dst, VkDeviceSize size) {
@@ -142,3 +145,6 @@ void createAndUploadBuffer(VkDevice device, VkPhysicalDevice chosenDevice, VkCom
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
+
+
+

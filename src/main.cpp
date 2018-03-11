@@ -1,18 +1,13 @@
-#include <cstdio>
-#include <cstring>
-
 #include <iostream>
-#include <fstream>
+#include <cstring>
 #include <vector>
 #include <algorithm>
 #include <chrono>
 
-// #include <vulkan/vulkan.h>
 #define GLFW_INCLUDE_VULKAN
+#define GLM_FORCE_RADIANS
 
 #include <GLFW/glfw3.h>
-
-#define GLM_FORCE_RADIANS
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -20,6 +15,7 @@
 #include "jojo_vulkan_data.hpp"
 #include "jojo_vulkan.hpp"
 #include "jojo_vulkan_utils.hpp"
+#include "jojo_vulkan_info.hpp"
 
 
 VkInstance instance;
@@ -77,84 +73,8 @@ std::vector<uint32_t> indices = {
         0, 3, 1
 };
 
-void printStats(VkPhysicalDevice &device);
 
-void recreateSwapchain();
-
-
-void onWindowResized(GLFWwindow *window, int newWidth, int newHeight) {
-    if (newWidth > 0 && newHeight > 0) {
-
-        //recreateSwapchain();
-    }
-}
-
-void startGlfw() {
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
-    window = glfwCreateWindow(width, height, "heikousen", nullptr, nullptr);
-    glfwSetWindowSizeCallback(window, onWindowResized);
-}
-
-
-void printInstanceLayers() {
-    uint32_t numberOfLayers = 0;
-    vkEnumerateInstanceLayerProperties(&numberOfLayers, nullptr);
-
-    std::vector<VkLayerProperties> layers;
-    layers.resize(numberOfLayers);
-    vkEnumerateInstanceLayerProperties(&numberOfLayers, layers.data());
-
-    std::cout << std::endl << "Amount of instance layers: " << numberOfLayers << std::endl << std::endl;
-    for (size_t i = 0; i < numberOfLayers; ++i) {
-        std::cout << "Name:            " << layers[i].layerName << std::endl;
-        std::cout << "Spec Version:    " << layers[i].specVersion << std::endl;
-        std::cout << "Description:     " << layers[i].description << std::endl << std::endl;
-    }
-}
-
-void printInstanceExtensions() {
-    uint32_t numberOfExtensions = 0;
-    vkEnumerateInstanceExtensionProperties(nullptr, &numberOfExtensions, nullptr);
-
-    std::vector<VkExtensionProperties> extensions;
-    extensions.resize(numberOfExtensions);
-    vkEnumerateInstanceExtensionProperties(nullptr, &numberOfExtensions, extensions.data());
-
-    std::cout << std::endl << "Amount of instance extensions: " << numberOfExtensions << std::endl << std::endl;
-    for (size_t i = 0; i < numberOfExtensions; ++i) {
-        std::cout << "Name:            " << extensions[i].extensionName << std::endl;
-        std::cout << "Spec Version:    " << extensions[i].specVersion << std::endl << std::endl;
-    }
-}
-
-
-VkResult allocateCommandBuffers(uint32_t numberOfImagesInSwapchain) {
-    VkCommandBufferAllocateInfo commandBufferAllocateInfo;
-    commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    commandBufferAllocateInfo.pNext = nullptr;
-    commandBufferAllocateInfo.commandPool = commandPool;
-    commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    commandBufferAllocateInfo.commandBufferCount = numberOfImagesInSwapchain;
-
-
-    commandBuffers.resize(numberOfImagesInSwapchain);
-    return vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, commandBuffers.data());
-}
-
-VkResult recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
-    VkCommandBufferBeginInfo commandBufferBeginInfo;
-    commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    commandBufferBeginInfo.pNext = nullptr;
-    // to be able to submit the command buffer to a queue that is (still) holding it
-    commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-    commandBufferBeginInfo.pInheritanceInfo = nullptr;
-
-    VkResult result = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
-    ASSERT_VULKAN(result)
-
+void recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
     VkClearValue clearValue = {0.0f, 0.0f, 0.0f, 1.0f};
 
     VkRenderPassBeginInfo renderPassBeginInfo;
@@ -196,18 +116,29 @@ VkResult recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer frameb
                             nullptr);
 
     vkCmdEndRenderPass(commandBuffer);
-
-    return vkEndCommandBuffer(commandBuffer);
 }
 
-VkResult createSemaphore(VkSemaphore *semaphore) {
-    VkSemaphoreCreateInfo semaphoreCreateInfo;
-    semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    semaphoreCreateInfo.pNext = nullptr;
-    semaphoreCreateInfo.flags = 0;
+void createAndUpdateDescriptorSet() {
+    VkDescriptorBufferInfo descriptorBufferInfo;
+    descriptorBufferInfo.buffer = uniformBuffer;
+    descriptorBufferInfo.offset = 0;
+    descriptorBufferInfo.range = sizeof(mvp);
 
-    return vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, semaphore);
+    VkWriteDescriptorSet writeDescriptorSet;
+    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet.pNext = nullptr;
+    writeDescriptorSet.dstSet = descriptorSet;
+    writeDescriptorSet.dstBinding = 0;
+    writeDescriptorSet.dstArrayElement = 0;
+    writeDescriptorSet.descriptorCount = 1;
+    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writeDescriptorSet.pImageInfo = nullptr;
+    writeDescriptorSet.pBufferInfo = &descriptorBufferInfo;
+    writeDescriptorSet.pTexelBufferView = nullptr;
+
+    vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
 }
+
 
 void destroySwapchainChildren(bool preservePipeline = false) {
     vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
@@ -287,129 +218,18 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
     }
 
 
-    result = allocateCommandBuffers(numberOfImagesInSwapchain);
+    result = allocateCommandBuffers(device, commandPool, commandBuffers, numberOfImagesInSwapchain);
     ASSERT_VULKAN(result)
 
     for (size_t i = 0; i < numberOfImagesInSwapchain; ++i) {
-        result = recordCommandBuffer(commandBuffers[i], framebuffers[i]);
+        result = beginCommandBuffer(commandBuffers[i]);
+        ASSERT_VULKAN(result)
+
+        recordCommandBuffer(commandBuffers[i], framebuffers[i]);
+
+        result = vkEndCommandBuffer(commandBuffers[i]);
         ASSERT_VULKAN(result)
     }
-}
-
-
-VkResult createDescriptorPool() {
-    VkDescriptorPoolSize descriptorPoolSize;
-    descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptorPoolSize.descriptorCount = 1;
-
-    VkDescriptorPoolCreateInfo descriptorPoolCreateInfo;
-    descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    descriptorPoolCreateInfo.pNext = nullptr;
-    descriptorPoolCreateInfo.flags = 0;
-    descriptorPoolCreateInfo.maxSets = 1;
-    descriptorPoolCreateInfo.poolSizeCount = 1;
-    descriptorPoolCreateInfo.pPoolSizes = &descriptorPoolSize;
-
-    return vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, nullptr, &descriptorPool);
-}
-
-void createAndUpdateDescriptorSet() {
-    VkDescriptorSetAllocateInfo descriptorSetAllocateInfo;
-    descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    descriptorSetAllocateInfo.pNext = nullptr;
-    descriptorSetAllocateInfo.descriptorPool = descriptorPool;
-    descriptorSetAllocateInfo.descriptorSetCount = 1;
-    descriptorSetAllocateInfo.pSetLayouts = &descriptorSetLayout;
-
-    VkResult result = vkAllocateDescriptorSets(device, &descriptorSetAllocateInfo, &descriptorSet);
-    ASSERT_VULKAN(result)
-
-    VkDescriptorBufferInfo descriptorBufferInfo;
-    descriptorBufferInfo.buffer = uniformBuffer;
-    descriptorBufferInfo.offset = 0;
-    descriptorBufferInfo.range = sizeof(mvp);
-
-    VkWriteDescriptorSet writeDescriptorSet;
-    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSet.pNext = nullptr;
-    writeDescriptorSet.dstSet = descriptorSet;
-    writeDescriptorSet.dstBinding = 0;
-    writeDescriptorSet.dstArrayElement = 0;
-    writeDescriptorSet.descriptorCount = 1;
-    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writeDescriptorSet.pImageInfo = nullptr;
-    writeDescriptorSet.pBufferInfo = &descriptorBufferInfo;
-    writeDescriptorSet.pTexelBufferView = nullptr;
-
-    vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
-}
-
-void startVulkan() {
-    VkResult result;
-
-    result = createInstance(&instance);
-    ASSERT_VULKAN(result)
-
-    printInstanceLayers();
-    printInstanceExtensions();
-
-    result = glfwCreateWindowSurface(instance, window, nullptr, &surface);
-    ASSERT_VULKAN(result)
-
-    uint32_t numberOfPhysicalDevices = 0;
-    // if passed nullptr as third parameter, outputs the number of GPUs to the second parameter
-    result = vkEnumeratePhysicalDevices(instance, &numberOfPhysicalDevices, nullptr);
-    ASSERT_VULKAN(result)
-
-    std::vector<VkPhysicalDevice> physicalDevices;
-    physicalDevices.resize(numberOfPhysicalDevices);
-    // actually enumerates the GPUs for use
-    result = vkEnumeratePhysicalDevices(instance, &numberOfPhysicalDevices, physicalDevices.data());
-    ASSERT_VULKAN(result)
-
-    std::cout << std::endl << "GPUs Found: " << numberOfPhysicalDevices << std::endl << std::endl;
-    for (size_t i = 0; i < numberOfPhysicalDevices; ++i)
-        printStats(physicalDevices[i]);
-
-    chosenDevice = physicalDevices[0];     // TODO: choose right physical device
-    auto chosenQueueFamilyIndex = 0;        // TODO: choose the best queue family
-
-    result = createLogicalDevice(chosenDevice, &device, chosenQueueFamilyIndex);
-    ASSERT_VULKAN(result)
-
-    vkGetDeviceQueue(device, chosenQueueFamilyIndex, 0, &queue);
-
-    result = checkSurfaceSupport(chosenDevice, surface, chosenQueueFamilyIndex);
-    ASSERT_VULKAN(result)
-
-    result = createCommandPool(device, &commandPool, chosenQueueFamilyIndex);
-    ASSERT_VULKAN(result)
-
-    createAndUploadBuffer(device, chosenDevice, commandPool, queue, vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                          vertexBuffer, vertexBufferDeviceMemory);
-    createAndUploadBuffer(device, chosenDevice, commandPool, queue, indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                          indexBuffer, indexBufferDeviceMemory);
-
-    VkDeviceSize bufferSize = sizeof(mvp);
-    createBuffer(device, chosenDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, uniformBuffer,
-                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBufferDeviceMemory);
-
-    result = createDescriptorPool();
-    ASSERT_VULKAN(result)
-
-    result = createDescriptorSetLayout(device, &descriptorSetLayout);
-    ASSERT_VULKAN(result)
-
-    createAndUpdateDescriptorSet();
-
-
-    createSwapchainAndChildren(false);
-
-
-    result = createSemaphore(&semaphoreImageAvailable);
-    ASSERT_VULKAN(result)
-    result = createSemaphore(&semaphoreRenderingDone);
-    ASSERT_VULKAN(result)
 }
 
 void recreateSwapchain() {
@@ -438,6 +258,94 @@ void recreateSwapchain() {
 
     vkDestroySwapchainKHR(device, oldSwapchain, nullptr);
 }
+
+
+void startVulkan() {
+    VkResult result;
+
+    result = createInstance(&instance);
+    ASSERT_VULKAN(result)
+
+    printInstanceLayers();
+    printInstanceExtensions();
+
+    result = glfwCreateWindowSurface(instance, window, nullptr, &surface);
+    ASSERT_VULKAN(result)
+
+    uint32_t numberOfPhysicalDevices = 0;
+    // if passed nullptr as third parameter, outputs the number of GPUs to the second parameter
+    result = vkEnumeratePhysicalDevices(instance, &numberOfPhysicalDevices, nullptr);
+    ASSERT_VULKAN(result)
+
+    std::vector<VkPhysicalDevice> physicalDevices;
+    physicalDevices.resize(numberOfPhysicalDevices);
+    // actually enumerates the GPUs for use
+    result = vkEnumeratePhysicalDevices(instance, &numberOfPhysicalDevices, physicalDevices.data());
+    ASSERT_VULKAN(result)
+
+    std::cout << std::endl << "GPUs Found: " << numberOfPhysicalDevices << std::endl << std::endl;
+    for (size_t i = 0; i < numberOfPhysicalDevices; ++i)
+        printStats(physicalDevices[i], surface);
+
+    chosenDevice = physicalDevices[0];     // TODO: choose right physical device
+    auto chosenQueueFamilyIndex = 0;        // TODO: choose the best queue family
+
+    result = createLogicalDevice(chosenDevice, &device, chosenQueueFamilyIndex);
+    ASSERT_VULKAN(result)
+
+    vkGetDeviceQueue(device, chosenQueueFamilyIndex, 0, &queue);
+
+    result = checkSurfaceSupport(chosenDevice, surface, chosenQueueFamilyIndex);
+    ASSERT_VULKAN(result)
+
+    result = createCommandPool(device, &commandPool, chosenQueueFamilyIndex);
+    ASSERT_VULKAN(result)
+
+    createAndUploadBuffer(device, chosenDevice, commandPool, queue, vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                          vertexBuffer, vertexBufferDeviceMemory);
+    createAndUploadBuffer(device, chosenDevice, commandPool, queue, indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                          indexBuffer, indexBufferDeviceMemory);
+
+    VkDeviceSize bufferSize = sizeof(mvp);
+    createBuffer(device, chosenDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, uniformBuffer,
+                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBufferDeviceMemory);
+
+    result = createDescriptorPool(device, &descriptorPool);
+    ASSERT_VULKAN(result)
+
+    result = createDescriptorSetLayout(device, &descriptorSetLayout);
+    ASSERT_VULKAN(result)
+
+
+    result = allocateDescriptorSet(device, descriptorPool, descriptorSetLayout, &descriptorSet);
+    ASSERT_VULKAN(result)
+    createAndUpdateDescriptorSet();
+
+    createSwapchainAndChildren(false);
+
+
+    result = createSemaphore(device, &semaphoreImageAvailable);
+    ASSERT_VULKAN(result)
+    result = createSemaphore(device, &semaphoreRenderingDone);
+    ASSERT_VULKAN(result)
+}
+
+
+void onWindowResized(GLFWwindow *window, int newWidth, int newHeight) {
+    if (newWidth > 0 && newHeight > 0) {
+        //recreateSwapchain();
+    }
+}
+
+void startGlfw() {
+    glfwInit();
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+
+    window = glfwCreateWindow(width, height, "heikousen", nullptr, nullptr);
+    glfwSetWindowSizeCallback(window, onWindowResized);
+}
+
 
 void drawFrame() {
     uint32_t imageIndex;
@@ -505,6 +413,7 @@ void updateMvp() {
     vkUnmapMemory(device, uniformBufferDeviceMemory);
 }
 
+
 void gameloop() {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -514,6 +423,7 @@ void gameloop() {
         drawFrame();
     }
 }
+
 
 void shutdownVulkan() {
     // block until vulkan has finished
@@ -547,12 +457,9 @@ void shutdownGlfw() {
     glfwTerminate();
 }
 
+
 int main() {
     std::cout << "Hello World!" << std::endl << std::endl;
-
-    glm::mat4 matrix;
-    glm::vec4 vector;
-    glm::vec4 testo = matrix * vector;
 
     startGlfw();
     startVulkan();
@@ -565,105 +472,3 @@ int main() {
     return 0;
 }
 
-void printStats(VkPhysicalDevice &device) {
-
-    VkPhysicalDeviceProperties properties;
-    vkGetPhysicalDeviceProperties(device, &properties);
-
-    std::cout << "GPU Name: " << properties.deviceName << std::endl;
-    uint32_t version = properties.apiVersion;
-    std::cout << "Max API Version:           " <<
-              VK_VERSION_MAJOR(version) << "." <<
-              VK_VERSION_MINOR(version) << "." <<
-              VK_VERSION_PATCH(version) << std::endl;
-
-    version = properties.driverVersion;
-    std::cout << "Driver Version:            " <<
-              VK_VERSION_MAJOR(version) << "." <<
-              VK_VERSION_MINOR(version) << "." <<
-              VK_VERSION_PATCH(version) << std::endl;
-
-    std::cout << "Vendor ID:                 " << properties.vendorID << std::endl;
-    std::cout << "Device ID:                 " << properties.deviceID << std::endl;
-
-    auto deviceType = properties.deviceType;
-    auto deviceTypeDescription =
-            (deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ?
-             "discrete" :
-             (deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU ?
-              "integrated" :
-              "other"
-             )
-            );
-    std::cout << "Device Type:               " << deviceTypeDescription << " (type " << deviceType << ")" << std::endl;
-    std::cout << "discreteQueuePrioritis:    " << properties.limits.discreteQueuePriorities << std::endl;
-
-
-    VkPhysicalDeviceFeatures features;
-    vkGetPhysicalDeviceFeatures(device, &features);
-    // ...
-    std::cout << "can it do multi-viewport:  " << features.multiViewport << std::endl;
-
-
-    VkPhysicalDeviceMemoryProperties memoryProperties;
-    vkGetPhysicalDeviceMemoryProperties(device, &memoryProperties);
-    // ...
-
-
-    uint32_t numberOfQueueFamilies = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &numberOfQueueFamilies, nullptr);
-
-    std::vector<VkQueueFamilyProperties> queueFamilyProperties;
-    queueFamilyProperties.resize(numberOfQueueFamilies);
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &numberOfQueueFamilies, queueFamilyProperties.data());
-
-    std::cout << "Amount of Queue Families:  " << numberOfQueueFamilies << std::endl << std::endl;
-
-    for (size_t i = 0; i < numberOfQueueFamilies; ++i) {
-        std::cout << "Queue Family #" << i << std::endl;
-        auto flags = queueFamilyProperties[i].queueFlags;
-        std::cout << "VK_QUEUE_GRAPHICS_BIT " << ((flags & VK_QUEUE_GRAPHICS_BIT) != 0) << std::endl;
-        std::cout << "VK_QUEUE_COMPUTE_BIT  " << ((flags & VK_QUEUE_COMPUTE_BIT) != 0) << std::endl;
-        std::cout << "VK_QUEUE_TRANSFER_BIT " << ((flags & VK_QUEUE_TRANSFER_BIT) != 0) << std::endl;
-        std::cout << "Queue Count:          " << queueFamilyProperties[i].queueCount << std::endl;
-        std::cout << "Timestamp Valid Bits: " << queueFamilyProperties[i].timestampValidBits << std::endl;
-    }
-
-
-    VkSurfaceCapabilitiesKHR surfaceCapabilitiesKHR;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &surfaceCapabilitiesKHR);
-    std::cout << std::endl << std::endl << "Surface Capabilities" << std::endl << std::endl;
-    std::cout << "minImageCount: " << surfaceCapabilitiesKHR.minImageCount << std::endl;
-    std::cout << "maxImageCount: " << surfaceCapabilitiesKHR.maxImageCount << std::endl; // a 0 means no limit
-    std::cout << "maxImageArrayLayers: " << surfaceCapabilitiesKHR.maxImageArrayLayers << std::endl;
-    // ...
-
-
-    uint32_t numberOfSurfaceFormats;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &numberOfSurfaceFormats, nullptr);
-
-    std::vector<VkSurfaceFormatKHR> surfaceFormats;
-    surfaceFormats.resize(numberOfSurfaceFormats);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &numberOfSurfaceFormats, surfaceFormats.data());
-
-    std::cout << std::endl << "Amount of Surface Formats: " << numberOfSurfaceFormats << std::endl;
-    for (size_t i = 0; i < numberOfSurfaceFormats; ++i) {
-        std::cout << "Format: " << surfaceFormats[i].format << std::endl;
-    }
-
-
-    uint32_t numberOfPresentationModes = 0;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &numberOfPresentationModes, nullptr);
-
-    std::vector<VkPresentModeKHR> presentationModes;
-    presentationModes.resize(numberOfPresentationModes);
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &numberOfPresentationModes, presentationModes.data());
-
-    std::cout << std::endl << "Amount of Presentation Modes: " << numberOfPresentationModes << std::endl;
-    for (size_t i = 0; i < numberOfPresentationModes; ++i) {
-        std::cout << "Mode " << presentationModes[i] << std::endl;
-    }
-
-
-    std::cout << std::endl;
-}
