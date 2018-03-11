@@ -2,11 +2,10 @@
 // Created by giymo11 on 3/10/18.
 //
 
-#ifndef HEIKOUSEN_JOJO_VULKAN_UTILS_HPP
-#define HEIKOUSEN_JOJO_VULKAN_UTILS_HPP
-
+#pragma once
 
 #include "debug_trap.h"
+
 
 #define ASSERT_VULKAN(val)\
 if(val != VK_SUCCESS)\
@@ -143,5 +142,3 @@ void createAndUploadBuffer(VkDevice device, VkPhysicalDevice chosenDevice, VkCom
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
-
-#endif //HEIKOUSEN_JOJO_VULKAN_UTILS_HPP

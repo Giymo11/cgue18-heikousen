@@ -14,8 +14,7 @@ add_definitions(-DGLFW_INCLUDE_VULKAN)
 
 file(GLOB SOURCE_FILES "src/*.[ch]pp")
 file(GLOB INCLUDE_FILES "include/*.cpp")
-file(GLOB SHADER_FILES "shader/*.[vf]*")
-
+file(GLOB SHADER_FILES "shader/*.vert" "shader/*.frag")
 
 find_program(GLSL_EXECUTABLE glslangValidator)
 function(preprocess_glsl out_var)
