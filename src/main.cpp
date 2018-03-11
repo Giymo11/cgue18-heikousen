@@ -6,6 +6,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 #include <GLFW/glfw3.h>
 
@@ -51,6 +52,10 @@ VkDescriptorSetLayout descriptorSetLayout;
 VkDescriptorPool descriptorPool;
 VkDescriptorSet descriptorSet;
 
+VkImage depthImage;
+VkDeviceMemory depthImageMemory;
+VkImageView depthImageView;
+
 
 GLFWwindow *window;
 
@@ -62,20 +67,30 @@ glm::mat4 mvp;
 
 
 std::vector<Vertex> vertices = {
-        Vertex({-0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}),
-        Vertex({0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}),
-        Vertex({-0.5f, 0.5f}, {0.0f, 1.0f, 1.0f}),
-        Vertex({0.5f, -0.5f}, {1.0f, 1.0f, 1.0f})
+        Vertex({-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 1.0f}),
+        Vertex({0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 0.0f}),
+        Vertex({-0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 1.0f}),
+        Vertex({0.5f, -0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}),
+
+        Vertex({-0.5f, -0.5f, -1.0f}, {1.0f, 0.0f, 1.0f}),
+        Vertex({0.5f, 0.5f, -1.0f}, {1.0f, 1.0f, 0.0f}),
+        Vertex({-0.5f, 0.5f, -1.0f}, {0.0f, 1.0f, 1.0f}),
+        Vertex({0.5f, -0.5f, -1.0f}, {1.0f, 1.0f, 1.0f})
 };
 
 std::vector<uint32_t> indices = {
         0, 1, 2,
-        0, 3, 1
+        0, 3, 1,
+
+        4, 5, 6,
+        4, 7, 5,
 };
 
 
 void recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
-    VkClearValue clearValue = {0.0f, 0.0f, 0.0f, 1.0f};
+    std::array<VkClearValue, 2> clearValues = {};
+    clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
+    clearValues[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo renderPassBeginInfo;
     renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -84,8 +99,8 @@ void recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffe
     renderPassBeginInfo.framebuffer = framebuffer;
     renderPassBeginInfo.renderArea.offset = {0, 0};
     renderPassBeginInfo.renderArea.extent = {width, height};
-    renderPassBeginInfo.clearValueCount = 1;
-    renderPassBeginInfo.pClearValues = &clearValue;
+    renderPassBeginInfo.clearValueCount = clearValues.size();
+    renderPassBeginInfo.pClearValues = clearValues.data();
 
     // _INLINE means to only use primary command buffers
     vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -181,12 +196,25 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
 
     imageViews.resize(numberOfImagesInSwapchain);
     for (size_t i = 0; i < numberOfImagesInSwapchain; ++i) {
-        result = createImageView(device, swapchainImages[i], &(imageViews[i]), chosenImageFormat);
+        result = createImageView(device, swapchainImages[i], &(imageViews[i]), chosenImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
         ASSERT_VULKAN(result)
     }
 
+    VkFormat depthFormat = findSupportedFormat(chosenDevice,
+                                               {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT,
+                                                VK_FORMAT_D24_UNORM_S8_UINT},
+                                               VK_IMAGE_TILING_OPTIMAL,
+                                               VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+    );
+    createImage(device, chosenDevice, width, height, depthFormat, VK_IMAGE_TILING_OPTIMAL,
+                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage,
+                depthImageMemory);
+    ASSERT_VULKAN(result)
+    result = createImageView(device, depthImage, &depthImageView, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+    ASSERT_VULKAN(result)
 
-    result = createRenderpass(device, &renderPass, chosenImageFormat);
+
+    result = createRenderpass(device, &renderPass, chosenImageFormat, depthFormat);
     ASSERT_VULKAN(result)
 
 
@@ -213,7 +241,7 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
 
     framebuffers.resize(numberOfImagesInSwapchain);
     for (size_t i = 0; i < numberOfImagesInSwapchain; ++i) {
-        result = createFramebuffer(device, renderPass, &(imageViews[i]), &(framebuffers[i]), width, height);
+        result = createFramebuffer(device, renderPass, imageViews[i], depthImageView, &(framebuffers[i]), width, height);
         ASSERT_VULKAN(result)
     }
 
@@ -300,6 +328,7 @@ void startVulkan() {
 
     result = createCommandPool(device, &commandPool, chosenQueueFamilyIndex);
     ASSERT_VULKAN(result)
+
 
     createAndUploadBuffer(device, chosenDevice, commandPool, queue, vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                           vertexBuffer, vertexBufferDeviceMemory);
