@@ -13,6 +13,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "jojo_data.hpp"
 #include "jojo_vulkan_data.hpp"
 #include "jojo_vulkan.hpp"
 #include "jojo_vulkan_utils.hpp"
@@ -59,9 +60,8 @@ VkImageView depthImageView;
 
 GLFWwindow *window;
 
-// TODO: read from resource
-uint32_t width = 1200;
-uint32_t height = 720;
+
+Config config = Config::readFromFile("../config.ini");
 
 glm::mat4 mvp;
 
@@ -98,7 +98,7 @@ void recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffe
     renderPassBeginInfo.renderPass = renderPass;
     renderPassBeginInfo.framebuffer = framebuffer;
     renderPassBeginInfo.renderArea.offset = {0, 0};
-    renderPassBeginInfo.renderArea.extent = {width, height};
+    renderPassBeginInfo.renderArea.extent = {config.width, config.height};
     renderPassBeginInfo.clearValueCount = clearValues.size();
     renderPassBeginInfo.pClearValues = clearValues.data();
 
@@ -110,15 +110,15 @@ void recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffe
     VkViewport viewport;
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = width;
-    viewport.height = height;
+    viewport.width = config.width;
+    viewport.height = config.height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
     VkRect2D scissor;
     scissor.offset = {0, 0};
-    scissor.extent = {width, height};
+    scissor.extent = {config.width, config.height};
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     VkDeviceSize offsets[] = {0};
@@ -184,7 +184,7 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
     VkResult result;
     auto chosenImageFormat = VK_FORMAT_B8G8R8A8_UNORM;   // TODO: check if valid via surfaceFormats[i].format
 
-    result = createSwapchain(device, surface, swapchain, &swapchain, chosenImageFormat, width, height);
+    result = createSwapchain(device, surface, swapchain, &swapchain, chosenImageFormat, config.width, config.height);
     ASSERT_VULKAN(result)
 
 
@@ -211,7 +211,7 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
                                                VK_IMAGE_TILING_OPTIMAL,
                                                VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
     );
-    createImage(device, chosenDevice, width, height, depthFormat, VK_IMAGE_TILING_OPTIMAL,
+    createImage(device, chosenDevice, config.width, config.height, depthFormat, VK_IMAGE_TILING_OPTIMAL,
                 VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage,
                 depthImageMemory);
     ASSERT_VULKAN(result)
@@ -242,15 +242,16 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
         result = createPipelineLayout(device, &descriptorSetLayout, &pipelineLayout);
         ASSERT_VULKAN(result)
 
-        result = createPipeline(device, shaderStages, renderPass, pipelineLayout, &pipeline, width, height);
+        result = createPipeline(device, shaderStages, renderPass, pipelineLayout, &pipeline, config.width,
+                                config.height);
         ASSERT_VULKAN(result)
     }
 
 
     framebuffers.resize(numberOfImagesInSwapchain);
     for (size_t i = 0; i < numberOfImagesInSwapchain; ++i) {
-        result = createFramebuffer(device, renderPass, imageViews[i], depthImageView, &(framebuffers[i]), width,
-                                   height);
+        result = createFramebuffer(device, renderPass, imageViews[i], depthImageView, &(framebuffers[i]), config.width,
+                                   config.height);
         ASSERT_VULKAN(result)
     }
 
@@ -282,8 +283,8 @@ void recreateSwapchain() {
     int newWidth, newHeight;
     glfwGetWindowSize(window, &newWidth, &newHeight);
 
-    width = (uint32_t) std::min(newWidth, (int) surfaceCapabilitiesKHR.maxImageExtent.width);;
-    height = (uint32_t) std::min(newHeight, (int) surfaceCapabilitiesKHR.maxImageExtent.height);
+    config.width = (uint32_t) std::min(newWidth, (int) surfaceCapabilitiesKHR.maxImageExtent.width);;
+    config.height = (uint32_t) std::min(newHeight, (int) surfaceCapabilitiesKHR.maxImageExtent.height);
 
     destroySwapchainChildren(true);
 
@@ -301,8 +302,8 @@ void startVulkan() {
     result = createInstance(&instance);
     ASSERT_VULKAN(result)
 
-    printInstanceLayers();
-    printInstanceExtensions();
+    //printInstanceLayers();
+    //printInstanceExtensions();
 
     result = glfwCreateWindowSurface(instance, window, nullptr, &surface);
     ASSERT_VULKAN(result)
@@ -378,7 +379,7 @@ void startGlfw() {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-    window = glfwCreateWindow(width, height, "heikousen", nullptr, nullptr);
+    window = glfwCreateWindow(config.width, config.height, "heikousen", nullptr, nullptr);
     glfwSetWindowSizeCallback(window, onWindowResized);
 }
 
@@ -437,7 +438,7 @@ void updateMvp() {
 
     glm::mat4 model = glm::rotate(glm::mat4(), timeSinceStart * glm::radians(30.0f), glm::vec3(0, 0, 1));
     glm::mat4 view = glm::lookAt(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    glm::mat4 projection = glm::perspective(glm::radians(60.0f), width / (float) height, 0.001f, 100.0f);
+    glm::mat4 projection = glm::perspective(glm::radians(60.0f), config.width / (float) config.height, 0.001f, 100.0f);
     // openGL has the z dir flipped
     projection[1][1] *= -1;
 

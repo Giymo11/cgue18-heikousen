@@ -18,7 +18,8 @@ vulkan uniforms & mvp,      2018-03-10,     1.5
 vulkan refactoring,         2018-03-11,     2.5
 gameplay demo,              2018-03-11,     1
 vulkan depth buffer,        2018-03-11,     3
-
+windows build & boost,      2018-03-12,     3
+config read,                2018-03-12,     0.5
 
 
 
