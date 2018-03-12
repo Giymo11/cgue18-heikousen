@@ -9,6 +9,13 @@ how to install deps:
 - `make`
 - `bin/heikousen`
 
+installing deps on windows:
+
+- Install cmake and have it in PATH
+- git submodule init
+- git submodule update
+- Start Visual Studio Dev Console x64 run ```call build_deps```
+
 TODO:
 - plan architecture
 - do concept
