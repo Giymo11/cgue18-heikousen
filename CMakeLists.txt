@@ -64,7 +64,10 @@ else()
     find_package(glfw3 REQUIRED HINTS "${CMAKE_SOURCE_DIR}/extern/dist/lib/cmake/glfw3")
 endif()
 
-link_directories(${BULLET_LIBRARY_DIRS})
+link_directories(
+    ${BULLET_LIBRARY_DIRS}
+    ${CMAKE_SOURCE_DIR}/extern/dist/lib
+    )
 
 message("Vulkan found? " ${Vulkan_FOUND})
 message("Bullet found? " ${BULLET_FOUND})
@@ -86,13 +89,33 @@ target_include_directories(
     ${Vulkan_INCLUDE_DIRS}
     ${BULLET_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/extern/dist/include}
     )
+
+list(APPEND V8_LIBRARIES
+    v8_base
+    v8_libbase
+    v8_external_snapshot
+    v8_libplatform
+    v8_libsampler
+    icuuc
+    icui18n
+    inspector
+    )
+if (WIN32)
+    list(APPEND V8_LIBRARIES        
+        winmm
+        dbghelp
+        shlwapi
+        )
+endif()
 
 # case sensitive!
 target_link_libraries(
     ${BINARY}
     ${BULLET_LIBRARIES}
     ${Vulkan_LIBRARIES}
+    ${V8_LIBRARIES}
     glm
     glfw
     )

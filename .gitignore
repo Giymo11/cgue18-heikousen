@@ -13,3 +13,6 @@ CMakeCache.txt
 Makefile
 heikousen.cbp
 extern/dist
+extern/v8
+extern/depot_tools
+extern/.gclient*
