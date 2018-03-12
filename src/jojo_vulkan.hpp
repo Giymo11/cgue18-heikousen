@@ -133,7 +133,7 @@ VkResult createSwapchain(const VkDevice device, const VkSurfaceKHR surface, cons
     swapchainCreateInfo.minImageCount = 3; // TODO: check if valid via surfaceCapabilitiesKHR.maxImageCount
     swapchainCreateInfo.imageFormat = chosenImageFormat;
     swapchainCreateInfo.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;    // TODO: check if valid via surfaceFormats
-    swapchainCreateInfo.imageExtent = VkExtent2D{width, height};
+    swapchainCreateInfo.imageExtent = VkExtent2D{static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
     swapchainCreateInfo.imageArrayLayers = 1;
     swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -320,7 +320,7 @@ VkResult createPipeline(const VkDevice device, const VkPipelineShaderStageCreate
 
     VkRect2D scissor;
     scissor.offset = {0, 0};
-    scissor.extent = {width, height};
+    scissor.extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 
 
     VkPipelineViewportStateCreateInfo viewportStateCreateInfo;
