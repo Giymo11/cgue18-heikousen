@@ -162,6 +162,10 @@ void destroySwapchainChildren(bool preservePipeline = false) {
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
 
+    vkDestroyImageView(device, depthImageView, nullptr);
+    vkDestroyImage(device, depthImage, nullptr);
+    vkFreeMemory(device, depthImageMemory, nullptr);
+
     if (!preservePipeline) {
         vkDestroyPipeline(device, pipeline, nullptr);
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
@@ -180,7 +184,6 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
     VkResult result;
     auto chosenImageFormat = VK_FORMAT_B8G8R8A8_UNORM;   // TODO: check if valid via surfaceFormats[i].format
 
-    // TODO: use oldSwapchain!
     result = createSwapchain(device, surface, swapchain, &swapchain, chosenImageFormat, width, height);
     ASSERT_VULKAN(result)
 
@@ -189,6 +192,7 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
     result = vkGetSwapchainImagesKHR(device, swapchain, &numberOfImagesInSwapchain, nullptr);
     ASSERT_VULKAN(result)
 
+    // doesnt have to be freed because they are allocated by the swapchain -> error when trying to destroy
     std::vector<VkImage> swapchainImages;
     swapchainImages.resize(numberOfImagesInSwapchain);
     result = vkGetSwapchainImagesKHR(device, swapchain, &numberOfImagesInSwapchain, swapchainImages.data());
@@ -196,7 +200,8 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
 
     imageViews.resize(numberOfImagesInSwapchain);
     for (size_t i = 0; i < numberOfImagesInSwapchain; ++i) {
-        result = createImageView(device, swapchainImages[i], &(imageViews[i]), chosenImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+        result = createImageView(device, swapchainImages[i], &(imageViews[i]), chosenImageFormat,
+                                 VK_IMAGE_ASPECT_COLOR_BIT);
         ASSERT_VULKAN(result)
     }
 
@@ -212,6 +217,9 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
     ASSERT_VULKAN(result)
     result = createImageView(device, depthImage, &depthImageView, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
     ASSERT_VULKAN(result)
+
+    changeImageLayout(device, commandPool, queue, depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED,
+                      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 
     result = createRenderpass(device, &renderPass, chosenImageFormat, depthFormat);
@@ -241,7 +249,8 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
 
     framebuffers.resize(numberOfImagesInSwapchain);
     for (size_t i = 0; i < numberOfImagesInSwapchain; ++i) {
-        result = createFramebuffer(device, renderPass, imageViews[i], depthImageView, &(framebuffers[i]), width, height);
+        result = createFramebuffer(device, renderPass, imageViews[i], depthImageView, &(framebuffers[i]), width,
+                                   height);
         ASSERT_VULKAN(result)
     }
 
@@ -273,10 +282,8 @@ void recreateSwapchain() {
     int newWidth, newHeight;
     glfwGetWindowSize(window, &newWidth, &newHeight);
 
-    width = std::min(newWidth, (int) surfaceCapabilitiesKHR.maxImageExtent.width);;
-    height = std::min(newHeight, (int) surfaceCapabilitiesKHR.maxImageExtent.height);
-
-    // TODO: don't recreate the pipeline, but use dynamic states
+    width = (uint32_t) std::min(newWidth, (int) surfaceCapabilitiesKHR.maxImageExtent.width);;
+    height = (uint32_t) std::min(newHeight, (int) surfaceCapabilitiesKHR.maxImageExtent.height);
 
     destroySwapchainChildren(true);
 
@@ -316,7 +323,7 @@ void startVulkan() {
         printStats(physicalDevices[i], surface);
 
     chosenDevice = physicalDevices[0];     // TODO: choose right physical device
-    auto chosenQueueFamilyIndex = 0;        // TODO: choose the best queue family
+    uint32_t chosenQueueFamilyIndex = 0;        // TODO: choose the best queue family
 
     result = createLogicalDevice(chosenDevice, &device, chosenQueueFamilyIndex);
     ASSERT_VULKAN(result)

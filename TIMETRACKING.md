@@ -17,7 +17,7 @@ vulkan indices & staging,   2018-03-10,     1
 vulkan uniforms & mvp,      2018-03-10,     1.5
 vulkan refactoring,         2018-03-11,     2.5
 gameplay demo,              2018-03-11,     1
-vulkan depth buffer,        2018-03-11,     2
+vulkan depth buffer,        2018-03-11,     3
 
 
 

@@ -62,7 +62,7 @@ VkResult createInstance(VkInstance *instance) {
     instanceCreateInfo.flags = 0;
     instanceCreateInfo.pApplicationInfo = &applicationInfo;
     // Layers are used for debugging, profiling, error handling,
-    instanceCreateInfo.enabledLayerCount = static_cast<uint32_t>(usedLayers.size());
+    instanceCreateInfo.enabledLayerCount = usedLayers.size();
     instanceCreateInfo.ppEnabledLayerNames = usedLayers.data();
     // Extensions are used to extend vulkan functionality
     instanceCreateInfo.enabledExtensionCount = usedExtensions.size();
@@ -125,7 +125,7 @@ VkResult checkSurfaceSupport(const VkPhysicalDevice chosenDevice, const VkSurfac
 
 VkResult createSwapchain(const VkDevice device, const VkSurfaceKHR surface, const VkSwapchainKHR oldSwapchain,
                          VkSwapchainKHR *swapchain,
-                         const VkFormat chosenImageFormat, const int width, const int height) {
+                         const VkFormat chosenImageFormat, uint32_t width, uint32_t height) {
     VkSwapchainCreateInfoKHR swapchainCreateInfo;
     swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     swapchainCreateInfo.pNext = nullptr;
@@ -144,7 +144,7 @@ VkResult createSwapchain(const VkDevice device, const VkSurfaceKHR surface, cons
     swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     swapchainCreateInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR; // TODO: maybe mailbox?
     swapchainCreateInfo.clipped = VK_TRUE;
-    swapchainCreateInfo.oldSwapchain = oldSwapchain; // TODO: for resizing
+    swapchainCreateInfo.oldSwapchain = oldSwapchain;
 
     return vkCreateSwapchainKHR(device, &swapchainCreateInfo, nullptr, swapchain);
 }
@@ -193,7 +193,8 @@ createShaderStageCreateInfo(const VkDevice device, const std::string &filename,
 }
 
 
-VkResult createRenderpass(const VkDevice device, VkRenderPass *renderPass, const VkFormat chosenImageFormat, const VkFormat chosenDepthFormat) {
+VkResult createRenderpass(const VkDevice device, VkRenderPass *renderPass, const VkFormat chosenImageFormat,
+                          const VkFormat chosenDepthFormat) {
 
     VkAttachmentDescription colorAttachmentDescription;
     colorAttachmentDescription.flags = 0;
@@ -418,7 +419,6 @@ VkResult createPipeline(const VkDevice device, const VkPipelineShaderStageCreate
     depthStencilStateCreateInfo.maxDepthBounds = 1.0f;
 
 
-
     VkDynamicState dynamicStates[] = {
             VK_DYNAMIC_STATE_VIEWPORT,
             VK_DYNAMIC_STATE_SCISSOR
@@ -460,7 +460,7 @@ VkResult createPipeline(const VkDevice device, const VkPipelineShaderStageCreate
 VkResult createFramebuffer(const VkDevice device, const VkRenderPass renderPass,
                            const VkImageView swapChainImageView, const VkImageView depthImageView,
                            VkFramebuffer *framebuffer,
-                           const int width, const int height) {
+                           uint32_t width, uint32_t height) {
 
     std::array<VkImageView, 2> attachments = {
             swapChainImageView,
