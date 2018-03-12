@@ -73,6 +73,7 @@ endif()
 
 target_include_directories(
     heikousen PRIVATE
+    ${Vulkan_INCLUDE_DIRS}
     ${BULLET_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/include
     )
@@ -81,7 +82,7 @@ target_include_directories(
 target_link_libraries(
     ${BINARY}
     ${BULLET_LIBRARIES}
-    vulkan
+    ${Vulkan_LIBRARIES}
     glm
     glfw
     )
