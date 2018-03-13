@@ -34,9 +34,12 @@ VkDeviceMemory indexBufferDeviceMemory;
 VkBuffer uniformBuffer;
 VkDeviceMemory uniformBufferDeviceMemory;
 
+const int numberOfCommandBuffers = 3;
+
 std::vector<VkImageView> imageViews;
 std::vector<VkFramebuffer> framebuffers;
 std::vector<VkCommandBuffer> commandBuffers;
+std::vector<VkFence> commandBufferFences;
 
 VkShaderModule shaderModuleVert;
 VkShaderModule shaderModuleFrag;
@@ -128,7 +131,10 @@ void recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffe
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0,
                             nullptr);
 
-    vkCmdDrawIndexed(commandBuffer, indices.size(), 1, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+
+
+    vkCmdDrawIndexed(commandBuffer, 6, 1, 6, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 }
@@ -156,8 +162,6 @@ void createAndUpdateDescriptorSet() {
 
 
 void destroySwapchainChildren(bool preservePipeline = false) {
-    vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
-
     for (auto &framebuffer : framebuffers) {
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
@@ -191,6 +195,10 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
     uint32_t numberOfImagesInSwapchain = 0;
     result = vkGetSwapchainImagesKHR(device, swapchain, &numberOfImagesInSwapchain, nullptr);
     ASSERT_VULKAN(result)
+
+    // TODO: actually adjust the number of command buffers
+    if (numberOfImagesInSwapchain > numberOfCommandBuffers)
+        throw std::runtime_error("we didnt plan for this... (more than three swapchain images)");
 
     // doesnt have to be freed because they are allocated by the swapchain -> error when trying to destroy
     std::vector<VkImage> swapchainImages;
@@ -255,11 +263,8 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
         ASSERT_VULKAN(result)
     }
 
-
-    result = allocateCommandBuffers(device, commandPool, commandBuffers, numberOfImagesInSwapchain);
-    ASSERT_VULKAN(result)
-
-    for (size_t i = 0; i < numberOfImagesInSwapchain; ++i) {
+/*
+    for (size_t i = 0; i < numberOfCommandBuffers; ++i) {
         result = beginCommandBuffer(commandBuffers[i]);
         ASSERT_VULKAN(result)
 
@@ -268,6 +273,8 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
         result = vkEndCommandBuffer(commandBuffers[i]);
         ASSERT_VULKAN(result)
     }
+    */
+
 }
 
 void recreateSwapchain() {
@@ -337,6 +344,9 @@ void startVulkan() {
     result = createCommandPool(device, &commandPool, chosenQueueFamilyIndex);
     ASSERT_VULKAN(result)
 
+    result = allocateCommandBuffers(device, commandPool, commandBuffers, numberOfCommandBuffers);
+    ASSERT_VULKAN(result)
+
 
     createAndUploadBuffer(device, chosenDevice, commandPool, queue, vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                           vertexBuffer, vertexBufferDeviceMemory);
@@ -360,6 +370,15 @@ void startVulkan() {
 
     createSwapchainAndChildren(false);
 
+    VkFenceCreateInfo fenceCreateInfo = {};
+    fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    commandBufferFences.resize(numberOfCommandBuffers);
+    for (auto &fence : commandBufferFences) {
+        result = vkCreateFence(device, &fenceCreateInfo, nullptr, &fence);
+        ASSERT_VULKAN(result)
+    }
 
     result = createSemaphore(device, &semaphoreImageAvailable);
     ASSERT_VULKAN(result)
@@ -395,6 +414,7 @@ void drawFrame() {
     }
     ASSERT_VULKAN(result)
 
+
     VkPipelineStageFlags waitStageMask[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
     VkSubmitInfo submitInfo;
@@ -408,7 +428,22 @@ void drawFrame() {
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = &semaphoreRenderingDone;
 
-    result = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+    result = vkWaitForFences(device, 1, &commandBufferFences[imageIndex], VK_TRUE, UINT64_MAX);
+    ASSERT_VULKAN(result)
+    result = vkResetFences(device, 1, &commandBufferFences[imageIndex]);
+    ASSERT_VULKAN(result)
+
+
+    result = beginCommandBuffer(commandBuffers[imageIndex]);
+    ASSERT_VULKAN(result)
+
+    recordCommandBuffer(commandBuffers[imageIndex], framebuffers[imageIndex]);
+
+    result = vkEndCommandBuffer(commandBuffers[imageIndex]);
+    ASSERT_VULKAN(result)
+
+
+    result = vkQueueSubmit(queue, 1, &submitInfo, commandBufferFences[imageIndex]);
     ASSERT_VULKAN(result)
 
     VkPresentInfoKHR presentInfo;
@@ -478,8 +513,14 @@ void shutdownVulkan() {
     vkFreeMemory(device, vertexBufferDeviceMemory, nullptr);
     vkDestroyBuffer(device, vertexBuffer, nullptr);
 
+    for (auto &fence : commandBufferFences) {
+        vkDestroyFence(device, fence, nullptr);
+    }
+
     vkDestroySemaphore(device, semaphoreImageAvailable, nullptr);
     vkDestroySemaphore(device, semaphoreRenderingDone, nullptr);
+
+    vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
 
     destroySwapchainChildren(false);
     vkDestroySwapchainKHR(device, swapchain, nullptr);
@@ -493,7 +534,6 @@ void shutdownGlfw() {
     glfwDestroyWindow(window);
     glfwTerminate();
 }
-
 
 int main() {
     std::cout << "Hello World!" << std::endl << std::endl;

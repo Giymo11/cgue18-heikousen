@@ -338,7 +338,7 @@ VkResult createPipeline(const VkDevice device, const VkPipelineShaderStageCreate
 
     VkRect2D scissor;
     scissor.offset = {0, 0};
-    scissor.extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
+    scissor.extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 
 
     VkPipelineViewportStateCreateInfo viewportStateCreateInfo;
@@ -486,7 +486,7 @@ VkResult createCommandPool(const VkDevice device, VkCommandPool *commandPool, co
     VkCommandPoolCreateInfo commandPoolCreateInfo;
     commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     commandPoolCreateInfo.pNext = nullptr;
-    commandPoolCreateInfo.flags = 0;
+    commandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     commandPoolCreateInfo.queueFamilyIndex = chosenQueueFamilyIndex;
     // the chosen queue has to be chosen to support Graphics Queue
 

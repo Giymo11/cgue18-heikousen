@@ -6,6 +6,7 @@ bin
 cmake-build-debug
 build
 *.spv
+extern
 
 CMakeFiles
 cmake_install.cmake
