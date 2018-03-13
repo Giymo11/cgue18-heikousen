@@ -89,19 +89,10 @@ target_include_directories(
     ${Vulkan_INCLUDE_DIRS}
     ${BULLET_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/extern/dist/include}
+    ${CMAKE_SOURCE_DIR}/extern/dist/include
+    ${CMAKE_SOURCE_DIR}/extern/dist/include/v8
     )
 
-list(APPEND V8_LIBRARIES
-    v8_base
-    v8_libbase
-    v8_external_snapshot
-    v8_libplatform
-    v8_libsampler
-    icuuc
-    icui18n
-    inspector
-    )
 if (WIN32)
     list(APPEND V8_LIBRARIES        
         winmm
@@ -109,6 +100,18 @@ if (WIN32)
         shlwapi
         )
 endif()
+list(APPEND V8_LIBRARIES
+    v8_init
+    v8_initializers
+    v8_base_0
+    v8_base_1
+    v8_libbase
+    v8_libplatform
+    v8_nosnapshot
+    v8_libsampler
+    icui18n
+    icuuc
+    )
 
 # case sensitive!
 target_link_libraries(
