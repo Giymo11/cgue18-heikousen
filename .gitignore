@@ -4,7 +4,9 @@ heikousen.exe
 bin
 .idea
 cmake-build-debug
+cmake-build-relwithdebinfo
 build
+mybuild
 *.spv
 extern
 

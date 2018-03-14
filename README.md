@@ -20,27 +20,27 @@ TODO:
 - plan architecture
 - do concept
 
-0. configuration
-1. hello world vulkan
-1. val layers
-1. refactor for hotkey use
-1. pipeline rebuild (wireframe etc)
-1. bullet colldet/collresp test (= game over condition)
-1. script engine
-1. movement in planning phase, bullet based (= win condition)
-1. movement tracking / replay system
-1. model loading
-1. textures (multiple maps)
-1. level design (= moving objects)
-1. GAME DAY
-1. Frustum Culling
-1. Hierarchical Animation Using Physics Engine
-1. HDR
-1. HUD
-1. EFFECTS
-1. level design
-1. sound design
-1. polishing
+0. [x] configuration
+1. [x] hello world vulkan
+1. [/] val layers?
+1. [/] refactor for hotkey use
+1. [x] pipeline rebuild (wireframe etc)
+1. [ ] bullet colldet/collresp test (= game over condition)
+1. [/] script engine
+1. [ ] movement in planning phase, bullet based (= win condition)
+1. [ ] movement tracking / replay system
+1. [ ] model loading
+1. [ ] textures (multiple maps)
+1. [ ] level design (= moving objects)
+1. [ ] GAME DAY
+1. [ ] Frustum Culling
+1. [ ] Hierarchical Animation Using Physics Engine
+1. [ ] HDR
+1. [ ] HUD
+1. [ ] EFFECTS
+1. [ ] level design
+1. [ ] sound design
+1. [ ] polishing
 
 
 ## game ideas
@@ -67,18 +67,11 @@ mandatory:
 
 for sure:
 - (0.5) + separate texture light maps 
+- (0.5) simple normal mapping
 - (1) scripting language?
 - (1) HDR rendering and tone mapping
+- (1) BSP trees
 
-considered:
-- (1) GPU particle system
-- (1.5) blobby objects / metaballs
-    - https://matiaslavik.wordpress.com/computer-graphics/metaball-rendering/
-- (1) BSP trees (for transparent objets)?
-- (1) kd tree (for culling)
-- (1) procedural textures
-- (1) video textures
-- (0.5) simple normal mapping
 
 PBR shader?
 - https://learnopengl.com/PBR/Theory
