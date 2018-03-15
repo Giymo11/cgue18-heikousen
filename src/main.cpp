@@ -29,6 +29,7 @@ VkQueue queue;
 
 const int numberOfCommandBuffers = 3;
 
+// TODO: refactor out a Frame class
 std::vector<VkImageView> imageViews;
 std::vector<VkFramebuffer> framebuffers;
 std::vector<VkCommandBuffer> commandBuffers;
@@ -55,7 +56,8 @@ VkImageView depthImageView;
 GLFWwindow *window;
 
 
-void recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, std::vector<JojoMesh> &meshes) {
+void recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFramebuffer framebuffer,
+                         std::vector<JojoMesh> &meshes) {
     std::array<VkClearValue, 2> clearValues = {};
     clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
     clearValues[1].depthStencil = {1.0f, 0};
@@ -91,11 +93,12 @@ void recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFrameb
 
     VkDeviceSize offsets[] = {0};
 
-    for(JojoMesh &mesh : meshes) {
+    for (JojoMesh &mesh : meshes) {
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &(mesh.vertexBuffer), offsets);
         vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &(mesh.uniformDescriptorSet), 0,
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
+                                &(mesh.uniformDescriptorSet), 0,
                                 nullptr);
 
         vkCmdDrawIndexed(commandBuffer, mesh.indices.size(), 1, 0, 0, 0);
@@ -125,8 +128,15 @@ void bindBufferToDescriptorSet(VkDevice device, VkBuffer uniformBuffer, VkDescri
     vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
 }
 
+void destroyPipeline() {
+    vkDestroyPipeline(device, pipeline, nullptr);
+    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+    vkDestroyShaderModule(device, shaderModuleVert, nullptr);
+    vkDestroyShaderModule(device, shaderModuleFrag, nullptr);
+}
 
-void destroySwapchainChildren(bool preservePipeline = false) {
+
+void destroySwapchainChildren() {
     for (auto &framebuffer : framebuffers) {
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
@@ -135,13 +145,6 @@ void destroySwapchainChildren(bool preservePipeline = false) {
     vkDestroyImage(device, depthImage, nullptr);
     vkFreeMemory(device, depthImageMemory, nullptr);
 
-    if (!preservePipeline) {
-        vkDestroyPipeline(device, pipeline, nullptr);
-        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-        vkDestroyShaderModule(device, shaderModuleVert, nullptr);
-        vkDestroyShaderModule(device, shaderModuleFrag, nullptr);
-    }
-
     vkDestroyRenderPass(device, renderPass, nullptr);
 
     for (auto &imageView : imageViews) {
@@ -149,7 +152,29 @@ void destroySwapchainChildren(bool preservePipeline = false) {
     }
 }
 
-void createSwapchainAndChildren(Config &config, bool preservePipeline = false) {
+
+void createPipeline(Config &config) {
+    VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert;
+    VkResult result = createShaderStageCreateInfo(device, "../shader/shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT,
+                                                  &shaderStageCreateInfoVert, &shaderModuleVert);
+    ASSERT_VULKAN(result)
+
+    VkPipelineShaderStageCreateInfo shaderStageCreateInfoFrag;
+    result = createShaderStageCreateInfo(device, "../shader/shader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT,
+                                         &shaderStageCreateInfoFrag, &shaderModuleFrag);
+    ASSERT_VULKAN(result)
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = {shaderStageCreateInfoVert, shaderStageCreateInfoFrag};
+
+    result = createPipelineLayout(device, &descriptorSetLayout, &pipelineLayout);
+    ASSERT_VULKAN(result)
+
+    result = createPipeline(device, shaderStages, renderPass, pipelineLayout, &pipeline, config.width,
+                            config.height);
+    ASSERT_VULKAN(result)
+}
+
+void createSwapchainAndChildren(Config &config) {
     VkResult result;
     auto chosenImageFormat = VK_FORMAT_B8G8R8A8_UNORM;   // TODO: check if valid via surfaceFormats[i].format
 
@@ -199,28 +224,6 @@ void createSwapchainAndChildren(Config &config, bool preservePipeline = false) {
     ASSERT_VULKAN(result)
 
 
-    if (!preservePipeline) {
-        VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert;
-        result = createShaderStageCreateInfo(device, "../shader/shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT,
-                                             &shaderStageCreateInfoVert, &shaderModuleVert);
-        ASSERT_VULKAN(result)
-
-        VkPipelineShaderStageCreateInfo shaderStageCreateInfoFrag;
-        result = createShaderStageCreateInfo(device, "../shader/shader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT,
-                                             &shaderStageCreateInfoFrag, &shaderModuleFrag);
-        ASSERT_VULKAN(result)
-
-        VkPipelineShaderStageCreateInfo shaderStages[] = {shaderStageCreateInfoVert, shaderStageCreateInfoFrag};
-
-        result = createPipelineLayout(device, &descriptorSetLayout, &pipelineLayout);
-        ASSERT_VULKAN(result)
-
-        result = createPipeline(device, shaderStages, renderPass, pipelineLayout, &pipeline, config.width,
-                                config.height);
-        ASSERT_VULKAN(result)
-    }
-
-
     framebuffers.resize(numberOfImagesInSwapchain);
     for (size_t i = 0; i < numberOfImagesInSwapchain; ++i) {
         result = createFramebuffer(device, renderPass, imageViews[i], depthImageView, &(framebuffers[i]), config.width,
@@ -245,17 +248,17 @@ void recreateSwapchain(Config &config) {
     config.width = (uint32_t) std::min(newWidth, (int) surfaceCapabilitiesKHR.maxImageExtent.width);;
     config.height = (uint32_t) std::min(newHeight, (int) surfaceCapabilitiesKHR.maxImageExtent.height);
 
-    destroySwapchainChildren(true);
+    destroySwapchainChildren;
 
     VkSwapchainKHR oldSwapchain = swapchain;
 
-    createSwapchainAndChildren(config, true);
+    createSwapchainAndChildren(config);
 
     vkDestroySwapchainKHR(device, oldSwapchain, nullptr);
 }
 
 
-void startVulkan(Config &config, std::vector<JojoMesh> &meshes) {
+void startVulkan() {
     VkResult result;
 
     result = createInstance(&instance);
@@ -299,32 +302,6 @@ void startVulkan(Config &config, std::vector<JojoMesh> &meshes) {
     result = allocateCommandBuffers(device, commandPool, commandBuffers, numberOfCommandBuffers);
     ASSERT_VULKAN(result)
 
-
-    result = createDescriptorPool(device, &descriptorPool, meshes.size());
-    ASSERT_VULKAN(result)
-
-    result = createDescriptorSetLayout(device, &descriptorSetLayout);
-    ASSERT_VULKAN(result)
-
-
-    for(JojoMesh &mesh : meshes) {
-        createAndUploadBuffer(device, chosenDevice, commandPool, queue, mesh.vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                              &(mesh.vertexBuffer), &(mesh.vertexBufferDeviceMemory));
-        createAndUploadBuffer(device, chosenDevice, commandPool, queue, mesh.indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                              &(mesh.indexBuffer), &(mesh.indexBufferDeviceMemory));
-
-        VkDeviceSize bufferSize = sizeof(glm::mat4);
-        createBuffer(device, chosenDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &(mesh.uniformBuffer),
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &(mesh.uniformBufferDeviceMemory));
-
-
-
-        result = allocateDescriptorSet(device, descriptorPool, descriptorSetLayout, &(mesh.uniformDescriptorSet));
-        ASSERT_VULKAN(result)
-        bindBufferToDescriptorSet(device, mesh.uniformBuffer, mesh.uniformDescriptorSet);
-    }
-
-    createSwapchainAndChildren(config, false);
 
     VkFenceCreateInfo fenceCreateInfo = {};
     fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -433,10 +410,11 @@ void updateMvp(Config &config, std::vector<JojoMesh> &meshes) {
     projection[1][1] *= -1;
 
     void *rawData;
-    for(int i = 0; i < meshes.size(); ++i) {
+    for (int i = 0; i < meshes.size(); ++i) {
         JojoMesh &mesh = meshes[i];
         int direction = (i % 2 * 2 - 1);
-        mesh.modelMatrix = glm::rotate(glm::mat4(), timeSinceStart * glm::radians(30.0f) * direction, glm::vec3(0, 0, 1));
+        mesh.modelMatrix = glm::rotate(glm::mat4(), timeSinceStart * glm::radians(30.0f) * direction,
+                                       glm::vec3(0, 0, 1));
         glm::mat4 mvp = projection * view * mesh.modelMatrix;
         VkResult result = vkMapMemory(device, mesh.uniformBufferDeviceMemory, 0, sizeof(mvp), 0, &rawData);
         ASSERT_VULKAN(result)
@@ -465,7 +443,7 @@ void shutdownVulkan(std::vector<JojoMesh> &meshes) {
     vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 
-    for(JojoMesh &mesh : meshes) {
+    for (JojoMesh &mesh : meshes) {
         vkFreeMemory(device, mesh.uniformBufferDeviceMemory, nullptr);
         vkDestroyBuffer(device, mesh.uniformBuffer, nullptr);
 
@@ -485,7 +463,8 @@ void shutdownVulkan(std::vector<JojoMesh> &meshes) {
 
     vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
 
-    destroySwapchainChildren(false);
+    destroyPipeline();
+    destroySwapchainChildren();
     vkDestroySwapchainKHR(device, swapchain, nullptr);
     vkDestroyCommandPool(device, commandPool, nullptr);
     vkDestroyDevice(device, nullptr);
@@ -498,12 +477,37 @@ void shutdownGlfw() {
     glfwTerminate();
 }
 
+void initializeBuffers(std::vector<JojoMesh> &meshes) {
+    VkResult result = createDescriptorPool(device, &descriptorPool, meshes.size());
+    ASSERT_VULKAN(result)
+
+    result = createDescriptorSetLayout(device, &descriptorSetLayout);
+    ASSERT_VULKAN(result)
+
+    for (JojoMesh &mesh : meshes) {
+        createAndUploadBuffer(device, chosenDevice, commandPool, queue, mesh.vertices,
+                              VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                              &(mesh.vertexBuffer), &(mesh.vertexBufferDeviceMemory));
+        createAndUploadBuffer(device, chosenDevice, commandPool, queue, mesh.indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                              &(mesh.indexBuffer), &(mesh.indexBufferDeviceMemory));
+
+        VkDeviceSize bufferSize = sizeof(glm::mat4);
+        createBuffer(device, chosenDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &(mesh.uniformBuffer),
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                     &(mesh.uniformBufferDeviceMemory));
+
+
+        result = allocateDescriptorSet(device, descriptorPool, descriptorSetLayout, &(mesh.uniformDescriptorSet));
+        ASSERT_VULKAN(result)
+        bindBufferToDescriptorSet(device, mesh.uniformBuffer, mesh.uniformDescriptorSet);
+    }
+}
+
 int main() {
     std::cout << "Hello World!" << std::endl << std::endl;
 
     Config config = Config::readFromFile("../config.ini");
     startGlfw(config);
-
 
 
     std::vector<JojoMesh> meshes;
@@ -531,8 +535,13 @@ int main() {
     };
 
 
+    startVulkan();
 
-    startVulkan(config, meshes);
+    createSwapchainAndChildren(config);
+
+    initializeBuffers(meshes);
+
+    createPipeline(config);
 
     gameloop(config, meshes);
 
