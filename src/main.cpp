@@ -63,12 +63,6 @@ VkImageView depthImageView;
 
 GLFWwindow *window;
 
-
-Config config = Config::readFromFile("../config.ini");
-
-glm::mat4 mvp;
-
-
 std::vector<Vertex> vertices = {
         Vertex({-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 1.0f}),
         Vertex({0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 0.0f}),
@@ -80,7 +74,6 @@ std::vector<Vertex> vertices = {
         Vertex({-0.5f, 0.5f, -1.0f}, {0.0f, 1.0f, 1.0f}),
         Vertex({0.5f, -0.5f, -1.0f}, {1.0f, 1.0f, 1.0f})
 };
-
 std::vector<uint32_t> indices = {
         0, 1, 2,
         0, 3, 1,
@@ -89,8 +82,10 @@ std::vector<uint32_t> indices = {
         4, 7, 5,
 };
 
+glm::mat4 mvp;
 
-void recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
+
+void recordCommandBuffer(Config config, VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
     std::array<VkClearValue, 2> clearValues = {};
     clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
     clearValues[1].depthStencil = {1.0f, 0};
@@ -181,7 +176,7 @@ void destroySwapchainChildren(bool preservePipeline = false) {
     }
 }
 
-void createSwapchainAndChildren(bool preservePipeline = false) {
+void createSwapchainAndChildren(Config config, bool preservePipeline = false) {
     VkResult result;
     auto chosenImageFormat = VK_FORMAT_B8G8R8A8_UNORM;   // TODO: check if valid via surfaceFormats[i].format
 
@@ -261,7 +256,7 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
     }
 }
 
-void recreateSwapchain() {
+void recreateSwapchain(Config &config) {
     VkResult result;
 
     result = vkDeviceWaitIdle(device);
@@ -281,13 +276,13 @@ void recreateSwapchain() {
 
     VkSwapchainKHR oldSwapchain = swapchain;
 
-    createSwapchainAndChildren(true);
+    createSwapchainAndChildren(config, true);
 
     vkDestroySwapchainKHR(device, oldSwapchain, nullptr);
 }
 
 
-void startVulkan() {
+void startVulkan(Config config) {
     VkResult result;
 
     result = createInstance(&instance);
@@ -355,7 +350,7 @@ void startVulkan() {
     ASSERT_VULKAN(result)
     bindBufferToDescriptorSet(device, uniformBuffer, descriptorSet);
 
-    createSwapchainAndChildren(false);
+    createSwapchainAndChildren(config, false);
 
     VkFenceCreateInfo fenceCreateInfo = {};
     fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -380,7 +375,7 @@ void onWindowResized(GLFWwindow *window, int newWidth, int newHeight) {
     }
 }
 
-void startGlfw() {
+void startGlfw(Config config) {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
@@ -389,12 +384,12 @@ void startGlfw() {
 }
 
 
-void drawFrame() {
+void drawFrame(Config config) {
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(device, swapchain, std::numeric_limits<uint64_t>::max(),
                                             semaphoreImageAvailable, VK_NULL_HANDLE, &imageIndex);
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        recreateSwapchain();
+        recreateSwapchain(config);
         return;
         // throw away this frame, because after recreating the swapchain, the vkAcquireNexImageKHR is
         // not signaling the semaphoreImageAvailable anymore
@@ -424,7 +419,7 @@ void drawFrame() {
     result = beginCommandBuffer(commandBuffers[imageIndex]);
     ASSERT_VULKAN(result)
 
-    recordCommandBuffer(commandBuffers[imageIndex], framebuffers[imageIndex]);
+    recordCommandBuffer(config, commandBuffers[imageIndex], framebuffers[imageIndex]);
 
     result = vkEndCommandBuffer(commandBuffers[imageIndex]);
     ASSERT_VULKAN(result)
@@ -445,7 +440,7 @@ void drawFrame() {
 
     result = vkQueuePresentKHR(queue, &presentInfo);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-        recreateSwapchain();
+        recreateSwapchain(config);
         return;
         // same as with vkAcquireNextImageKHR
     }
@@ -454,7 +449,7 @@ void drawFrame() {
 
 auto gameStartTime = std::chrono::high_resolution_clock::now();
 
-void updateMvp() {
+void updateMvp(Config config) {
     auto now = std::chrono::high_resolution_clock::now();
     float timeSinceStart = std::chrono::duration_cast<std::chrono::milliseconds>(now - gameStartTime).count() / 1000.0f;
 
@@ -473,13 +468,13 @@ void updateMvp() {
 }
 
 
-void gameloop() {
+void gameloop(Config config) {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        updateMvp();
+        updateMvp(config);
 
-        drawFrame();
+        drawFrame(config);
     }
 }
 
@@ -525,10 +520,33 @@ void shutdownGlfw() {
 int main() {
     std::cout << "Hello World!" << std::endl << std::endl;
 
-    startGlfw();
-    startVulkan();
+    Config config = Config::readFromFile("../config.ini");
+    startGlfw(config);
 
-    gameloop();
+    JojoMesh mesh1 = {};
+    mesh1.vertices = {
+            Vertex({-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 1.0f}),
+            Vertex({0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 0.0f}),
+            Vertex({-0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 1.0f}),
+            Vertex({0.5f, -0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}),
+
+            Vertex({-0.5f, -0.5f, -1.0f}, {1.0f, 0.0f, 1.0f}),
+            Vertex({0.5f, 0.5f, -1.0f}, {1.0f, 1.0f, 0.0f}),
+            Vertex({-0.5f, 0.5f, -1.0f}, {0.0f, 1.0f, 1.0f}),
+            Vertex({0.5f, -0.5f, -1.0f}, {1.0f, 1.0f, 1.0f})
+    };
+    mesh1.indices = {
+            0, 1, 2,
+            0, 3, 1,
+
+            4, 5, 6,
+            4, 7, 5,
+    };
+
+
+    startVulkan(config);
+
+    gameloop(config);
 
     shutdownVulkan();
     shutdownGlfw();
