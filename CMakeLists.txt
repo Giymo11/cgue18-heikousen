@@ -85,30 +85,42 @@ if (UNIX)
 endif()
 
 target_include_directories(
-    heikousen PRIVATE
-    ${Vulkan_INCLUDE_DIRS}
-    ${BULLET_INCLUDE_DIRS}
-    ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/extern/dist/include
-    ${CMAKE_SOURCE_DIR}/extern/dist/include/v8
-    )
+        heikousen PRIVATE
+        ${Vulkan_INCLUDE_DIRS}
+        ${BULLET_INCLUDE_DIRS}
+        ${CMAKE_SOURCE_DIR}/include
+        )
 
 if (WIN32)
+    target_include_directories(
+        heikousen PRIVATE
+        ${CMAKE_SOURCE_DIR}/extern/dist/include
+        ${CMAKE_SOURCE_DIR}/extern/dist/include/v8
+        )
     list(APPEND V8_LIBRARIES        
         winmm
         dbghelp
         shlwapi
+    	v8_base_0
+    	v8_base_1
         )
+else()
+    target_include_directories(
+        heikousen PRIVATE
+        /usr/include/v8
+        )
+    list(APPEND V8_LIBRARIES
+        pthread
+        v8_base
+    	)
 endif()
 list(APPEND V8_LIBRARIES
+    v8_nosnapshot
+    v8_libplatform
+    v8_libbase
+    v8_libsampler
     v8_init
     v8_initializers
-    v8_base_0
-    v8_base_1
-    v8_libbase
-    v8_libplatform
-    v8_nosnapshot
-    v8_libsampler
     icui18n
     icuuc
     )
