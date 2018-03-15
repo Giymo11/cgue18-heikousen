@@ -44,5 +44,21 @@ public:
 };
 
 
+class JojoMesh {
+public:
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
+    VkBuffer vertexBuffer;
+    VkDeviceMemory vertexBufferDeviceMemory;
+    VkBuffer indexBuffer;
+    VkDeviceMemory indexBufferDeviceMemory;
+    VkBuffer uniformBuffer;
+    VkDeviceMemory uniformBufferDeviceMemory;
+    VkDescriptorSet uniformDescriptorSet;
+    glm::mat4 modelMatrix;
+
+    JojoMesh() {};
+};
+
 
 

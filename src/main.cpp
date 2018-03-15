@@ -27,13 +27,6 @@ VkDevice device;
 VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 VkQueue queue;
 
-VkBuffer vertexBuffer;
-VkDeviceMemory vertexBufferDeviceMemory;
-VkBuffer indexBuffer;
-VkDeviceMemory indexBufferDeviceMemory;
-VkBuffer uniformBuffer;
-VkDeviceMemory uniformBufferDeviceMemory;
-
 const int numberOfCommandBuffers = 3;
 
 std::vector<VkImageView> imageViews;
@@ -54,38 +47,17 @@ VkSemaphore semaphoreRenderingDone;
 
 VkDescriptorSetLayout descriptorSetLayout;
 VkDescriptorPool descriptorPool;
-VkDescriptorSet descriptorSet;
 
 VkImage depthImage;
 VkDeviceMemory depthImageMemory;
 VkImageView depthImageView;
 
-
 GLFWwindow *window;
-
-std::vector<Vertex> vertices = {
-        Vertex({-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 1.0f}),
-        Vertex({0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 0.0f}),
-        Vertex({-0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 1.0f}),
-        Vertex({0.5f, -0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}),
-
-        Vertex({-0.5f, -0.5f, -1.0f}, {1.0f, 0.0f, 1.0f}),
-        Vertex({0.5f, 0.5f, -1.0f}, {1.0f, 1.0f, 0.0f}),
-        Vertex({-0.5f, 0.5f, -1.0f}, {0.0f, 1.0f, 1.0f}),
-        Vertex({0.5f, -0.5f, -1.0f}, {1.0f, 1.0f, 1.0f})
-};
-std::vector<uint32_t> indices = {
-        0, 1, 2,
-        0, 3, 1,
-
-        4, 5, 6,
-        4, 7, 5,
-};
 
 glm::mat4 mvp;
 
 
-void recordCommandBuffer(Config config, VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
+void recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, JojoMesh &mesh) {
     std::array<VkClearValue, 2> clearValues = {};
     clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
     clearValues[1].depthStencil = {1.0f, 0};
@@ -120,13 +92,13 @@ void recordCommandBuffer(Config config, VkCommandBuffer commandBuffer, VkFramebu
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
     VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &(mesh.vertexBuffer), offsets);
+    vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0,
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &(mesh.uniformDescriptorSet), 0,
                             nullptr);
 
-    vkCmdDrawIndexed(commandBuffer, indices.size(), 1, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, mesh.indices.size(), 1, 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 }
@@ -176,7 +148,7 @@ void destroySwapchainChildren(bool preservePipeline = false) {
     }
 }
 
-void createSwapchainAndChildren(Config config, bool preservePipeline = false) {
+void createSwapchainAndChildren(Config &config, bool preservePipeline = false) {
     VkResult result;
     auto chosenImageFormat = VK_FORMAT_B8G8R8A8_UNORM;   // TODO: check if valid via surfaceFormats[i].format
 
@@ -213,7 +185,7 @@ void createSwapchainAndChildren(Config config, bool preservePipeline = false) {
     );
     createImage(device, chosenDevice, config.width, config.height, depthFormat, VK_IMAGE_TILING_OPTIMAL,
                 VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage,
-                depthImageMemory);
+                &depthImageMemory);
     ASSERT_VULKAN(result)
     result = createImageView(device, depthImage, &depthImageView, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
     ASSERT_VULKAN(result)
@@ -282,7 +254,7 @@ void recreateSwapchain(Config &config) {
 }
 
 
-void startVulkan(Config config) {
+void startVulkan(Config &config, JojoMesh &mesh) {
     VkResult result;
 
     result = createInstance(&instance);
@@ -335,20 +307,20 @@ void startVulkan(Config config) {
 
 
 
-    createAndUploadBuffer(device, chosenDevice, commandPool, queue, vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                          vertexBuffer, vertexBufferDeviceMemory);
-    createAndUploadBuffer(device, chosenDevice, commandPool, queue, indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                          indexBuffer, indexBufferDeviceMemory);
+    createAndUploadBuffer(device, chosenDevice, commandPool, queue, mesh.vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                          &(mesh.vertexBuffer), &(mesh.vertexBufferDeviceMemory));
+    createAndUploadBuffer(device, chosenDevice, commandPool, queue, mesh.indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                          &(mesh.indexBuffer), &(mesh.indexBufferDeviceMemory));
 
     VkDeviceSize bufferSize = sizeof(mvp);
-    createBuffer(device, chosenDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, uniformBuffer,
-                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBufferDeviceMemory);
+    createBuffer(device, chosenDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &(mesh.uniformBuffer),
+                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &(mesh.uniformBufferDeviceMemory));
 
 
 
-    result = allocateDescriptorSet(device, descriptorPool, descriptorSetLayout, &descriptorSet);
+    result = allocateDescriptorSet(device, descriptorPool, descriptorSetLayout, &(mesh.uniformDescriptorSet));
     ASSERT_VULKAN(result)
-    bindBufferToDescriptorSet(device, uniformBuffer, descriptorSet);
+    bindBufferToDescriptorSet(device, mesh.uniformBuffer, mesh.uniformDescriptorSet);
 
     createSwapchainAndChildren(config, false);
 
@@ -375,7 +347,7 @@ void onWindowResized(GLFWwindow *window, int newWidth, int newHeight) {
     }
 }
 
-void startGlfw(Config config) {
+void startGlfw(Config &config) {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
@@ -384,7 +356,7 @@ void startGlfw(Config config) {
 }
 
 
-void drawFrame(Config config) {
+void drawFrame(Config &config, JojoMesh &mesh) {
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(device, swapchain, std::numeric_limits<uint64_t>::max(),
                                             semaphoreImageAvailable, VK_NULL_HANDLE, &imageIndex);
@@ -419,7 +391,7 @@ void drawFrame(Config config) {
     result = beginCommandBuffer(commandBuffers[imageIndex]);
     ASSERT_VULKAN(result)
 
-    recordCommandBuffer(config, commandBuffers[imageIndex], framebuffers[imageIndex]);
+    recordCommandBuffer(config, commandBuffers[imageIndex], framebuffers[imageIndex], mesh);
 
     result = vkEndCommandBuffer(commandBuffers[imageIndex]);
     ASSERT_VULKAN(result)
@@ -449,7 +421,7 @@ void drawFrame(Config config) {
 
 auto gameStartTime = std::chrono::high_resolution_clock::now();
 
-void updateMvp(Config config) {
+void updateMvp(Config &config, JojoMesh &mesh) {
     auto now = std::chrono::high_resolution_clock::now();
     float timeSinceStart = std::chrono::duration_cast<std::chrono::milliseconds>(now - gameStartTime).count() / 1000.0f;
 
@@ -461,39 +433,40 @@ void updateMvp(Config config) {
 
     mvp = projection * view * model;
     void *rawData;
-    VkResult result = vkMapMemory(device, uniformBufferDeviceMemory, 0, sizeof(mvp), 0, &rawData);
+    VkResult result = vkMapMemory(device, mesh.uniformBufferDeviceMemory, 0, sizeof(mvp), 0, &rawData);
     ASSERT_VULKAN(result)
     memcpy(rawData, &mvp, sizeof(mvp));
-    vkUnmapMemory(device, uniformBufferDeviceMemory);
+    vkUnmapMemory(device, mesh.uniformBufferDeviceMemory);
 }
 
 
-void gameloop(Config config) {
+void gameloop(Config &config, JojoMesh &mesh) {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        updateMvp(config);
+        updateMvp(config, mesh);
 
-        drawFrame(config);
+        drawFrame(config, mesh);
     }
 }
 
 
-void shutdownVulkan() {
+void shutdownVulkan(JojoMesh &mesh) {
     // block until vulkan has finished
     VkResult result = vkDeviceWaitIdle(device);
     ASSERT_VULKAN(result)
 
     vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);
-    vkFreeMemory(device, uniformBufferDeviceMemory, nullptr);
-    vkDestroyBuffer(device, uniformBuffer, nullptr);
 
-    vkFreeMemory(device, indexBufferDeviceMemory, nullptr);
-    vkDestroyBuffer(device, indexBuffer, nullptr);
+    vkFreeMemory(device, mesh.uniformBufferDeviceMemory, nullptr);
+    vkDestroyBuffer(device, mesh.uniformBuffer, nullptr);
 
-    vkFreeMemory(device, vertexBufferDeviceMemory, nullptr);
-    vkDestroyBuffer(device, vertexBuffer, nullptr);
+    vkFreeMemory(device, mesh.indexBufferDeviceMemory, nullptr);
+    vkDestroyBuffer(device, mesh.indexBuffer, nullptr);
+
+    vkFreeMemory(device, mesh.vertexBufferDeviceMemory, nullptr);
+    vkDestroyBuffer(device, mesh.vertexBuffer, nullptr);
 
     for (auto &fence : commandBufferFences) {
         vkDestroyFence(device, fence, nullptr);
@@ -544,11 +517,11 @@ int main() {
     };
 
 
-    startVulkan(config);
+    startVulkan(config, mesh1);
 
-    gameloop(config);
+    gameloop(config, mesh1);
 
-    shutdownVulkan();
+    shutdownVulkan(mesh1);
     shutdownGlfw();
 
     return 0;

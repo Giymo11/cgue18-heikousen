@@ -54,8 +54,8 @@ bool isStencilFormat(VkFormat format) {
 }
 
 void createBuffer(VkDevice device, VkPhysicalDevice chosenDevice,
-                  VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsageFlags, VkBuffer &buffer,
-                  VkMemoryPropertyFlags memoryPropertyFlags, VkDeviceMemory &deviceMemory) {
+                  VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsageFlags, VkBuffer *buffer,
+                  VkMemoryPropertyFlags memoryPropertyFlags, VkDeviceMemory *deviceMemory) {
     VkResult result;
     VkBufferCreateInfo bufferCreateInfo;
     bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -67,11 +67,11 @@ void createBuffer(VkDevice device, VkPhysicalDevice chosenDevice,
     bufferCreateInfo.queueFamilyIndexCount = 0;
     bufferCreateInfo.pQueueFamilyIndices = nullptr;
 
-    result = vkCreateBuffer(device, &bufferCreateInfo, nullptr, &buffer);
+    result = vkCreateBuffer(device, &bufferCreateInfo, nullptr, buffer);
     ASSERT_VULKAN(result)
 
     VkMemoryRequirements memoryRequirements;
-    vkGetBufferMemoryRequirements(device, buffer, &memoryRequirements);
+    vkGetBufferMemoryRequirements(device, *buffer, &memoryRequirements);
 
     VkMemoryAllocateInfo memoryAllocateInfo;
     memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -80,10 +80,10 @@ void createBuffer(VkDevice device, VkPhysicalDevice chosenDevice,
     memoryAllocateInfo.memoryTypeIndex = findMemoryTypeIndex(chosenDevice, memoryRequirements.memoryTypeBits,
                                                              memoryPropertyFlags);
 
-    result = vkAllocateMemory(device, &memoryAllocateInfo, nullptr, &deviceMemory);
+    result = vkAllocateMemory(device, &memoryAllocateInfo, nullptr, deviceMemory);
     ASSERT_VULKAN(result)
 
-    result = vkBindBufferMemory(device, buffer, deviceMemory, 0);
+    result = vkBindBufferMemory(device, *buffer, *deviceMemory, 0);
     ASSERT_VULKAN(result)
 }
 
@@ -155,15 +155,15 @@ void copyBuffer(VkDevice device, VkCommandPool commandPool, VkQueue queue,
 
 template<typename T>
 void createAndUploadBuffer(VkDevice device, VkPhysicalDevice chosenDevice, VkCommandPool commandPool, VkQueue queue,
-                           std::vector<T> data, VkBufferUsageFlags usageFlags, VkBuffer &buffer,
-                           VkDeviceMemory &deviceMemory) {
+                           std::vector<T> data, VkBufferUsageFlags usageFlags, VkBuffer *buffer,
+                           VkDeviceMemory *deviceMemory) {
 
     VkDeviceSize bufferSize = sizeof(T) * data.size();
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
-    createBuffer(device, chosenDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, stagingBuffer,
-                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBufferMemory);
+    createBuffer(device, chosenDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, &stagingBuffer,
+                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBufferMemory);
 
     void *rawData;
     VkResult result = vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &rawData);
@@ -174,7 +174,7 @@ void createAndUploadBuffer(VkDevice device, VkPhysicalDevice chosenDevice, VkCom
     createBuffer(device, chosenDevice, bufferSize, usageFlags | VK_BUFFER_USAGE_TRANSFER_DST_BIT, buffer,
                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, deviceMemory);
 
-    copyBuffer(device, commandPool, queue, stagingBuffer, buffer, bufferSize);
+    copyBuffer(device, commandPool, queue, stagingBuffer, *buffer, bufferSize);
 
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingBufferMemory, nullptr);
@@ -246,7 +246,7 @@ void changeImageLayout(VkDevice device, VkCommandPool commandPool, VkQueue queue
 
 void createImage(VkDevice device, VkPhysicalDevice chosenDevice, uint32_t width, uint32_t height, VkFormat format,
                  VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image,
-                 VkDeviceMemory &imageMemory) {
+                 VkDeviceMemory *imageMemory) {
     VkImageCreateInfo imageInfo;
 
 
@@ -280,9 +280,9 @@ void createImage(VkDevice device, VkPhysicalDevice chosenDevice, uint32_t width,
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = findMemoryTypeIndex(chosenDevice, memRequirements.memoryTypeBits, properties);
 
-    result = vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory);
+    result = vkAllocateMemory(device, &allocInfo, nullptr, imageMemory);
     ASSERT_VULKAN(result)
 
-    result = vkBindImageMemory(device, image, imageMemory, 0);
+    result = vkBindImageMemory(device, image, *imageMemory, 0);
     ASSERT_VULKAN(result)
 }
