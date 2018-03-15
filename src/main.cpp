@@ -131,15 +131,12 @@ void recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffe
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0,
                             nullptr);
 
-    vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
-
-
-    vkCmdDrawIndexed(commandBuffer, 6, 1, 6, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, indices.size(), 1, 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
 }
 
-void createAndUpdateDescriptorSet() {
+void bindBufferToDescriptorSet(VkDevice device, VkBuffer uniformBuffer, VkDescriptorSet descriptorSet) {
     VkDescriptorBufferInfo descriptorBufferInfo;
     descriptorBufferInfo.buffer = uniformBuffer;
     descriptorBufferInfo.offset = 0;
@@ -262,19 +259,6 @@ void createSwapchainAndChildren(bool preservePipeline = false) {
                                    config.height);
         ASSERT_VULKAN(result)
     }
-
-/*
-    for (size_t i = 0; i < numberOfCommandBuffers; ++i) {
-        result = beginCommandBuffer(commandBuffers[i]);
-        ASSERT_VULKAN(result)
-
-        recordCommandBuffer(commandBuffers[i], framebuffers[i]);
-
-        result = vkEndCommandBuffer(commandBuffers[i]);
-        ASSERT_VULKAN(result)
-    }
-    */
-
 }
 
 void recreateSwapchain() {
@@ -348,6 +332,14 @@ void startVulkan() {
     ASSERT_VULKAN(result)
 
 
+    result = createDescriptorPool(device, &descriptorPool);
+    ASSERT_VULKAN(result)
+
+    result = createDescriptorSetLayout(device, &descriptorSetLayout);
+    ASSERT_VULKAN(result)
+
+
+
     createAndUploadBuffer(device, chosenDevice, commandPool, queue, vertices, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                           vertexBuffer, vertexBufferDeviceMemory);
     createAndUploadBuffer(device, chosenDevice, commandPool, queue, indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
@@ -357,16 +349,11 @@ void startVulkan() {
     createBuffer(device, chosenDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, uniformBuffer,
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBufferDeviceMemory);
 
-    result = createDescriptorPool(device, &descriptorPool);
-    ASSERT_VULKAN(result)
-
-    result = createDescriptorSetLayout(device, &descriptorSetLayout);
-    ASSERT_VULKAN(result)
 
 
     result = allocateDescriptorSet(device, descriptorPool, descriptorSetLayout, &descriptorSet);
     ASSERT_VULKAN(result)
-    createAndUpdateDescriptorSet();
+    bindBufferToDescriptorSet(device, uniformBuffer, descriptorSet);
 
     createSwapchainAndChildren(false);
 
@@ -396,7 +383,6 @@ void onWindowResized(GLFWwindow *window, int newWidth, int newHeight) {
 void startGlfw() {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     window = glfwCreateWindow(config.width, config.height, "heikousen", nullptr, nullptr);
     glfwSetWindowSizeCallback(window, onWindowResized);
@@ -409,7 +395,8 @@ void drawFrame() {
                                             semaphoreImageAvailable, VK_NULL_HANDLE, &imageIndex);
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         recreateSwapchain();
-        return; // throw away this frame, because after recreating the swapchain, the vkAcquireNexImageKHR is
+        return;
+        // throw away this frame, because after recreating the swapchain, the vkAcquireNexImageKHR is
         // not signaling the semaphoreImageAvailable anymore
     }
     ASSERT_VULKAN(result)

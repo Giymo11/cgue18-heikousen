@@ -22,7 +22,7 @@ windows build & boost,      2018-03-12,     3
 config read,                2018-03-12,     0.5
 v8 build debug,             2018-03-13,     1
 vulkan re-record cmdbuf,    2018-03-13,     2
-
+design-document & demo vid, 2018-03-14,     3
 
 
 
