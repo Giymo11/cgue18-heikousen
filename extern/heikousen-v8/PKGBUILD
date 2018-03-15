@@ -109,7 +109,7 @@ prepare() {
   fi
 
   msg2 "Syncing, this can take a while..."
-#X  gclient sync --revision ${pkgver}
+  gclient sync --revision ${pkgver}
 
   msg2 "Using system libraries for ICU"
   ./build/linux/unbundle/replace_gn_files.py --system-libraries icu
@@ -118,7 +118,7 @@ prepare() {
   #patch -p1 -i ${srcdir}/gcc7.patch
 
   msg "Applying ctest patch"
-#X  patch -p1 -i ${srcdir}/ctest.patch
+  patch -p1 -i ${srcdir}/ctest.patch
 
   sed "s/@VERSION@/${pkgver}/g" -i "${srcdir}/v8.pc"
   sed "s/@VERSION@/${pkgver}/g" -i "${srcdir}/v8_libbase.pc"
