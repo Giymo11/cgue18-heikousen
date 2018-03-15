@@ -529,16 +529,16 @@ VkResult createSemaphore(const VkDevice device, VkSemaphore *semaphore) {
     return vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, semaphore);
 }
 
-VkResult createDescriptorPool(const VkDevice device, VkDescriptorPool *descriptorPool) {
+VkResult createDescriptorPool(const VkDevice device, VkDescriptorPool *descriptorPool, uint32_t descriptorCount) {
     VkDescriptorPoolSize descriptorPoolSize;
     descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptorPoolSize.descriptorCount = 1;
+    descriptorPoolSize.descriptorCount = descriptorCount;
 
     VkDescriptorPoolCreateInfo descriptorPoolCreateInfo;
     descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     descriptorPoolCreateInfo.pNext = nullptr;
     descriptorPoolCreateInfo.flags = 0;
-    descriptorPoolCreateInfo.maxSets = 1;
+    descriptorPoolCreateInfo.maxSets = descriptorCount;
     descriptorPoolCreateInfo.poolSizeCount = 1;
     descriptorPoolCreateInfo.pPoolSizes = &descriptorPoolSize;
 
