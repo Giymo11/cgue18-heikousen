@@ -22,6 +22,13 @@
 - Download [depot_tools](https://storage.googleapis.com/chrome-infra/depot_tools.zip) and extract it to extern/depot_tools.
 - Run ```call build_v8```
 
+### How to build V8 (ArchLinux)
+
+- Make sure to delete the global Python symlink and link it to Python 2 (```ln -s /usr/bin/python2 /usr/bin/python```) during the build, since v8 buildtools work with hardcoded Python paths.
+- Change to the extern/heikousen-v8 directory and run ```makepkg -s```, creating a tar.xz file.
+- Install the heikousen-v8 tar.xz file with ```pacman -U```.
+- Don't forget to reset the global Python symlink.
+
 ### TODO:
 - plan architecture
 - do concept
