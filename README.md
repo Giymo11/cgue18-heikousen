@@ -1,6 +1,6 @@
 # TU Wien - CGUE SS_2018
 
-how to install deps:
+### How to install deps (Arch):
 
 - install "bullet", "glfw-x11", "vulkan-headers", "vulkan-icd-loader", "vulkan-extra-layers", "spirv-tools", "glslang", "glm"
 - `mkdir build`
@@ -9,14 +9,20 @@ how to install deps:
 - `make`
 - `bin/heikousen`
 
-installing deps on windows:
+### How to install deps (Win64) :
 
 - Install cmake and have it in PATH
 - git submodule init
 - git submodule update
 - Start Visual Studio Dev Console x64 run ```call build_deps```
 
-TODO:
+### How to build V8 (Win64)
+
+- Download and execute the [Windows 10 SDK Installer](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk), but only check "Debugging Tools for Windows" during the installation.
+- Download [depot_tools](https://storage.googleapis.com/chrome-infra/depot_tools.zip) and extract it to extern/depot_tools.
+- Run ```call build_v8```
+
+### TODO:
 - plan architecture
 - do concept
 
