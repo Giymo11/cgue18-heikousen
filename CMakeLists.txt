@@ -13,9 +13,6 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin)
 
-set(LIB_DIR "${CMAKE_BINARY_DIR}/extern")
-
-configure_file(${CMAKE_SOURCE_DIR}/default.ini ${CMAKE_CURRENT_BINARY_DIR}/config.ini COPYONLY)
 
 add_definitions(-DGLFW_INCLUDE_VULKAN)
 
@@ -30,8 +27,10 @@ if (MSVC)
     endforeach (flag_var)
 endif ()
 
+
 file(GLOB SOURCE_FILES "src/*.[ch]pp")
 file(GLOB SHADER_FILES "shader/*.vert" "shader/*.frag")
+
 
 find_program(GLSL_EXECUTABLE glslangValidator)
 function(preprocess_glsl out_var)
@@ -65,51 +64,64 @@ else ()
     find_package(glfw3 REQUIRED HINTS "${CMAKE_SOURCE_DIR}/extern/dist/lib/cmake/glfw3")
 endif ()
 
+
 link_directories(
         ${BULLET_LIBRARY_DIRS}
         ${CMAKE_SOURCE_DIR}/extern/dist/lib
 )
+
 
 message("Vulkan found? " ${Vulkan_FOUND})
 message("Bullet found? " ${BULLET_FOUND})
 message("GLFW3 found? " ${GLFW_FOUND})
 message("GLM found? " ${GLM_FOUND})
 
+
 add_executable(heikousen ${SOURCE_FILES} ${SHADER_FILES} ${COMPILED_SHADERS})
 set(BINARY heikousen)
+
 
 if (UNIX)
     target_include_directories(
             heikousen PRIVATE
             "/usr/include/bullet"
+            "/usr/include/v8"
+    )
+    list(APPEND V8_LIBRARIES
+            pthread
+            v8_base
+    )
+else ()
+    target_include_directories(
+            heikousen PRIVATE
+            ${CMAKE_SOURCE_DIR}/extern/dist/include
+            ${CMAKE_SOURCE_DIR}/extern/dist/include/v8
+    )
+    list(APPEND V8_LIBRARIES
+            winmm
+            dbghelp
+            shlwapi
+            v8_base_0
+            v8_base_1
     )
 endif ()
+
 
 target_include_directories(
         heikousen PRIVATE
         ${Vulkan_INCLUDE_DIRS}
         ${BULLET_INCLUDE_DIRS}
         ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/extern/dist/include
-        ${CMAKE_SOURCE_DIR}/extern/dist/include/v8
 )
 
-if (WIN32)
-    list(APPEND V8_LIBRARIES
-            winmm
-            dbghelp
-            shlwapi
-    )
-endif ()
+# order matters!
 list(APPEND V8_LIBRARIES
+        v8_nosnapshot
+        v8_libplatform
+        v8_libbase
+        v8_libsampler
         v8_init
         v8_initializers
-        v8_base_0
-        v8_base_1
-        v8_libbase
-        v8_libplatform
-        v8_nosnapshot
-        v8_libsampler
         icui18n
         icuuc
 )
@@ -123,3 +135,6 @@ target_link_libraries(
         glm
         glfw
 )
+
+
+configure_file(${CMAKE_SOURCE_DIR}/default.ini ${CMAKE_CURRENT_BINARY_DIR}/config.ini COPYONLY)
