@@ -9,6 +9,7 @@ build
 mybuild
 *.spv
 extern
+config.ini
 
 CMakeFiles
 cmake_install.cmake
