@@ -24,7 +24,7 @@ topic,                      date,           duration
 \#vulkan re-record cmdbuf,          2018-03-13,     2     
 \#project design-doc & demo vid,    2018-03-14,     3     
 \#refactor mesh & debugging,        2018-03-15,     3.5   
-\#v8 building and debugging,        2018-03-16,     0.5
+\#v8 building and debugging,        2018-03-16,     1
 
 
 
