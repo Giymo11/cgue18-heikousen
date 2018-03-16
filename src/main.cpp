@@ -250,7 +250,7 @@ void recreateSwapchain(Config &config) {
     config.width = (uint32_t) std::min(newWidth, (int) surfaceCapabilitiesKHR.maxImageExtent.width);;
     config.height = (uint32_t) std::min(newHeight, (int) surfaceCapabilitiesKHR.maxImageExtent.height);
 
-    destroySwapchainChildren;
+    destroySwapchainChildren();
 
     VkSwapchainKHR oldSwapchain = swapchain;
 
