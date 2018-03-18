@@ -12,8 +12,7 @@ cmd /c fetch v8
 
 rem Pin version and sync
 cd "%~dp0extern\v8"
-cmd /c git checkout 6.7.43
-cmd /c gclient sync
+cmd /c gclient sync --revision 6.4.388.6
 
 rem Generate
 cmd /c python tools/dev/v8gen.py x64.release
@@ -21,7 +20,7 @@ cmd /c python tools/dev/v8gen.py x64.release
 rem Fix args.gn
 echo v8_static_library = true >> out.gn\x64.release\args.gn
 echo v8_use_external_startup_data = false >> out.gn\x64.release\args.gn 
-cmd /c gn gen x64.release
+cmd /c gn gen out.gn/x64.release
 
 rem rem Compile
 cmd /c ninja -C out.gn/x64.release
