@@ -86,7 +86,20 @@ public:
         V8_ASSERT_LOCAL(srcStringM);
         auto srcString = srcStringM.ToLocalChecked();
 
-        v8::ScriptCompiler::Source src(srcString);
+        auto srcNameM = v8::String::NewFromUtf8(isolate, moduleName, v8::NewStringType::kNormal);
+        V8_ASSERT_LOCAL(srcNameM);
+        auto srcName = srcNameM.ToLocalChecked();
+        v8::ScriptOrigin srcOrigin(srcName,
+            v8::Local<v8::Integer>(),
+            v8::Local<v8::Integer>(),
+            v8::Local<v8::Boolean>(),
+            v8::Local<v8::Integer>(),
+            v8::Local<v8::Value>(),
+            v8::Local<v8::Boolean>(),
+            v8::Local<v8::Boolean>(),
+            v8::Boolean::New(isolate, true));
+
+        v8::ScriptCompiler::Source src(srcString, srcOrigin);
         auto moduleM = v8::ScriptCompiler::CompileModule(isolate, &src);
         V8_ASSERT_LOCAL(moduleM);
         auto module = moduleM.ToLocalChecked();
