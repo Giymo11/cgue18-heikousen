@@ -6,7 +6,7 @@
 # Contributor: David Flemström <david.flemstrom@gmail.com>
 
 pkgname=heikousen-v8
-pkgver=6.4.388.6
+pkgver=6.7.102
 pkgrel=1
 pkgdesc="Fast and modern Javascript engine used in Google Chrome."
 arch=('i686' 'x86_64')
@@ -109,13 +109,13 @@ prepare() {
   fi
 
   msg2 "Syncing, this can take a while..."
-  gclient sync --revision ${pkgver}
+  #gclient sync --revision ${pkgver}
 
   msg2 "Using system libraries for ICU"
   ./build/linux/unbundle/replace_gn_files.py --system-libraries icu
 
   #msg2 "Applying gcc7 compatibility patch"
-  #patch -p1 -i ${srcdir}/gcc7.patch
+  patch -p1 -i ${srcdir}/gcc7.patch
 
   msg "Applying ctest patch"
   patch -p1 -i ${srcdir}/ctest.patch
@@ -163,11 +163,11 @@ check() {
   cd v8
 
   msg2 "Testing, this will also take a while..."
-  tools/run-tests.py --no-presubmit \
-                     --outdir=out.gn \
-                     --buildbot \
-                     --arch=$V8_ARCH \
-                     --mode=Release
+  # tools/run-tests.py --no-presubmit \
+  #                   --outdir=out.gn \
+  #                   --buildbot \
+  #                   --arch=$V8_ARCH \
+  #                   --mode=Release
 
   deactivate
 }

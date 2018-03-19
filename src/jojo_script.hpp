@@ -10,7 +10,7 @@
 #include <iostream>
 #include <unordered_map>
 
-#include <v8/libplatform/libplatform.h>
+#include <libplatform/libplatform.h>
 #include <v8/v8.h>
 
 #include "debug_trap.h"
