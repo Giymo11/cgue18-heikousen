@@ -12,7 +12,7 @@ cmd /c fetch v8
 
 rem Pin version and sync
 cd "%~dp0extern\v8"
-cmd /c gclient sync --revision 6.4.388.6
+cmd /c gclient sync --revision 6.7.102
 
 rem Generate
 cmd /c python tools/dev/v8gen.py x64.release
