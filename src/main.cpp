@@ -400,11 +400,12 @@ void drawFrame(Config &config, std::vector<JojoMesh> &meshes) {
     ASSERT_VULKAN(result)
 }
 
-auto gameStartTime = std::chrono::high_resolution_clock::now();
+auto lastFrameTime = std::chrono::high_resolution_clock::now();
 
 void updateMvp(Config &config, std::vector<JojoMesh> &meshes) {
     auto now = std::chrono::high_resolution_clock::now();
-    float timeSinceStart = std::chrono::duration_cast<std::chrono::milliseconds>(now - gameStartTime).count() / 1000.0f;
+    float timeSinceLastFrame = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count() / 1000.0f;
+    lastFrameTime = now;
 
     glm::mat4 view = glm::lookAt(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     glm::mat4 projection = glm::perspective(glm::radians(60.0f), config.width / (float) config.height, 0.001f, 100.0f);
@@ -415,7 +416,7 @@ void updateMvp(Config &config, std::vector<JojoMesh> &meshes) {
     for (int i = 0; i < meshes.size(); ++i) {
         JojoMesh &mesh = meshes[i];
         int direction = (i % 2 * 2 - 1);
-        mesh.modelMatrix = glm::rotate(glm::mat4(), timeSinceStart * glm::radians(30.0f) * direction,
+        mesh.modelMatrix = glm::rotate(mesh.modelMatrix, timeSinceLastFrame * glm::radians(30.0f) * direction,
                                        glm::vec3(0, 0, 1));
         glm::mat4 mvp = projection * view * mesh.modelMatrix;
         VkResult result = vkMapMemory(device, mesh.uniformBufferDeviceMemory, 0, sizeof(mvp), 0, &rawData);
@@ -527,15 +528,17 @@ int main(int argc, char *argv[]) {
     };
 
     meshes[1].vertices = {
-            Vertex({-0.5f, -0.5f, -1.0f}, {1.0f, 0.0f, 1.0f}),
-            Vertex({0.5f, 0.5f, -1.0f}, {1.0f, 1.0f, 0.0f}),
-            Vertex({-0.5f, 0.5f, -1.0f}, {0.0f, 1.0f, 1.0f}),
-            Vertex({0.5f, -0.5f, -1.0f}, {1.0f, 1.0f, 1.0f})
+            Vertex({-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 1.0f}),
+            Vertex({0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 0.0f}),
+            Vertex({-0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 1.0f}),
+            Vertex({0.5f, -0.5f, 0.0f}, {1.0f, 1.0f, 1.0f})
     };
     meshes[1].indices = {
             0, 1, 2,
             0, 3, 1
     };
+
+    meshes[1].modelMatrix = glm::translate(glm::mat4(), glm::vec3(0.0f, 0.0f, -1.0f));
 
 
     startVulkan();
