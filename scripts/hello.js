@@ -1,5 +1,13 @@
-const hi = function () {
-    return 3 + 2 + 1 + " Hello, World!";
+class HelloController {
+    constructor() {
+        this.id = 123;
+    }
+
+    updateLogic() {
+        log("Hi Billy Mayes here for " + this.id);
+    }
 }
 
-hi();
+function xyz() {
+    return 3;
+}

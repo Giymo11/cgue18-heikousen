@@ -27,6 +27,8 @@
 
 namespace Scripting {
 
+using namespace v8;
+
 // Read a file into a null-terminated vector of bytes
 std::vector<char> readFileNullTerm(const char *moduleName) {
     std::vector<char> contents;
@@ -40,37 +42,37 @@ std::vector<char> readFileNullTerm(const char *moduleName) {
 }
 
 // Callback necessary for module instantiation
-v8::MaybeLocal<v8::Module> resolve(v8::Local<v8::Context> context,
-    v8::Local<v8::String> specifier,
-    v8::Local<v8::Module> referrer) {
+MaybeLocal<Module> resolve(Local<Context> context,
+    Local<String> specifier,
+    Local<Module> referrer) {
 
     // TODO: Implement this function for resolving modules
     std::cout << "Resolving: " << *specifier;
-    return v8::MaybeLocal<v8::Module>();
+    return MaybeLocal<Module>();
 }
 
 class Engine {
 public:
     Engine(const char *data_dir) {
         // V8 Initialization code
-        v8::V8::InitializeICUDefaultLocation(data_dir);
-        v8::V8::InitializeExternalStartupData(data_dir);
-        m_platform = v8::platform::NewDefaultPlatform();
-        v8::V8::InitializePlatform(m_platform.get());
-        v8::V8::Initialize();
+        V8::InitializeICUDefaultLocation(data_dir);
+        V8::InitializeExternalStartupData(data_dir);
+        m_platform = platform::NewDefaultPlatform();
+        V8::InitializePlatform(m_platform.get());
+        V8::Initialize();
 
         // Create a new isolate and only use this one
-        v8::Isolate::CreateParams create_params;
-        m_arrayBufferAllocator = v8::ArrayBuffer::Allocator::NewDefaultAllocator();
+        Isolate::CreateParams create_params;
+        m_arrayBufferAllocator = ArrayBuffer::Allocator::NewDefaultAllocator();
         create_params.array_buffer_allocator = m_arrayBufferAllocator;
-        m_isolate = v8::Isolate::New(create_params);
+        m_isolate = Isolate::New(create_params);
     }
 
     ~Engine() {
         m_isolate->Dispose();
         delete m_arrayBufferAllocator;
-        v8::V8::Dispose();
-        v8::V8::ShutdownPlatform();
+        V8::Dispose();
+        V8::ShutdownPlatform();
     }
 
     // TODO: Load/instantiate module once and evaluate later on
@@ -78,30 +80,30 @@ public:
         const auto &srcData = readFileNullTerm(moduleName);
         auto isolate = m_isolate;
 
-        v8::Isolate::Scope isolateScope(isolate);
-        v8::HandleScope handleScope(isolate);
-        auto context = v8::Context::New(isolate);
-        v8::Context::Scope context_scope(context);
+        Isolate::Scope isolateScope(isolate);
+        HandleScope handleScope(isolate);
+        auto context = Context::New(isolate);
+        Context::Scope context_scope(context);
 
-        auto srcStringM = v8::String::NewFromUtf8(isolate, srcData.data(), v8::NewStringType::kNormal);
+        auto srcStringM = String::NewFromUtf8(isolate, srcData.data(), NewStringType::kNormal);
         V8_ASSERT_LOCAL(srcStringM);
         auto srcString = srcStringM.ToLocalChecked();
 
-        auto srcNameM = v8::String::NewFromUtf8(isolate, moduleName, v8::NewStringType::kNormal);
+        auto srcNameM = String::NewFromUtf8(isolate, moduleName, NewStringType::kNormal);
         V8_ASSERT_LOCAL(srcNameM);
         auto srcName = srcNameM.ToLocalChecked();
-        v8::ScriptOrigin srcOrigin(srcName,
-            v8::Local<v8::Integer>(),
-            v8::Local<v8::Integer>(),
-            v8::Local<v8::Boolean>(),
-            v8::Local<v8::Integer>(),
-            v8::Local<v8::Value>(),
-            v8::Local<v8::Boolean>(),
-            v8::Local<v8::Boolean>(),
-            v8::Boolean::New(isolate, true));
+        ScriptOrigin srcOrigin(srcName,
+            Local<Integer>(),
+            Local<Integer>(),
+            Local<Boolean>(),
+            Local<Integer>(),
+            Local<Value>(),
+            Local<Boolean>(),
+            Local<Boolean>(),
+            Boolean::New(isolate, true));
 
-        v8::ScriptCompiler::Source src(srcString, srcOrigin);
-        auto moduleM = v8::ScriptCompiler::CompileModule(isolate, &src);
+        ScriptCompiler::Source src(srcString, srcOrigin);
+        auto moduleM = ScriptCompiler::CompileModule(isolate, &src);
         V8_ASSERT_LOCAL(moduleM);
         auto module = moduleM.ToLocalChecked();
 
@@ -111,14 +113,25 @@ public:
         V8_ASSERT_LOCAL(retvalM);
         auto retval = retvalM.ToLocalChecked();
 
-        v8::String::Utf8Value utf8(isolate, retval);
+        // TODO: Error handling?
+        auto proto_name = String::NewFromUtf8(isolate, "xyz", NewStringType::kNormal).ToLocalChecked();
+        Local<Value> proto_val;
+        std::cout << context->Global()->Get(context, proto_name).ToLocal(&proto_val);
+        std::cout << proto_val->IsUndefined();
+        auto proto = Local<Function>::Cast(proto_val);
+
+        // Create object
+        auto obj = proto->NewInstance(context);
+
+
+        String::Utf8Value utf8(isolate, retval);
         std::cout << *utf8;
     }
 
 private:
-    std::unique_ptr<v8::Platform>  m_platform;
-    v8::ArrayBuffer::Allocator    *m_arrayBufferAllocator;
-    v8::Isolate                   *m_isolate;
+    std::unique_ptr<Platform>  m_platform;
+    ArrayBuffer::Allocator    *m_arrayBufferAllocator;
+    Isolate                   *m_isolate;
 };
 
 }
