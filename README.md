@@ -31,7 +31,7 @@
 1. [/] val layers?
 1. [/] refactor for hotkey use
 1. [x] pipeline rebuild (wireframe etc)
-1. [ ] bullet colldet/collresp test (= game over condition)
+1. [/] bullet colldet/collresp test (= game over condition)
 1. [/] script engine
 1. [ ] movement in planning phase, bullet based (= win condition)
 1. [ ] movement tracking / replay system

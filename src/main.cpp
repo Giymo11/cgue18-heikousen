@@ -408,7 +408,8 @@ auto lastFrameTime = std::chrono::high_resolution_clock::now();
 
 void updateMvp(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &meshes) {
     auto now = std::chrono::high_resolution_clock::now();
-    float timeSinceLastFrame = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count() / 1000.0f;
+    float timeSinceLastFrame =
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count() / 1000.0f;
     lastFrameTime = now;
 
     glm::mat4 view = glm::translate(glm::mat4(), glm::vec3(0.0f, 0.0f, -5.0f));
@@ -419,7 +420,6 @@ void updateMvp(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &mesh
 
 
     physics.dynamicsWorld->stepSimulation(timeSinceLastFrame);
-
 
 
     void *rawData;
@@ -438,8 +438,8 @@ void updateMvp(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &mesh
         }
         btVector3 origin = trans.getOrigin();
         std::printf("%d " PRINTF_FLOAT " " PRINTF_FLOAT " " PRINTF_FLOAT " ",
-                i, origin.getX(), origin.getY(), origin.getZ());
-        auto& manifoldPoints = physics.objectsCollisions[body];
+                    i, origin.getX(), origin.getY(), origin.getZ());
+        auto &manifoldPoints = physics.objectsCollisions[body];
         if (manifoldPoints.empty()) {
             std::printf("0");
         } else {
@@ -544,9 +544,6 @@ void initializeBuffers(std::vector<JojoMesh> &meshes) {
 }
 
 
-
-
-
 int main(int argc, char *argv[]) {
     hello_v8(argv[0]);
 
@@ -561,45 +558,46 @@ int main(int argc, char *argv[]) {
 
     float width = 0.5f, height = 0.5f, depth = 0.5f;
 
-    for(int i = 0; i < meshes.size(); ++i) {
+    for (int i = 0; i < meshes.size(); ++i) {
         meshes[i].vertices = {
-                Vertex({ -width, -height, -depth}, {1.0f, 0.0f, 1.0f}),
-                Vertex({ width, -height, -depth }, {1.0f, 1.0f, 0.0f}),
-                Vertex({ width,  height, -depth }, {0.0f, 1.0f, 1.0f}),
-                Vertex({ -width,  height, -depth}, {1.0f, 1.0f, 1.0f}),
-                Vertex({ -width, -height,  depth}, {1.0f, 0.0f, 1.0f}),
-                Vertex({ width, -height,  depth }, {1.0f, 1.0f, 0.0f}),
-                Vertex({ width,  height,  depth }, {0.0f, 1.0f, 1.0f}),
-                Vertex({ -width,  height,  depth }, {1.0f, 1.0f, 1.0f})
+                Vertex({-width, -height, -depth}, {1.0f, 0.0f, 1.0f}),
+                Vertex({width, -height, -depth}, {1.0f, 1.0f, 0.0f}),
+                Vertex({width, height, -depth}, {0.0f, 1.0f, 1.0f}),
+                Vertex({-width, height, -depth}, {1.0f, 1.0f, 1.0f}),
+                Vertex({-width, -height, depth}, {1.0f, 0.0f, 1.0f}),
+                Vertex({width, -height, depth}, {1.0f, 1.0f, 0.0f}),
+                Vertex({width, height, depth}, {0.0f, 1.0f, 1.0f}),
+                Vertex({-width, height, depth}, {1.0f, 1.0f, 1.0f})
         };
-        meshes[i].indices = { 0, 1, 2,
-                              0, 3, 1,
+        meshes[i].indices = {0, 1, 2,
+                             0, 3, 1,
 
-                              1,2,6,
-                              6,5,1,
+                             1, 2, 6,
+                             6, 5, 1,
 
-                              4,5,6,
-                              6,7,4,
+                             4, 5, 6,
+                             6, 7, 4,
 
-                              2,3,6,
-                              6,3,7,
+                             2, 3, 6,
+                             6, 3, 7,
 
-                              0,7,3,
-                              0,4,7,
+                             0, 7, 3,
+                             0, 4, 7,
 
-                              0,1,5,
-                              0,5,4
+                             0, 1, 5,
+                             0, 5, 4
         };
 
-        btCollisionShape *colShape = new btBoxShape(btVector3(0.5, 0.5, 0.5));
+        btCollisionShape *colShape = new btBoxShape(btVector3(height, width, depth));
 
         physics.collisionShapes.push_back(colShape);
 
         btTransform startTransform;
         startTransform.setIdentity();
 
-        startTransform.setOrigin(btVector3(0.0f, -2.0f * i, 0.0f));
-        meshes[i].modelMatrix = glm::translate(glm::mat4(), glm::vec3(0.0f, -2.0f * i, 0.0f));
+        auto offset = -2.0f;
+        startTransform.setOrigin(btVector3(0.0f, offset * i, 0.0f));
+        meshes[i].modelMatrix = glm::translate(glm::mat4(), glm::vec3(0.0f, offset * i, 0.0f));
 
         btVector3 localInertia(0, 1, 0);
         btScalar mass(i + 1.0f);
@@ -608,11 +606,12 @@ int main(int argc, char *argv[]) {
 
         btDefaultMotionState *myMotionState = new btDefaultMotionState(startTransform);
 
-        btRigidBody *body = new btRigidBody(btRigidBody::btRigidBodyConstructionInfo(mass, myMotionState, colShape, localInertia));
+        btRigidBody *body = new btRigidBody(
+                btRigidBody::btRigidBodyConstructionInfo(mass, myMotionState, colShape, localInertia));
         body->setRestitution(objectRestitution);
 
-        if(i == 0) {
-            body->applyCentralImpulse(btVector3(0.0f, -1.0f, 0.0f));
+        if (i == 0) {
+            body->applyCentralImpulse(btVector3(0.0f, offset, 0.0f));
         }
 
         physics.dynamicsWorld->addRigidBody(body);
