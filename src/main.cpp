@@ -23,6 +23,7 @@
 #include "jojo_vulkan.hpp"
 #include "jojo_vulkan_utils.hpp"
 #include "jojo_vulkan_info.hpp"
+#include "jojo_physics.hpp"
 
 
 VkInstance instance;
@@ -59,53 +60,6 @@ VkDeviceMemory depthImageMemory;
 VkImageView depthImageView;
 
 GLFWwindow *window;
-
-
-
-
-
-#define PRINTF_FLOAT "%7.3f"
-
-constexpr float groundRestitution = 0.9f;
-constexpr float objectRestitution = 0.9f;
-
-std::map<const btCollisionObject*,std::vector<btManifoldPoint*>> objectsCollisions;
-void myTickCallback(btDynamicsWorld *dynamicsWorld, btScalar timeStep) {
-    objectsCollisions.clear();
-
-    int numManifolds = dynamicsWorld->getDispatcher()->getNumManifolds();
-    for (int i = 0; i < numManifolds; i++) {
-        btPersistentManifold *contactManifold = dynamicsWorld->getDispatcher()->getManifoldByIndexInternal(i);
-
-        auto *objA = contactManifold->getBody0();
-        auto *objB = contactManifold->getBody1();
-
-        auto& collisionsA = objectsCollisions[objA];
-        auto& collisionsB = objectsCollisions[objB];
-
-        int numContacts = contactManifold->getNumContacts();
-        for (int j = 0; j < numContacts; j++) {
-            btManifoldPoint& pt = contactManifold->getContactPoint(j);
-
-            collisionsA.push_back(&pt);
-            collisionsB.push_back(&pt);
-        }
-    }
-}
-
-
-btDefaultCollisionConfiguration *collisionConfiguration = new btDefaultCollisionConfiguration();
-
-btCollisionDispatcher *dispatcher = new btCollisionDispatcher(collisionConfiguration);
-
-btBroadphaseInterface *overlappingPairCache = new btDbvtBroadphase();
-btSequentialImpulseConstraintSolver* solver = new btSequentialImpulseConstraintSolver;
-
-btDiscreteDynamicsWorld *dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
-
-btAlignedObjectArray<btCollisionShape*> collisionShapes;
-
-
 
 
 void recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFramebuffer framebuffer,
@@ -452,7 +406,7 @@ void drawFrame(Config &config, std::vector<JojoMesh> &meshes) {
 
 auto lastFrameTime = std::chrono::high_resolution_clock::now();
 
-void updateMvp(Config &config, std::vector<JojoMesh> &meshes) {
+void updateMvp(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &meshes) {
     auto now = std::chrono::high_resolution_clock::now();
     float timeSinceLastFrame = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count() / 1000.0f;
     lastFrameTime = now;
@@ -464,7 +418,7 @@ void updateMvp(Config &config, std::vector<JojoMesh> &meshes) {
     projection[1][1] *= -1;
 
 
-    dynamicsWorld->stepSimulation(timeSinceLastFrame);
+    physics.dynamicsWorld->stepSimulation(timeSinceLastFrame);
 
 
 
@@ -473,7 +427,8 @@ void updateMvp(Config &config, std::vector<JojoMesh> &meshes) {
         JojoMesh &mesh = meshes[i];
 
 
-        btCollisionObject *obj = dynamicsWorld->getCollisionObjectArray()[i];
+        // TODO: move this over to the physics class as well
+        btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[i];
         btRigidBody *body = btRigidBody::upcast(obj);
         btTransform trans;
         if (body && body->getMotionState()) {
@@ -484,14 +439,13 @@ void updateMvp(Config &config, std::vector<JojoMesh> &meshes) {
         btVector3 origin = trans.getOrigin();
         std::printf("%d " PRINTF_FLOAT " " PRINTF_FLOAT " " PRINTF_FLOAT " ",
                 i, origin.getX(), origin.getY(), origin.getZ());
-        auto& manifoldPoints = objectsCollisions[body];
+        auto& manifoldPoints = physics.objectsCollisions[body];
         if (manifoldPoints.empty()) {
             std::printf("0");
         } else {
             std::printf("1");
         }
         puts("");
-
 
 
         trans.getOpenGLMatrix(glm::value_ptr(mesh.modelMatrix));
@@ -510,11 +464,11 @@ void updateMvp(Config &config, std::vector<JojoMesh> &meshes) {
 }
 
 
-void gameloop(Config &config, std::vector<JojoMesh> &meshes) {
+void gameloop(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &meshes) {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        updateMvp(config, meshes);
+        updateMvp(config, physics, meshes);
 
         drawFrame(config, meshes);
     }
@@ -603,8 +557,7 @@ int main(int argc, char *argv[]) {
     std::vector<JojoMesh> meshes;
     meshes.resize(2);
 
-    dynamicsWorld->setInternalTickCallback(myTickCallback);
-    dynamicsWorld->setGravity(btVector3(0, 0, 0));
+    JojoPhysics physics;
 
     float width = 0.5f, height = 0.5f, depth = 0.5f;
 
@@ -640,7 +593,7 @@ int main(int argc, char *argv[]) {
 
         btCollisionShape *colShape = new btBoxShape(btVector3(0.5, 0.5, 0.5));
 
-        collisionShapes.push_back(colShape);
+        physics.collisionShapes.push_back(colShape);
 
         btTransform startTransform;
         startTransform.setIdentity();
@@ -649,7 +602,7 @@ int main(int argc, char *argv[]) {
         meshes[i].modelMatrix = glm::translate(glm::mat4(), glm::vec3(0.0f, -2.0f * i, 0.0f));
 
         btVector3 localInertia(0, 1, 0);
-        btScalar mass(1.0f);
+        btScalar mass(i + 1.0f);
 
         colShape->calculateLocalInertia(mass, localInertia);
 
@@ -662,11 +615,8 @@ int main(int argc, char *argv[]) {
             body->applyCentralImpulse(btVector3(0.0f, -1.0f, 0.0f));
         }
 
-        dynamicsWorld->addRigidBody(body);
+        physics.dynamicsWorld->addRigidBody(body);
     }
-
-
-
 
 
     startVulkan();
@@ -677,7 +627,7 @@ int main(int argc, char *argv[]) {
 
     createPipeline(config);
 
-    gameloop(config, meshes);
+    gameloop(config, physics, meshes);
 
     shutdownVulkan(meshes);
     shutdownGlfw();
