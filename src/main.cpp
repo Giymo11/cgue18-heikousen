@@ -12,6 +12,9 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include <btBulletDynamicsCommon.h>
 
 #include "jojo_data.hpp"
 #include "jojo_script.hpp"
@@ -56,6 +59,53 @@ VkDeviceMemory depthImageMemory;
 VkImageView depthImageView;
 
 GLFWwindow *window;
+
+
+
+
+
+#define PRINTF_FLOAT "%7.3f"
+
+constexpr float groundRestitution = 0.9f;
+constexpr float objectRestitution = 0.9f;
+
+std::map<const btCollisionObject*,std::vector<btManifoldPoint*>> objectsCollisions;
+void myTickCallback(btDynamicsWorld *dynamicsWorld, btScalar timeStep) {
+    objectsCollisions.clear();
+
+    int numManifolds = dynamicsWorld->getDispatcher()->getNumManifolds();
+    for (int i = 0; i < numManifolds; i++) {
+        btPersistentManifold *contactManifold = dynamicsWorld->getDispatcher()->getManifoldByIndexInternal(i);
+
+        auto *objA = contactManifold->getBody0();
+        auto *objB = contactManifold->getBody1();
+
+        auto& collisionsA = objectsCollisions[objA];
+        auto& collisionsB = objectsCollisions[objB];
+
+        int numContacts = contactManifold->getNumContacts();
+        for (int j = 0; j < numContacts; j++) {
+            btManifoldPoint& pt = contactManifold->getContactPoint(j);
+
+            collisionsA.push_back(&pt);
+            collisionsB.push_back(&pt);
+        }
+    }
+}
+
+
+btDefaultCollisionConfiguration *collisionConfiguration = new btDefaultCollisionConfiguration();
+
+btCollisionDispatcher *dispatcher = new btCollisionDispatcher(collisionConfiguration);
+
+btBroadphaseInterface *overlappingPairCache = new btDbvtBroadphase();
+btSequentialImpulseConstraintSolver* solver = new btSequentialImpulseConstraintSolver;
+
+btDiscreteDynamicsWorld *dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
+
+btAlignedObjectArray<btCollisionShape*> collisionShapes;
+
+
 
 
 void recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFramebuffer framebuffer,
@@ -407,23 +457,56 @@ void updateMvp(Config &config, std::vector<JojoMesh> &meshes) {
     float timeSinceLastFrame = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count() / 1000.0f;
     lastFrameTime = now;
 
-    glm::mat4 view = glm::lookAt(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::mat4 view = glm::translate(glm::mat4(), glm::vec3(0.0f, 0.0f, -5.0f));
+    //view[1][1] *= -1;
     glm::mat4 projection = glm::perspective(glm::radians(60.0f), config.width / (float) config.height, 0.001f, 100.0f);
     // openGL has the z dir flipped
     projection[1][1] *= -1;
 
+
+    dynamicsWorld->stepSimulation(timeSinceLastFrame);
+
+
+
     void *rawData;
     for (int i = 0; i < meshes.size(); ++i) {
         JojoMesh &mesh = meshes[i];
+
+
+        btCollisionObject *obj = dynamicsWorld->getCollisionObjectArray()[i];
+        btRigidBody *body = btRigidBody::upcast(obj);
+        btTransform trans;
+        if (body && body->getMotionState()) {
+            body->getMotionState()->getWorldTransform(trans);
+        } else {
+            trans = obj->getWorldTransform();
+        }
+        btVector3 origin = trans.getOrigin();
+        std::printf("%d " PRINTF_FLOAT " " PRINTF_FLOAT " " PRINTF_FLOAT " ",
+                i, origin.getX(), origin.getY(), origin.getZ());
+        auto& manifoldPoints = objectsCollisions[body];
+        if (manifoldPoints.empty()) {
+            std::printf("0");
+        } else {
+            std::printf("1");
+        }
+        puts("");
+
+
+
+        trans.getOpenGLMatrix(glm::value_ptr(mesh.modelMatrix));
+
+
         int direction = (i % 2 * 2 - 1);
-        mesh.modelMatrix = glm::rotate(mesh.modelMatrix, timeSinceLastFrame * glm::radians(30.0f) * direction,
-                                       glm::vec3(0, 0, 1));
+        //mesh.modelMatrix = glm::rotate(mesh.modelMatrix, timeSinceLastFrame * glm::radians(30.0f) * direction, glm::vec3(0, 0, 1));
         glm::mat4 mvp = projection * view * mesh.modelMatrix;
         VkResult result = vkMapMemory(device, mesh.uniformBufferDeviceMemory, 0, sizeof(mvp), 0, &rawData);
         ASSERT_VULKAN(result)
         memcpy(rawData, &mvp, sizeof(mvp));
         vkUnmapMemory(device, mesh.uniformBufferDeviceMemory);
     }
+
+
 }
 
 
@@ -507,6 +590,9 @@ void initializeBuffers(std::vector<JojoMesh> &meshes) {
 }
 
 
+
+
+
 int main(int argc, char *argv[]) {
     hello_v8(argv[0]);
 
@@ -516,29 +602,71 @@ int main(int argc, char *argv[]) {
 
     std::vector<JojoMesh> meshes;
     meshes.resize(2);
-    meshes[0].vertices = {
-            Vertex({-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 1.0f}),
-            Vertex({0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 0.0f}),
-            Vertex({-0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 1.0f}),
-            Vertex({0.5f, -0.5f, 0.0f}, {1.0f, 1.0f, 1.0f})
-    };
-    meshes[0].indices = {
-            0, 1, 2,
-            0, 3, 1
-    };
 
-    meshes[1].vertices = {
-            Vertex({-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 1.0f}),
-            Vertex({0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 0.0f}),
-            Vertex({-0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 1.0f}),
-            Vertex({0.5f, -0.5f, 0.0f}, {1.0f, 1.0f, 1.0f})
-    };
-    meshes[1].indices = {
-            0, 1, 2,
-            0, 3, 1
-    };
+    dynamicsWorld->setInternalTickCallback(myTickCallback);
+    dynamicsWorld->setGravity(btVector3(0, 0, 0));
 
-    meshes[1].modelMatrix = glm::translate(glm::mat4(), glm::vec3(0.0f, 0.0f, -1.0f));
+    float width = 0.5f, height = 0.5f, depth = 0.5f;
+
+    for(int i = 0; i < meshes.size(); ++i) {
+        meshes[i].vertices = {
+                Vertex({ -width, -height, -depth}, {1.0f, 0.0f, 1.0f}),
+                Vertex({ width, -height, -depth }, {1.0f, 1.0f, 0.0f}),
+                Vertex({ width,  height, -depth }, {0.0f, 1.0f, 1.0f}),
+                Vertex({ -width,  height, -depth}, {1.0f, 1.0f, 1.0f}),
+                Vertex({ -width, -height,  depth}, {1.0f, 0.0f, 1.0f}),
+                Vertex({ width, -height,  depth }, {1.0f, 1.0f, 0.0f}),
+                Vertex({ width,  height,  depth }, {0.0f, 1.0f, 1.0f}),
+                Vertex({ -width,  height,  depth }, {1.0f, 1.0f, 1.0f})
+        };
+        meshes[i].indices = { 0, 1, 2,
+                              0, 3, 1,
+
+                              1,2,6,
+                              6,5,1,
+
+                              4,5,6,
+                              6,7,4,
+
+                              2,3,6,
+                              6,3,7,
+
+                              0,7,3,
+                              0,4,7,
+
+                              0,1,5,
+                              0,5,4
+        };
+
+        btCollisionShape *colShape = new btBoxShape(btVector3(0.5, 0.5, 0.5));
+
+        collisionShapes.push_back(colShape);
+
+        btTransform startTransform;
+        startTransform.setIdentity();
+
+        startTransform.setOrigin(btVector3(0.0f, -2.0f * i, 0.0f));
+        meshes[i].modelMatrix = glm::translate(glm::mat4(), glm::vec3(0.0f, -2.0f * i, 0.0f));
+
+        btVector3 localInertia(0, 1, 0);
+        btScalar mass(1.0f);
+
+        colShape->calculateLocalInertia(mass, localInertia);
+
+        btDefaultMotionState *myMotionState = new btDefaultMotionState(startTransform);
+
+        btRigidBody *body = new btRigidBody(btRigidBody::btRigidBodyConstructionInfo(mass, myMotionState, colShape, localInertia));
+        body->setRestitution(objectRestitution);
+
+        if(i == 0) {
+            body->applyCentralImpulse(btVector3(0.0f, -1.0f, 0.0f));
+        }
+
+        dynamicsWorld->addRigidBody(body);
+    }
+
+
+
 
 
     startVulkan();
