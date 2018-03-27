@@ -114,18 +114,22 @@ public:
         auto retval = retvalM.ToLocalChecked();
 
         // TODO: Error handling?
-        auto proto_name = String::NewFromUtf8(isolate, "xyz", NewStringType::kNormal).ToLocalChecked();
-        Local<Value> proto_val;
-        std::cout << context->Global()->Get(context, proto_name).ToLocal(&proto_val);
-        std::cout << proto_val->IsUndefined();
-        auto proto = Local<Function>::Cast(proto_val);
+        // auto proto_name = String::NewFromUtf8(isolate, "xyz", NewStringType::kNormal).ToLocalChecked();
+        // Local<Value> proto_val;
+        // std::cout << context->Global()->Get(context, proto_name).ToLocal(&proto_val);
+        // std::cout << proto_val->IsUndefined();
+        auto proto = Local<Function>::Cast(retval);
 
         // Create object
-        auto obj = proto->NewInstance(context);
+        auto obj = proto->NewInstance(context).ToLocalChecked();
 
+        // Get function
+        auto fn_name = String::NewFromUtf8(isolate, "updateLogic", NewStringType::kNormal).ToLocalChecked();
+        auto fn = Local<Function>::Cast(obj->Get(context, fn_name).ToLocalChecked());
+        auto fnRet = fn->Call(context, obj, 0, nullptr).ToLocalChecked();
 
-        String::Utf8Value utf8(isolate, retval);
-        std::cout << *utf8;
+        String::Utf8Value fnRetStr(isolate, fnRet);
+        std::cout << *fnRetStr;
     }
 
 private:

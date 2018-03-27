@@ -4,10 +4,10 @@ class HelloController {
     }
 
     updateLogic() {
-        log("Hi Billy Mayes here for " + this.id);
+        // log("Hi Billy Mayes here for " + this.id);
+        return this.id;
     }
 }
 
-function xyz() {
-    return 3;
-}
+// Export class for use in C++
+HelloController
