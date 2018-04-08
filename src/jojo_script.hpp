@@ -4,10 +4,11 @@
 
 #pragma once
 
-
+#include <cstdlib>
 #include <memory>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <unordered_map>
 
 #include <libplatform/libplatform.h>
@@ -30,7 +31,7 @@ namespace Scripting {
 using namespace v8;
 
 // Read a file into a null-terminated vector of bytes
-std::vector<char> readFileNullTerm(const char *moduleName) {
+std::vector<char> readScript(const char *moduleName) {
     std::vector<char> contents;
     std::ifstream f(moduleName, std::ios::ate | std::ios::binary);
 
@@ -42,21 +43,58 @@ std::vector<char> readFileNullTerm(const char *moduleName) {
 }
 
 // Callback necessary for module instantiation
-MaybeLocal<Module> resolve(Local<Context> context,
-    Local<String> specifier,
-    Local<Module> referrer) {
-
-    // TODO: Implement this function for resolving modules
-    std::cout << "Resolving: " << *specifier;
+MaybeLocal<Module> resolve(Local<Context>, Local<String>, Local<Module>) {
+    std::cerr << "Module resolving not implemented" << std::endl;
+    std::exit(1);
     return MaybeLocal<Module>();
 }
 
+class GameObject {
+public:
+    ~GameObject() {
+        m_updateLogic.Reset();
+        m_obj.Reset();
+        m_context.Reset();
+    }
+
+    void updateLogic() {
+        auto isolate = m_isolate;
+        HandleScope handleScope(isolate);
+        auto context = v8::Local<v8::Context>::New(isolate, m_context);
+        Context::Scope context_scope(context);
+        auto obj = v8::Local<v8::Object>::New(isolate, m_obj);
+        auto fn = v8::Local<v8::Function>::New(isolate, m_updateLogic);
+
+        auto fnRet = fn->Call(context, obj, 0, nullptr).ToLocalChecked();
+        String::Utf8Value fnRetStr(isolate, fnRet);
+        std::cout << *fnRetStr;
+    }
+
+    void hook(Isolate *isolate, const Local<Context> &context, const Local<Function> &constructor) {
+        m_isolate = isolate;
+        m_context.Reset(isolate, context);
+        auto obj = constructor->NewInstance(context).ToLocalChecked();
+        m_obj.Reset(isolate, obj);
+
+        // Get function
+        auto fn_name = String::NewFromUtf8(isolate, "updateLogic", NewStringType::kNormal).ToLocalChecked();
+        auto updateLogic = Local<Function>::Cast(obj->Get(context, fn_name).ToLocalChecked());
+        m_updateLogic.Reset(isolate, updateLogic);
+    }
+
+private:
+    Isolate         *m_isolate;
+    Global<Context>  m_context;
+    Global<Object>   m_obj;
+    Global<Function> m_updateLogic;
+};
+
 class Engine {
 public:
-    Engine(const char *data_dir) {
+    Engine() {
         // V8 Initialization code
-        V8::InitializeICUDefaultLocation(data_dir);
-        V8::InitializeExternalStartupData(data_dir);
+        V8::InitializeICUDefaultLocation("");
+        V8::InitializeExternalStartupData("");
         m_platform = platform::NewDefaultPlatform();
         V8::InitializePlatform(m_platform.get());
         V8::Initialize();
@@ -66,32 +104,32 @@ public:
         m_arrayBufferAllocator = ArrayBuffer::Allocator::NewDefaultAllocator();
         create_params.array_buffer_allocator = m_arrayBufferAllocator;
         m_isolate = Isolate::New(create_params);
+        m_isolateScope = new Isolate::Scope(m_isolate);
     }
 
     ~Engine() {
+        delete m_isolateScope;
         m_isolate->Dispose();
         delete m_arrayBufferAllocator;
         V8::Dispose();
         V8::ShutdownPlatform();
     }
 
-    // TODO: Load/instantiate module once and evaluate later on
-    void runModule(const char *moduleName) {
-        const auto &srcData = readFileNullTerm(moduleName);
+    void hookScript(GameObject &obj, const char *scriptName) {
         auto isolate = m_isolate;
-
-        Isolate::Scope isolateScope(isolate);
         HandleScope handleScope(isolate);
         auto context = Context::New(isolate);
         Context::Scope context_scope(context);
 
-        auto srcStringM = String::NewFromUtf8(isolate, srcData.data(), NewStringType::kNormal);
-        V8_ASSERT_LOCAL(srcStringM);
-        auto srcString = srcStringM.ToLocalChecked();
+        Local<String> srcString;
+        {
+            auto srcData = readScript(scriptName);
+            srcString = String::NewFromUtf8(isolate, srcData.data(), NewStringType::kNormal)
+                .ToLocalChecked();
+        }
 
-        auto srcNameM = String::NewFromUtf8(isolate, moduleName, NewStringType::kNormal);
-        V8_ASSERT_LOCAL(srcNameM);
-        auto srcName = srcNameM.ToLocalChecked();
+        auto srcName = String::NewFromUtf8(isolate, scriptName, NewStringType::kNormal)
+            .ToLocalChecked();
         ScriptOrigin srcOrigin(srcName,
             Local<Integer>(),
             Local<Integer>(),
@@ -113,29 +151,15 @@ public:
         V8_ASSERT_LOCAL(retvalM);
         auto retval = retvalM.ToLocalChecked();
 
-        // TODO: Error handling?
-        // auto proto_name = String::NewFromUtf8(isolate, "xyz", NewStringType::kNormal).ToLocalChecked();
-        // Local<Value> proto_val;
-        // std::cout << context->Global()->Get(context, proto_name).ToLocal(&proto_val);
-        // std::cout << proto_val->IsUndefined();
-        auto proto = Local<Function>::Cast(retval);
-
-        // Create object
-        auto obj = proto->NewInstance(context).ToLocalChecked();
-
-        // Get function
-        auto fn_name = String::NewFromUtf8(isolate, "updateLogic", NewStringType::kNormal).ToLocalChecked();
-        auto fn = Local<Function>::Cast(obj->Get(context, fn_name).ToLocalChecked());
-        auto fnRet = fn->Call(context, obj, 0, nullptr).ToLocalChecked();
-
-        String::Utf8Value fnRetStr(isolate, fnRet);
-        std::cout << *fnRetStr;
+        auto constructor = Local<Function>::Cast(retval);
+        obj.hook(isolate, context, constructor);
     }
 
 private:
     std::unique_ptr<Platform>  m_platform;
     ArrayBuffer::Allocator    *m_arrayBufferAllocator;
     Isolate                   *m_isolate;
+    Isolate::Scope            *m_isolateScope;
 };
 
 }

@@ -507,9 +507,11 @@ void initializeBuffers(std::vector<JojoMesh> &meshes) {
 
 
 int main(int argc, char *argv[]) {
-    Scripting::Engine jojoScript(argv[0]);
+    Scripting::Engine jojoScript;
 
-    jojoScript.runModule("../scripts/hello.js");
+    Scripting::GameObject helloObj;
+    jojoScript.hookScript(helloObj, "../scripts/hello.js");
+    helloObj.updateLogic();
 
     Config config = Config::readFromFile("../config.ini");
     startGlfw(config);
