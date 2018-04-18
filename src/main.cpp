@@ -23,6 +23,7 @@
 #include "jojo_vulkan.hpp"
 #include "jojo_vulkan_utils.hpp"
 #include "jojo_vulkan_info.hpp"
+#include "jojo_vulkan_textures.hpp"
 #include "jojo_physics.hpp"
 
 
