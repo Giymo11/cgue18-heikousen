@@ -426,10 +426,10 @@ void updateMvp(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &mesh
     for (int i = 0; i < meshes.size(); ++i) {
         JojoMesh &mesh = meshes[i];
 
-
-        // TODO: move this over to the physics class as well
+        // TODO: maybe move this over to the physics class as well
         btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[i];
         btRigidBody *body = btRigidBody::upcast(obj);
+
         btTransform trans;
         if (body && body->getMotionState()) {
             body->getMotionState()->getWorldTransform(trans);
@@ -437,22 +437,14 @@ void updateMvp(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &mesh
             trans = obj->getWorldTransform();
         }
         btVector3 origin = trans.getOrigin();
-        std::printf("%d " PRINTF_FLOAT " " PRINTF_FLOAT " " PRINTF_FLOAT " ",
-                    i, origin.getX(), origin.getY(), origin.getZ());
-        auto &manifoldPoints = physics.objectsCollisions[body];
-        if (manifoldPoints.empty()) {
-            std::printf("0");
-        } else {
-            std::printf("1");
-        }
-        puts("");
 
+        auto &manifoldPoints = physics.objectsCollisions[body];
 
         trans.getOpenGLMatrix(glm::value_ptr(mesh.modelMatrix));
 
-
-        int direction = (i % 2 * 2 - 1);
+        //int direction = (i % 2 * 2 - 1);
         //mesh.modelMatrix = glm::rotate(mesh.modelMatrix, timeSinceLastFrame * glm::radians(30.0f) * direction, glm::vec3(0, 0, 1));
+
         glm::mat4 mvp = projection * view * mesh.modelMatrix;
         VkResult result = vkMapMemory(device, mesh.uniformBufferDeviceMemory, 0, sizeof(mvp), 0, &rawData);
         ASSERT_VULKAN(result)
@@ -467,6 +459,68 @@ void updateMvp(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &mesh
 void gameloop(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &meshes) {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
+
+        btVector3 relativeForce(0, 0, 0);
+
+        int state = glfwGetKey(window, GLFW_KEY_W);
+        if (state == GLFW_PRESS) {
+            relativeForce = relativeForce + btVector3(0, 0, -1);
+        }
+        state = glfwGetKey(window, GLFW_KEY_S);
+        if (state == GLFW_PRESS) {
+            relativeForce = relativeForce + btVector3(0, 0, 1);
+        }
+        state = glfwGetKey(window, GLFW_KEY_A);
+        if (state == GLFW_PRESS) {
+            relativeForce = relativeForce + btVector3(-1, 0, 0);
+        }
+        state = glfwGetKey(window, GLFW_KEY_D);
+        if (state == GLFW_PRESS) {
+            relativeForce = relativeForce + btVector3(1, 0, 0);
+        }
+        state = glfwGetKey(window, GLFW_KEY_R);
+        if (state == GLFW_PRESS) {
+            relativeForce = relativeForce + btVector3(0, 1, 0);
+        }
+        state = glfwGetKey(window, GLFW_KEY_F);
+        if (state == GLFW_PRESS) {
+            relativeForce = relativeForce + btVector3(0, -1, 0);
+        }
+
+        state = glfwGetKey(window, GLFW_KEY_X);
+        bool xPressed = state == GLFW_PRESS;
+
+        if(!relativeForce.isZero() || xPressed) {
+            btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[0];
+            btRigidBody *body = btRigidBody::upcast(obj);
+
+            btTransform trans;
+            if (body && body->getMotionState()) {
+                body->getMotionState()->getWorldTransform(trans);
+
+                if (xPressed) {
+                    btMatrix3x3& boxRot = trans.getBasis();
+
+                    if(body->getLinearVelocity().norm() < 0.01) {
+                        // stop the jiggling around
+                        body->setLinearVelocity(btVector3(0, 0, 0));
+                    } else {
+                        // counteract the current inertia
+                        // TODO: think about maybe making halting easier than accelerating.
+                        btVector3 correctedForce = (body->getLinearVelocity() * -1).normalized();
+                        body->applyCentralForce(correctedForce);
+                    }
+                } else {
+                    btMatrix3x3& boxRot = trans.getBasis();
+                    btVector3 correctedForce = boxRot * relativeForce.safeNormalize();
+
+                    body->applyCentralForce(correctedForce);
+                }
+            } else {
+                // for later use
+                trans = obj->getWorldTransform();
+            }
+        }
 
         updateMvp(config, physics, meshes);
 
@@ -544,6 +598,65 @@ void initializeBuffers(std::vector<JojoMesh> &meshes) {
 }
 
 
+void createCube(JojoMesh *meshes, JojoPhysics &physics, float width, float height, float depth, float x, float y, float z) {
+    meshes->vertices = {
+            Vertex({-width, -height, -depth}, {1.0f, 0.0f, 1.0f}),
+            Vertex({width, -height, -depth}, {1.0f, 1.0f, 0.0f}),
+            Vertex({width, height, -depth}, {0.0f, 1.0f, 1.0f}),
+            Vertex({-width, height, -depth}, {1.0f, 1.0f, 1.0f}),
+            Vertex({-width, -height, depth}, {1.0f, 0.0f, 1.0f}),
+            Vertex({width, -height, depth}, {1.0f, 1.0f, 0.0f}),
+            Vertex({width, height, depth}, {0.0f, 1.0f, 1.0f}),
+            Vertex({-width, height, depth}, {1.0f, 1.0f, 1.0f})
+    };
+    meshes->indices = {0, 1, 2,
+                       0, 3, 1,
+
+                       1, 2, 6,
+                       6, 5, 1,
+
+                       4, 5, 6,
+                       6, 7, 4,
+
+                       2, 3, 6,
+                       6, 3, 7,
+
+                       0, 7, 3,
+                       0, 4, 7,
+
+                       0, 1, 5,
+                       0, 5, 4
+    };
+
+    // bullet part
+    btCollisionShape *colShape = new btBoxShape(btVector3(height, width, depth));
+
+    physics.collisionShapes.push_back(colShape);
+
+    btTransform startTransform;
+    startTransform.setIdentity();
+
+
+    startTransform.setOrigin(btVector3(x, y, z));
+    meshes->modelMatrix = translate(glm::mat4(), glm::vec3(x, y, z));
+
+    btVector3 localInertia(0, 1, 0);
+    btScalar mass(1.0f);
+
+    colShape->calculateLocalInertia(mass, localInertia);
+
+    btDefaultMotionState *myMotionState = new btDefaultMotionState(startTransform);
+
+    btRigidBody *body = new btRigidBody(
+            btRigidBody::btRigidBodyConstructionInfo(mass, myMotionState, colShape, localInertia));
+    body->setRestitution(objectRestitution);
+    body->forceActivationState(DISABLE_DEACTIVATION);
+
+    physics.dynamicsWorld->addRigidBody(body);
+
+}
+
+
 int main(int argc, char *argv[]) {
     hello_v8(argv[0]);
 
@@ -557,64 +670,11 @@ int main(int argc, char *argv[]) {
     JojoPhysics physics;
 
     float width = 0.5f, height = 0.5f, depth = 0.5f;
+    auto offset = -2.0f;
 
     for (int i = 0; i < meshes.size(); ++i) {
-        meshes[i].vertices = {
-                Vertex({-width, -height, -depth}, {1.0f, 0.0f, 1.0f}),
-                Vertex({width, -height, -depth}, {1.0f, 1.0f, 0.0f}),
-                Vertex({width, height, -depth}, {0.0f, 1.0f, 1.0f}),
-                Vertex({-width, height, -depth}, {1.0f, 1.0f, 1.0f}),
-                Vertex({-width, -height, depth}, {1.0f, 0.0f, 1.0f}),
-                Vertex({width, -height, depth}, {1.0f, 1.0f, 0.0f}),
-                Vertex({width, height, depth}, {0.0f, 1.0f, 1.0f}),
-                Vertex({-width, height, depth}, {1.0f, 1.0f, 1.0f})
-        };
-        meshes[i].indices = {0, 1, 2,
-                             0, 3, 1,
+        createCube(&meshes[i], physics, width, height, depth, 0.0f, offset * i, 0.0f);
 
-                             1, 2, 6,
-                             6, 5, 1,
-
-                             4, 5, 6,
-                             6, 7, 4,
-
-                             2, 3, 6,
-                             6, 3, 7,
-
-                             0, 7, 3,
-                             0, 4, 7,
-
-                             0, 1, 5,
-                             0, 5, 4
-        };
-
-        btCollisionShape *colShape = new btBoxShape(btVector3(height, width, depth));
-
-        physics.collisionShapes.push_back(colShape);
-
-        btTransform startTransform;
-        startTransform.setIdentity();
-
-        auto offset = -2.0f;
-        startTransform.setOrigin(btVector3(0.0f, offset * i, 0.0f));
-        meshes[i].modelMatrix = glm::translate(glm::mat4(), glm::vec3(0.0f, offset * i, 0.0f));
-
-        btVector3 localInertia(0, 1, 0);
-        btScalar mass(i + 1.0f);
-
-        colShape->calculateLocalInertia(mass, localInertia);
-
-        btDefaultMotionState *myMotionState = new btDefaultMotionState(startTransform);
-
-        btRigidBody *body = new btRigidBody(
-                btRigidBody::btRigidBodyConstructionInfo(mass, myMotionState, colShape, localInertia));
-        body->setRestitution(objectRestitution);
-
-        if (i == 0) {
-            body->applyCentralImpulse(btVector3(0.0f, offset, 0.0f));
-        }
-
-        physics.dynamicsWorld->addRigidBody(body);
     }
 
 
@@ -633,4 +693,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
