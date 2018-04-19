@@ -8,10 +8,13 @@
 
 class Config {
 private:
-    Config(const uint32_t width, const uint32_t height) : width(width), height(height) {}
+    Config(const uint32_t width, const uint32_t height, const uint32_t navigationScreenPercentage,
+           const uint32_t deadzoneScreenPercentage) : width(width), height(height),
+                                                      navigationScreenPercentage(navigationScreenPercentage),
+                                                      deadzoneScreenPercentage(deadzoneScreenPercentage) {}
 
 public:
-    uint32_t width, height;
+    uint32_t width, height, navigationScreenPercentage, deadzoneScreenPercentage;
 
     static Config readFromFile(std::string filename) {
         INIReader reader(filename);
@@ -20,6 +23,6 @@ public:
         }
         uint32_t width = reader.GetInteger("window", "width", 800);
         uint32_t height = reader.GetInteger("window", "height", 480);
-        return Config(width, height);
+        return Config(width, height, 25, 2);
     }
 };

@@ -4,8 +4,7 @@ class HelloController {
     }
 
     updateLogic() {
-        // log("Hi Billy Mayes here for " + this.id);
-        return this.id;
+        return "Hi Billy Mayes here for " + this.id;
     }
 }
 

@@ -27,6 +27,7 @@ topic,                      date,           duration
 \#v8 building and debugging,        2018-03-16,     1   
 \#bullet colldet/collresp,          2018-03-26,     3   
 \#bullet movement,                  2018-04-19,     2
+\#bullet rotation,                  2018-04-19,     2
 
 
 

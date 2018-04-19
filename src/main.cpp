@@ -338,6 +338,9 @@ void startGlfw(Config &config) {
 
     window = glfwCreateWindow(config.width, config.height, "heikousen", nullptr, nullptr);
     glfwSetWindowSizeCallback(window, onWindowResized);
+
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    glfwSetCursorPos(window, config.width / 2.0f, config.height / 2.0f);
 }
 
 
@@ -411,6 +414,8 @@ void updateMvp(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &mesh
     float timeSinceLastFrame =
             std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count() / 1000.0f;
     lastFrameTime = now;
+
+    std::cout << "frame time " << timeSinceLastFrame << std::endl;
 
     glm::mat4 view = glm::translate(glm::mat4(), glm::vec3(0.0f, 0.0f, -5.0f));
     //view[1][1] *= -1;
@@ -490,7 +495,59 @@ void gameloop(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &meshe
         state = glfwGetKey(window, GLFW_KEY_X);
         bool xPressed = state == GLFW_PRESS;
 
-        if(!relativeForce.isZero() || xPressed) {
+        state = glfwGetKey(window, GLFW_KEY_Z);
+        bool yPressed = state == GLFW_PRESS;
+
+
+        btVector3 relativeTorque(0, 0, 0);
+
+        state = glfwGetKey(window, GLFW_KEY_Q);
+        if (state == GLFW_PRESS) {
+            relativeTorque = relativeTorque + btVector3(0, 1, 0);
+        }
+        state = glfwGetKey(window, GLFW_KEY_E);
+        if (state == GLFW_PRESS) {
+            relativeTorque = relativeTorque + btVector3(0, -1, 0);
+        }
+
+        double xpos, ypos;
+        glfwGetCursorPos(window, &xpos, &ypos);
+
+        double relXpos = xpos - config.width / 2.0f;
+        double relYpos = ypos - config.height / 2.0f;
+
+        double minX = config.width * config.deadzoneScreenPercentage / 100.0f;
+        double minY = config.height * config.deadzoneScreenPercentage / 100.0f;
+
+        double maxX = config.width * config.navigationScreenPercentage / 100.0f;
+        double maxY = config.height * config.navigationScreenPercentage / 100.0f;
+
+        double absXpos = glm::abs(relXpos);
+        double absYpos = glm::abs(relYpos);
+
+        if (absXpos > minX) {
+            if (absXpos > maxX) {
+                absXpos = maxX;
+            }
+            double torque = (absXpos - minX) / (maxX - minX) * glm::sign(relXpos) * -1;
+            relativeTorque = relativeTorque + btVector3(0, 0, torque);
+        }
+
+        if (absYpos > minY) {
+            if (absYpos > maxY) {
+                absYpos = maxY;
+            }
+            double torque = (absYpos - minY) / (maxY - minY) * glm::sign(relYpos) * -1;
+            relativeTorque = relativeTorque + btVector3(torque, 0, 0);
+        }
+
+        double newXpos = absXpos * glm::sign(relXpos) + config.width / 2.0f;
+        double newYpos = absYpos * glm::sign(relYpos) + config.height / 2.0f;
+        glfwSetCursorPos(window, newXpos, newYpos);
+        // TODO: fix dis
+
+
+        if (!relativeForce.isZero() || !relativeTorque.isZero() || xPressed || yPressed) {
             btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[0];
             btRigidBody *body = btRigidBody::upcast(obj);
 
@@ -498,10 +555,10 @@ void gameloop(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &meshe
             if (body && body->getMotionState()) {
                 body->getMotionState()->getWorldTransform(trans);
 
-                if (xPressed) {
-                    btMatrix3x3& boxRot = trans.getBasis();
+                btMatrix3x3 &boxRot = trans.getBasis();
 
-                    if(body->getLinearVelocity().norm() < 0.01) {
+                if (xPressed) {
+                    if (body->getLinearVelocity().norm() < 0.01) {
                         // stop the jiggling around
                         body->setLinearVelocity(btVector3(0, 0, 0));
                     } else {
@@ -510,12 +567,30 @@ void gameloop(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &meshe
                         btVector3 correctedForce = (body->getLinearVelocity() * -1).normalized();
                         body->applyCentralForce(correctedForce);
                     }
-                } else {
-                    btMatrix3x3& boxRot = trans.getBasis();
-                    btVector3 correctedForce = boxRot * relativeForce.safeNormalize();
-
-                    body->applyCentralForce(correctedForce);
                 }
+                if (yPressed) {
+                    if (body->getAngularVelocity().norm() < 0.01) {
+                        body->setAngularVelocity(btVector3(0, 0, 0));
+                    } else {
+                        btVector3 correctedTorque = (body->getAngularVelocity() * -1).normalized();
+                        body->applyTorque(correctedTorque);
+                    }
+                }
+
+                if (!xPressed) {
+                    if (!relativeForce.isZero()) {
+                        // TODO: decide about maybe normalizing
+                        btVector3 correctedForce = boxRot * relativeForce;
+                        body->applyCentralForce(correctedForce);
+                    }
+                }
+                if (!yPressed) {
+                    if (!relativeTorque.isZero()) {
+                        btVector3 correctedTorque = boxRot * relativeTorque;
+                        body->applyTorque(correctedTorque);
+                    }
+                }
+
             } else {
                 // for later use
                 trans = obj->getWorldTransform();
@@ -598,7 +673,8 @@ void initializeBuffers(std::vector<JojoMesh> &meshes) {
 }
 
 
-void createCube(JojoMesh *meshes, JojoPhysics &physics, float width, float height, float depth, float x, float y, float z) {
+void
+createCube(JojoMesh *meshes, JojoPhysics &physics, float width, float height, float depth, float x, float y, float z) {
     meshes->vertices = {
             Vertex({-width, -height, -depth}, {1.0f, 0.0f, 1.0f}),
             Vertex({width, -height, -depth}, {1.0f, 1.0f, 0.0f}),
@@ -652,6 +728,7 @@ void createCube(JojoMesh *meshes, JojoPhysics &physics, float width, float heigh
     body->setRestitution(objectRestitution);
     body->forceActivationState(DISABLE_DEACTIVATION);
 
+
     physics.dynamicsWorld->addRigidBody(body);
 
 }
@@ -678,7 +755,6 @@ int main(int argc, char *argv[]) {
 
     for (int i = 0; i < meshes.size(); ++i) {
         createCube(&meshes[i], physics, width, height, depth, 0.0f, offset * i, 0.0f);
-
     }
 
 

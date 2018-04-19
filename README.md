@@ -1,5 +1,15 @@
 # TU Wien - CGUE SS_2018
 
+## controls
+
+z translation: W, S
+x translation: A, D
+y translation: R, F
+
+y rotation: Q, E
+z rotation: mouse x
+x rotation: mouse y
+
 ### How to install deps (Arch):
 
 - install "bullet", "glfw-x11", "vulkan-headers", "vulkan-icd-loader", "vulkan-extra-layers", "spirv-tools", "glslang", "glm"
@@ -48,6 +58,22 @@
 1. [ ] sound design
 1. [ ] polishing
 
+
+#### game day requirements
+
+* Freely movable camera (both position and orientation can be controlled)
+* Moving objects
+* Texture Mapping
+* Simple lighting and materials
+* Controls
+* Basic Gameplay
+* Adjustable Parameters
+
+The following parameters should be adjustable without recompiling the application:
+* Screen Resolution (Width/Height)
+* Fullscreen-Mode (On/Off)
+* Refresh-Rate (see glfwWindowHint(GLFW_REFRESH_RATE, ...); )
+* Brightness (Beamers are usually very dark, this parameter should control how bright your total scene is).
 
 ## game ideas
 
