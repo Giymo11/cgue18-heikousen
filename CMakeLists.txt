@@ -30,7 +30,7 @@ endif ()
 
 file(GLOB SOURCE_FILES "src/*.[ch]pp")
 file(GLOB SHADER_FILES "shader/*.vert" "shader/*.frag")
-
+file(GLOB SCRIPT_FILES "scripts/*.js")
 
 find_program(GLSL_EXECUTABLE glslangValidator)
 function(preprocess_glsl out_var)
@@ -138,3 +138,9 @@ target_link_libraries(
 
 
 configure_file(${CMAKE_SOURCE_DIR}/default.ini ${CMAKE_CURRENT_BINARY_DIR}/config.ini COPYONLY)
+
+# Copy script files on build
+add_custom_command(TARGET heikousen PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/scripts ${CMAKE_CURRENT_BINARY_DIR}/scripts
+    )

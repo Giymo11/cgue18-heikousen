@@ -658,7 +658,11 @@ void createCube(JojoMesh *meshes, JojoPhysics &physics, float width, float heigh
 
 
 int main(int argc, char *argv[]) {
-    hello_v8(argv[0]);
+    Scripting::Engine jojoScript;
+
+    Scripting::GameObject helloObj;
+    jojoScript.hookScript(helloObj, "../scripts/hello.js");
+    helloObj.updateLogic();
 
     Config config = Config::readFromFile("../config.ini");
     startGlfw(config);
