@@ -269,19 +269,24 @@ VkResult createRenderpass(const VkDevice device, VkRenderPass *renderPass, const
 
 
 VkResult createDescriptorSetLayout(const VkDevice device, VkDescriptorSetLayout *descriptorSetLayout) {
-    VkDescriptorSetLayoutBinding descriptorSetLayoutBinding;
-    descriptorSetLayoutBinding.binding = 0;
-    descriptorSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptorSetLayoutBinding.descriptorCount = 1;
-    descriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    descriptorSetLayoutBinding.pImmutableSamplers = nullptr;
+    VkDescriptorSetLayoutBinding descriptorSetLayoutBinding[2];
+    descriptorSetLayoutBinding[0].binding = 0;
+    descriptorSetLayoutBinding[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorSetLayoutBinding[0].descriptorCount = 1;
+    descriptorSetLayoutBinding[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    descriptorSetLayoutBinding[0].pImmutableSamplers = nullptr;
+    descriptorSetLayoutBinding[1].binding = 1;
+    descriptorSetLayoutBinding[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorSetLayoutBinding[1].descriptorCount = 1;
+    descriptorSetLayoutBinding[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    descriptorSetLayoutBinding[1].pImmutableSamplers = nullptr;
 
     VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo;
     descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     descriptorSetLayoutCreateInfo.pNext = nullptr;
     descriptorSetLayoutCreateInfo.flags = 0;
-    descriptorSetLayoutCreateInfo.bindingCount = 1;
-    descriptorSetLayoutCreateInfo.pBindings = &descriptorSetLayoutBinding;
+    descriptorSetLayoutCreateInfo.bindingCount = 2;
+    descriptorSetLayoutCreateInfo.pBindings = descriptorSetLayoutBinding;
 
     return vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCreateInfo, nullptr, descriptorSetLayout);
 }
@@ -530,17 +535,19 @@ VkResult createSemaphore(const VkDevice device, VkSemaphore *semaphore) {
 }
 
 VkResult createDescriptorPool(const VkDevice device, VkDescriptorPool *descriptorPool, uint32_t descriptorCount) {
-    VkDescriptorPoolSize descriptorPoolSize;
-    descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptorPoolSize.descriptorCount = descriptorCount;
+    VkDescriptorPoolSize descriptorPoolSize[2];
+    descriptorPoolSize[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorPoolSize[0].descriptorCount = descriptorCount;
+    descriptorPoolSize[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorPoolSize[1].descriptorCount = descriptorCount;
 
     VkDescriptorPoolCreateInfo descriptorPoolCreateInfo;
     descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     descriptorPoolCreateInfo.pNext = nullptr;
     descriptorPoolCreateInfo.flags = 0;
     descriptorPoolCreateInfo.maxSets = descriptorCount;
-    descriptorPoolCreateInfo.poolSizeCount = 1;
-    descriptorPoolCreateInfo.pPoolSizes = &descriptorPoolSize;
+    descriptorPoolCreateInfo.poolSizeCount = 2;
+    descriptorPoolCreateInfo.pPoolSizes = descriptorPoolSize;
 
     return vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, nullptr, descriptorPool);
 }

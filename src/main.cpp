@@ -114,25 +114,38 @@ void recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFrameb
     vkCmdEndRenderPass(commandBuffer);
 }
 
-void bindBufferToDescriptorSet(VkDevice device, VkBuffer uniformBuffer, VkDescriptorSet descriptorSet) {
+void bindBufferToDescriptorSet(VkDevice device, VkBuffer uniformBuffer, VkDescriptorImageInfo imageInfo,
+                               VkDescriptorSet descriptorSet) {
     VkDescriptorBufferInfo descriptorBufferInfo;
     descriptorBufferInfo.buffer = uniformBuffer;
     descriptorBufferInfo.offset = 0;
     descriptorBufferInfo.range = sizeof(glm::mat4);
 
-    VkWriteDescriptorSet writeDescriptorSet;
-    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSet.pNext = nullptr;
-    writeDescriptorSet.dstSet = descriptorSet;
-    writeDescriptorSet.dstBinding = 0;
-    writeDescriptorSet.dstArrayElement = 0;
-    writeDescriptorSet.descriptorCount = 1;
-    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writeDescriptorSet.pImageInfo = nullptr;
-    writeDescriptorSet.pBufferInfo = &descriptorBufferInfo;
-    writeDescriptorSet.pTexelBufferView = nullptr;
+    VkWriteDescriptorSet writeDescriptorSet[2];
+    writeDescriptorSet[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet[0].pNext = nullptr;
+    writeDescriptorSet[0].dstSet = descriptorSet;
+    writeDescriptorSet[0].dstBinding = 0;
+    writeDescriptorSet[0].dstArrayElement = 0;
+    writeDescriptorSet[0].descriptorCount = 1;
+    writeDescriptorSet[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writeDescriptorSet[0].pImageInfo = nullptr;
+    writeDescriptorSet[0].pBufferInfo = &descriptorBufferInfo;
+    writeDescriptorSet[0].pTexelBufferView = nullptr;
 
-    vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
+    writeDescriptorSet[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet[1].pNext = nullptr;
+    writeDescriptorSet[1].dstSet = descriptorSet;
+    writeDescriptorSet[1].dstBinding = 1;
+    writeDescriptorSet[1].dstArrayElement = 0;
+    writeDescriptorSet[1].descriptorCount = 1;
+    writeDescriptorSet[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writeDescriptorSet[1].pImageInfo = /* nullptr */;
+    writeDescriptorSet[1].pBufferInfo = nullptr;
+    writeDescriptorSet[1].pTexelBufferView = nullptr;
+
+
+    vkUpdateDescriptorSets(device, 1, writeDescriptorSet, 0, nullptr);
 }
 
 void destroyPipeline() {
