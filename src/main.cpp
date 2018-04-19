@@ -114,7 +114,8 @@ void recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFrameb
     vkCmdEndRenderPass(commandBuffer);
 }
 
-void bindBufferToDescriptorSet(VkDevice device, VkBuffer uniformBuffer, VkDescriptorImageInfo imageInfo,
+void bindBufferToDescriptorSet(VkDevice device, VkBuffer uniformBuffer,
+                               VkDescriptorImageInfo imageInfo,
                                VkDescriptorSet descriptorSet) {
     VkDescriptorBufferInfo descriptorBufferInfo;
     descriptorBufferInfo.buffer = uniformBuffer;
@@ -140,12 +141,12 @@ void bindBufferToDescriptorSet(VkDevice device, VkBuffer uniformBuffer, VkDescri
     writeDescriptorSet[1].dstArrayElement = 0;
     writeDescriptorSet[1].descriptorCount = 1;
     writeDescriptorSet[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writeDescriptorSet[1].pImageInfo = /* nullptr */;
+    writeDescriptorSet[1].pImageInfo = &imageInfo;
     writeDescriptorSet[1].pBufferInfo = nullptr;
     writeDescriptorSet[1].pTexelBufferView = nullptr;
 
 
-    vkUpdateDescriptorSets(device, 1, writeDescriptorSet, 0, nullptr);
+    vkUpdateDescriptorSets(device, 2, writeDescriptorSet, 0, nullptr);
 }
 
 void destroyPipeline() {
@@ -539,6 +540,12 @@ void initializeBuffers(std::vector<JojoMesh> &meshes) {
     ASSERT_VULKAN(result)
 
     for (JojoMesh &mesh : meshes) {
+        mesh.texture = Textures::generateTexture (
+            device,
+            commandPool,
+            queue
+        );
+
         createAndUploadBuffer(device, chosenDevice, commandPool, queue, mesh.vertices,
                               VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                               &(mesh.vertexBuffer), &(mesh.vertexBufferDeviceMemory));
@@ -553,17 +560,17 @@ void initializeBuffers(std::vector<JojoMesh> &meshes) {
 
         result = allocateDescriptorSet(device, descriptorPool, descriptorSetLayout, &(mesh.uniformDescriptorSet));
         ASSERT_VULKAN(result)
-        bindBufferToDescriptorSet(device, mesh.uniformBuffer, mesh.uniformDescriptorSet);
+        bindBufferToDescriptorSet(device, mesh.uniformBuffer, mesh.texture, mesh.uniformDescriptorSet);
     }
 }
 
 
 int main(int argc, char *argv[]) {
-    Scripting::Engine jojoScript;
+    // Scripting::Engine jojoScript;
 
-    Scripting::GameObject helloObj;
-    jojoScript.hookScript(helloObj, "../scripts/hello.js");
-    helloObj.updateLogic();
+    // Scripting::GameObject helloObj;
+    // jojoScript.hookScript(helloObj, "../scripts/hello.js");
+    // helloObj.updateLogic();
 
     Config config = Config::readFromFile("../config.ini");
     startGlfw(config);

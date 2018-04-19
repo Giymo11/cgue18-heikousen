@@ -56,6 +56,7 @@ public:
     VkDeviceMemory uniformBufferDeviceMemory;
     VkDescriptorSet uniformDescriptorSet;
     glm::mat4 modelMatrix;
+    VkDescriptorImageInfo texture;
 
     JojoMesh() {};
 };
