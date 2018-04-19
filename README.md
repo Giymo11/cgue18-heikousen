@@ -10,6 +10,11 @@ y rotation: Q, E
 z rotation: mouse x
 x rotation: mouse y
 
+counteract angular momentum: Y
+counteract linear momentum: X 
+
+close game: ESC
+
 ### How to install deps (Arch):
 
 - install "bullet", "glfw-x11", "vulkan-headers", "vulkan-icd-loader", "vulkan-extra-layers", "spirv-tools", "glslang", "glm"

@@ -332,6 +332,13 @@ void onWindowResized(GLFWwindow *window, int newWidth, int newHeight) {
     }
 }
 
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        glfwSetWindowShouldClose(window, true);
+    }
+
+}
+
 void startGlfw(Config &config) {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -341,6 +348,8 @@ void startGlfw(Config &config) {
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     glfwSetCursorPos(window, config.width / 2.0f, config.height / 2.0f);
+
+    glfwSetKeyCallback(window, keyCallback);
 }
 
 
