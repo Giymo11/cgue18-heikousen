@@ -750,141 +750,6 @@ createCube(JojoMesh *meshes, JojoPhysics &physics, float width, float height, fl
 }
 
 
-void loadNode(const tinygltf::Node &node, std::vector<JojoNode> &nodes, const tinygltf::Model &model, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer, std::vector<JojoMaterial>& materials)
-{
-    // Generate local node matrix
-    glm::vec3 translation = glm::vec3(0.0f);
-    if (node.translation.size() == 3) {
-        translation = glm::make_vec3(node.translation.data());
-    }
-    glm::mat4 rotation = glm::mat4(1.0f);
-    if (node.rotation.size() == 4) {
-        glm::quat q = glm::make_quat(node.rotation.data());
-        rotation = glm::mat4(q);
-    }
-    glm::vec3 scale = glm::vec3(1.0f);
-    if (node.scale.size() == 3) {
-        scale = glm::make_vec3(node.scale.data());
-    }
-    glm::mat4 localNodeMatrix = glm::mat4(1.0f);
-    if (node.matrix.size() == 16) {
-        localNodeMatrix = glm::make_mat4x4(node.matrix.data());
-    } else {
-        // T * R * S
-        localNodeMatrix = glm::translate(glm::mat4(1.0f), translation) * rotation * glm::scale(glm::mat4(1.0f), scale);
-    }
-    // localNodeMatrix = parentMatrix * localNodeMatrix;
-
-    JojoNode jojoNode;
-    jojoNode.matrix = localNodeMatrix;
-    jojoNode.name = node.name;
-
-
-    // Node contains mesh data
-    if (node.mesh > -1) {
-        const tinygltf::Mesh mesh = model.meshes[node.mesh];
-        jojoNode.name += " - " + mesh.name;
-
-        for (const auto &primitive : mesh.primitives) {
-            if (primitive.indices < 0) {
-                continue;
-            }
-            uint32_t indexStart = static_cast<uint32_t>(indexBuffer.size());
-            uint32_t vertexStart = static_cast<uint32_t>(vertexBuffer.size());
-            uint32_t indexCount = 0;
-            // Vertices
-            {
-                const float *bufferPos = nullptr;
-                const float *bufferNormals = nullptr;
-                const float *bufferTexCoords = nullptr;
-
-                // Position attribute is required
-                assert(primitive.attributes.find("POSITION") != primitive.attributes.end());
-
-                const tinygltf::Accessor &posAccessor = model.accessors[primitive.attributes.find("POSITION")->second];
-                const tinygltf::BufferView &posView = model.bufferViews[posAccessor.bufferView];
-                bufferPos = reinterpret_cast<const float *>(&(model.buffers[posView.buffer].data[posAccessor.byteOffset + posView.byteOffset]));
-
-                if (primitive.attributes.find("NORMAL") != primitive.attributes.end()) {
-                    const tinygltf::Accessor &normAccessor = model.accessors[primitive.attributes.find("NORMAL")->second];
-                    const tinygltf::BufferView &normView = model.bufferViews[normAccessor.bufferView];
-                    bufferNormals = reinterpret_cast<const float *>(&(model.buffers[normView.buffer].data[normAccessor.byteOffset + normView.byteOffset]));
-                }
-
-                if (primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end()) {
-                    const tinygltf::Accessor &uvAccessor = model.accessors[primitive.attributes.find("TEXCOORD_0")->second];
-                    const tinygltf::BufferView &uvView = model.bufferViews[uvAccessor.bufferView];
-                    bufferTexCoords = reinterpret_cast<const float *>(&(model.buffers[uvView.buffer].data[uvAccessor.byteOffset + uvView.byteOffset]));
-                }
-
-
-                for (size_t v = 0; v < posAccessor.count; v++) {
-
-                    //auto pos = localNodeMatrix * glm::vec4(glm::make_vec3(&bufferPos[v * 3]), 1.0f);
-                    auto pos = glm::make_vec3(&bufferPos[v * 3]);
-                    pos.y *= -1.0f;
-                    //vert.normal = glm::normalize(glm::mat3(localNodeMatrix) * glm::vec3(bufferNormals ? glm::make_vec3(&bufferNormals[v * 3]) : glm::vec3(0.0f)));
-                    //vert.uv = bufferTexCoords ? glm::make_vec2(&bufferTexCoords[v * 2]) : glm::vec3(0.0f);
-                    // Vulkan coordinate system
-
-                    //vert.normal.y *= -1.0f;
-
-                    glm::vec3 color(1.0, 1.0, 1.0);
-
-                    Vertex vert{pos, color};
-                    vertexBuffer.push_back(vert);
-                }
-            }
-            // Indices
-            {
-                const tinygltf::Accessor &accessor = model.accessors[primitive.indices];
-                const tinygltf::BufferView &bufferView = model.bufferViews[accessor.bufferView];
-                const tinygltf::Buffer &buffer = model.buffers[bufferView.buffer];
-
-                indexCount = static_cast<uint32_t>(accessor.count);
-
-                switch (accessor.componentType) {
-                    case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
-                        uint32_t *buf = new uint32_t[accessor.count];
-                        memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint32_t));
-                        for (size_t index = 0; index < accessor.count; index++) {
-                            indexBuffer.push_back(buf[index] + vertexStart);
-                        }
-                        break;
-                    }
-                    case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
-                        uint16_t *buf = new uint16_t[accessor.count];
-                        memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint16_t));
-                        for (size_t index = 0; index < accessor.count; index++) {
-                            indexBuffer.push_back(buf[index] + vertexStart);
-                        }
-                        break;
-                    }
-                    case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: {
-                        uint8_t *buf = new uint8_t[accessor.count];
-                        memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint8_t));
-                        for (size_t index = 0; index < accessor.count; index++) {
-                            indexBuffer.push_back(buf[index] + vertexStart);
-                        }
-                        break;
-                    }
-                    default:
-                        std::cerr << "Index component type " << accessor.componentType << " not supported!" << std::endl;
-                        return;
-                }
-            }
-            jojoNode.primitives.push_back({ indexStart, indexCount, materials[primitive.material]});
-        }
-    }
-
-    if (!node.children.empty()) {
-        for (auto i = 0; i < node.children.size(); i++) {
-            loadNode(model.nodes[node.children[i]], jojoNode.children, model, indexBuffer, vertexBuffer, materials);
-        }
-    }
-
-    nodes.push_back(jojoNode);
-}
 
 
 int main(int argc, char *argv[]) {
@@ -898,11 +763,7 @@ int main(int argc, char *argv[]) {
     startGlfw(config);
 
 
-
-
     JojoPhysics physics;
-
-
 
 
 
@@ -919,25 +780,16 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    // loadImages(gltfModel, device, transferQueue);
-    //loadMaterials(gltfModel, device, transferQueue);
-    const tinygltf::Scene &scene = gltfModel.scenes[gltfModel.defaultScene];
-    JojoScene jojoScene;
+    JojoScene scene;
 
-    std::vector<uint32_t> indexBuffer;
-    std::vector<Vertex> vertexBuffer;
+    JojoNode duckNode;
+    duckNode.loadFromGltf(gltfModel, &scene);
 
-    // TODO: load materials and textures first
-    std::vector<JojoMaterial> materials;
+    scene.children.push_back(duckNode);
 
-    for(auto &node : scene.nodes) {
-        loadNode(gltfModel.nodes[node], jojoScene.children, gltfModel, indexBuffer, vertexBuffer, materials);
-    }
 
-    std::cout << "loaded " << jojoScene.children.size() << " own nodes" << std::endl;
 
-    std::cout << "vert " << vertexBuffer.size() << std::endl;
-    std::cout << "ind " << indexBuffer.size() << std::endl;
+
 
 
 
@@ -988,8 +840,8 @@ int main(int argc, char *argv[]) {
     meshes.resize(1);
 
 
-    meshes[0].vertices = vertexBuffer;
-    meshes[0].indices = indexBuffer;
+    meshes[0].vertices = scene.vertexBuffer;
+    meshes[0].indices = scene.indexBuffer;
     meshes[0].modelMatrix = glm::mat4();
 
     startVulkan();
