@@ -60,6 +60,8 @@ VkImage depthImage;
 VkDeviceMemory depthImageMemory;
 VkImageView depthImageView;
 
+VkPhysicalDeviceMemoryProperties memoryProperties;
+
 GLFWwindow *window;
 
 
@@ -309,6 +311,8 @@ void startVulkan() {
     chosenDevice = physicalDevices[0];     // TODO: choose right physical device
     uint32_t chosenQueueFamilyIndex = 0;        // TODO: choose the best queue family
 
+	vkGetPhysicalDeviceMemoryProperties(chosenDevice, &memoryProperties);
+
     result = createLogicalDevice(chosenDevice, &device, chosenQueueFamilyIndex);
     ASSERT_VULKAN(result)
 
@@ -542,6 +546,7 @@ void initializeBuffers(std::vector<JojoMesh> &meshes) {
     for (JojoMesh &mesh : meshes) {
         mesh.texture = Textures::generateTexture (
             device,
+			memoryProperties,
             commandPool,
             queue
         );

@@ -1,59 +1,5 @@
 #pragma once
 
-// #include <cstdint>
-// #include "jojo_vulkan_utils.hpp"
-
-// namespace Textures {
-
-// VkDescriptorImageInfo generateTexture (
-// 	VkDevice device,
-// 	VkCommandPool commandPool,
-// 	VkQueue queue
-// );
-
-// void create (
-// 	VkDevice device,
-// 	VkDeviceSize size,
-// 	VkFormat format,
-// 	uint32_t mipLevels,
-// 	uint32_t width,
-// 	uint32_t height,
-// 	VkBuffer *stagingBuffer,
-// 	VkDeviceMemory *stagingMem,
-// 	VkImage *image,
-// 	VkDeviceMemory *imageMemory
-// );
-
-// void stage (
-// 	VkDevice device,
-// 	VkDeviceMemory stagingMem,
-// 	const uint8_t *imageData,
-// 	size_t imageDataSize
-// );
-
-// void transfer (
-// 	VkCommandBuffer cmd,
-// 	VkBuffer staging,
-// 	VkImage image,
-// 	const VkBufferImageCopy *copy,
-// 	uint32_t copySize,
-// 	uint32_t mipLevels
-// );
-
-// VkSampler sampler (
-// 	VkDevice device,
-// 	uint32_t mipLevels
-// );
-
-// VkImageView view (
-// 	VkDevice device,
-// 	VkImage image,
-// 	VkFormat format,
-// 	uint32_t mipLevels
-// );
-
-// }
-
 /*
 	Resources to deal with:
 	* Staging Buffer
@@ -120,6 +66,7 @@ namespace Textures {
 
 void create (
 	VkDevice device,
+	VkPhysicalDeviceMemoryProperties memoryProperties,
 	VkDeviceSize size,
 	VkFormat format,
 	uint32_t mipLevels,
@@ -143,8 +90,11 @@ void create (
 	vkGetBufferMemoryRequirements(device, *stagingBuffer, &memReqs);
 	memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	memAllocInfo.allocationSize = memReqs.size;
-	// TODO
-	// memAllocInfo.memoryTypeIndex
+	memAllocInfo.memoryTypeIndex = findMemoryTypeIndex(
+		memoryProperties,
+		memReqs.memoryTypeBits,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
 	ASSERT_VULKAN(vkAllocateMemory(device, &memAllocInfo, nullptr, stagingMem));
 	ASSERT_VULKAN(vkBindBufferMemory(device, *stagingBuffer, *stagingMem, 0));
 
@@ -164,8 +114,11 @@ void create (
 
 	vkGetImageMemoryRequirements(device, *image, &memReqs);
 	memAllocInfo.allocationSize = memReqs.size;
-	// TODO
-	// memAllocInfo.memoryTypeIndex
+	memAllocInfo.memoryTypeIndex = findMemoryTypeIndex(
+		memoryProperties,
+		memReqs.memoryTypeBits,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+	);
 	ASSERT_VULKAN(vkAllocateMemory(device, &memAllocInfo, nullptr, imageMemory));
 	ASSERT_VULKAN(vkBindImageMemory(device, *image, *imageMemory, 0));
 }
@@ -274,6 +227,7 @@ VkImageView view (
 
 VkDescriptorImageInfo generateTexture (
 	VkDevice device,
+	const VkPhysicalDeviceMemoryProperties &memoryProperties,
 	VkCommandPool commandPool,
 	VkQueue queue
 ) {
@@ -293,6 +247,7 @@ VkDescriptorImageInfo generateTexture (
 
 	create (
 		device,
+		memoryProperties,
 		256 * 256 * 4,
 		VK_FORMAT_R8G8B8A8_UINT,
 		1,

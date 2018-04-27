@@ -7,6 +7,6 @@ layout(location = 0) out vec4 outColor;
 layout(binding = 1) uniform sampler2D tex;
 
 void main() {
-	outColor = texture(tex, vec2(0.0, 0.0));
-    //outColor = vec4(fragColor, 1.0);
+	//outColor = texture(tex, vec2(0.0, 0.0));
+    outColor = vec4(fragColor, 1.0);
 }

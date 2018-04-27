@@ -14,7 +14,6 @@
 if(val != VK_SUCCESS)\
     psnip_trap();\
 
-
 uint32_t findMemoryTypeIndex(VkPhysicalDevice chosenDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
     vkGetPhysicalDeviceMemoryProperties(chosenDevice, &physicalDeviceMemoryProperties);
@@ -27,6 +26,22 @@ uint32_t findMemoryTypeIndex(VkPhysicalDevice chosenDevice, uint32_t typeFilter,
             return i;
         }
     }
+}
+
+uint32_t findMemoryTypeIndex(
+	VkPhysicalDeviceMemoryProperties deviceProperties,
+	uint32_t typeBits,
+	VkMemoryPropertyFlags properties
+) {
+	for (uint32_t i = 0; i < deviceProperties.memoryTypeCount; i++) {
+		if ((typeBits & 1) == 1) {
+			if ((deviceProperties.memoryTypes[i].propertyFlags & properties) == properties)
+				return i;
+		}
+		typeBits >>= 1;
+	}
+
+	psnip_trap();
 }
 
 bool isFormatSupported(VkPhysicalDevice chosenDeice, VkFormat format, VkImageTiling tiling,
