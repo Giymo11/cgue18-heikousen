@@ -306,8 +306,8 @@ VkResult createPipeline(const VkDevice device, const VkPipelineShaderStageCreate
                         VkPipeline *pipeline,
                         const int width, const int height) {
 
-    auto vertexBindingDescription = Vertex::getBindingDescription();
-    auto vertexAttributeDesciptions = Vertex::getAttributeDescriptions();
+    auto vertexBindingDescription = JojoVulkanMesh::getVertexInputBindingDescription();
+    auto vertexAttributeDesciptions = JojoVulkanMesh::getVertexInputAttributeDescriptions();
 
     VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo;
     vertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;

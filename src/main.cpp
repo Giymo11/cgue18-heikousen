@@ -70,7 +70,7 @@ GLFWwindow *window;
 
 
 void recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFramebuffer framebuffer,
-                         std::vector<JojoMesh> &meshes) {
+                         std::vector<JojoVulkanMesh> &meshes) {
     std::array<VkClearValue, 2> clearValues = {};
     clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
     clearValues[1].depthStencil = {1.0f, 0};
@@ -106,7 +106,7 @@ void recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFrameb
 
     VkDeviceSize offsets[] = {0};
 
-    for (JojoMesh &mesh : meshes) {
+    for (JojoVulkanMesh &mesh : meshes) {
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &(mesh.vertexBuffer), offsets);
         vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -360,7 +360,7 @@ void startGlfw(Config &config) {
 }
 
 
-void drawFrame(Config &config, std::vector<JojoMesh> &meshes) {
+void drawFrame(Config &config, std::vector<JojoVulkanMesh> &meshes) {
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(device, swapchain, std::numeric_limits<uint64_t>::max(),
                                             semaphoreImageAvailable, VK_NULL_HANDLE, &imageIndex);
@@ -425,7 +425,7 @@ void drawFrame(Config &config, std::vector<JojoMesh> &meshes) {
 
 auto lastFrameTime = std::chrono::high_resolution_clock::now();
 
-void updateMvp(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &meshes) {
+void updateMvp(Config &config, JojoPhysics &physics, std::vector<JojoVulkanMesh> &meshes) {
     auto now = std::chrono::high_resolution_clock::now();
     float timeSinceLastFrame =
             std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count() / 1000.0f;
@@ -445,7 +445,7 @@ void updateMvp(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &mesh
 
     void *rawData;
     for (int i = 0; i < meshes.size(); ++i) {
-        JojoMesh &mesh = meshes[i];
+        JojoVulkanMesh &mesh = meshes[i];
 
         // TODO: maybe move this over to the physics class as well
         btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[i];
@@ -477,7 +477,7 @@ void updateMvp(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &mesh
 }
 
 
-void gameloop(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &meshes) {
+void gameloop(Config &config, JojoPhysics &physics, std::vector<JojoVulkanMesh> &meshes) {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
@@ -620,7 +620,7 @@ void gameloop(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &meshe
 }
 
 
-void shutdownVulkan(std::vector<JojoMesh> &meshes) {
+void shutdownVulkan(std::vector<JojoVulkanMesh> &meshes) {
     // block until vulkan has finished
     VkResult result = vkDeviceWaitIdle(device);
     ASSERT_VULKAN(result)
@@ -628,7 +628,7 @@ void shutdownVulkan(std::vector<JojoMesh> &meshes) {
     vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
     vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 
-    for (JojoMesh &mesh : meshes) {
+    for (JojoVulkanMesh &mesh : meshes) {
         vkFreeMemory(device, mesh.uniformBufferDeviceMemory, nullptr);
         vkDestroyBuffer(device, mesh.uniformBuffer, nullptr);
 
@@ -662,14 +662,14 @@ void shutdownGlfw() {
     glfwTerminate();
 }
 
-void initializeBuffers(std::vector<JojoMesh> &meshes) {
+void initializeBuffers(std::vector<JojoVulkanMesh> &meshes) {
     VkResult result = createDescriptorPool(device, &descriptorPool, meshes.size());
     ASSERT_VULKAN(result)
 
     result = createDescriptorSetLayout(device, &descriptorSetLayout);
     ASSERT_VULKAN(result)
 
-    for (JojoMesh &mesh : meshes) {
+    for (JojoVulkanMesh &mesh : meshes) {
         createAndUploadBuffer(device, chosenDevice, commandPool, queue, mesh.vertices,
                               VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                               &(mesh.vertexBuffer), &(mesh.vertexBufferDeviceMemory));
@@ -687,68 +687,6 @@ void initializeBuffers(std::vector<JojoMesh> &meshes) {
         bindBufferToDescriptorSet(device, mesh.uniformBuffer, mesh.uniformDescriptorSet);
     }
 }
-
-
-void
-createCube(JojoMesh *meshes, JojoPhysics &physics, float width, float height, float depth, float x, float y, float z) {
-    meshes->vertices = {
-            Vertex({-width, -height, -depth}, {1.0f, 0.0f, 1.0f}),
-            Vertex({width, -height, -depth}, {1.0f, 1.0f, 0.0f}),
-            Vertex({width, height, -depth}, {0.0f, 1.0f, 1.0f}),
-            Vertex({-width, height, -depth}, {1.0f, 1.0f, 1.0f}),
-            Vertex({-width, -height, depth}, {1.0f, 0.0f, 1.0f}),
-            Vertex({width, -height, depth}, {1.0f, 1.0f, 0.0f}),
-            Vertex({width, height, depth}, {0.0f, 1.0f, 1.0f}),
-            Vertex({-width, height, depth}, {1.0f, 1.0f, 1.0f})
-    };
-    meshes->indices = {0, 1, 2,
-                       0, 3, 1,
-
-                       1, 2, 6,
-                       6, 5, 1,
-
-                       4, 5, 6,
-                       6, 7, 4,
-
-                       2, 3, 6,
-                       6, 3, 7,
-
-                       0, 7, 3,
-                       0, 4, 7,
-
-                       0, 1, 5,
-                       0, 5, 4
-    };
-
-    // bullet part
-    btCollisionShape *colShape = new btBoxShape(btVector3(height, width, depth));
-
-    physics.collisionShapes.push_back(colShape);
-
-    btTransform startTransform;
-    startTransform.setIdentity();
-
-
-    startTransform.setOrigin(btVector3(x, y, z));
-    meshes->modelMatrix = translate(glm::mat4(), glm::vec3(x, y, z));
-
-    btVector3 localInertia(0, 1, 0);
-    btScalar mass(1.0f);
-
-    colShape->calculateLocalInertia(mass, localInertia);
-
-    btDefaultMotionState *myMotionState = new btDefaultMotionState(startTransform);
-
-    btRigidBody *body = new btRigidBody(
-            btRigidBody::btRigidBodyConstructionInfo(mass, myMotionState, colShape, localInertia));
-    body->setRestitution(objectRestitution);
-    body->forceActivationState(DISABLE_DEACTIVATION);
-
-
-    physics.dynamicsWorld->addRigidBody(body);
-
-}
-
 
 
 
@@ -821,6 +759,8 @@ int main(int argc, char *argv[]) {
 
     physics.dynamicsWorld->addRigidBody(body);
 
+    
+    
 
     float width = 0.5f, height = 0.5f, depth = 0.5f;
     auto offset = -2.0f;
@@ -829,14 +769,14 @@ int main(int argc, char *argv[]) {
      *
     int cubesAmount = 3;
 
-    std::vector<JojoMesh> meshes;
+    std::vector<JojoVulkanMesh> meshes;
     meshes.resize(cubesAmount + 1);
 
      for (int i = 0; i < meshes.size(); ++i) {
         createCube(&meshes[i], physics, width, height, depth, 0.0f, offset * i, 0.0f);
     }*/
 
-    std::vector<JojoMesh> meshes;
+    std::vector<JojoVulkanMesh> meshes;
     meshes.resize(1);
 
 

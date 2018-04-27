@@ -4,12 +4,26 @@
 
 #pragma once
 
-#include <glm/glm.hpp>
+
 #include <string>
 #include <vector>
 
+#include <glm/glm.hpp>
+
 
 // TODO: make sure to create these classes with proper constructors and constant member fields in place
+
+class JojoVertex {
+public:
+    glm::vec3 pos;
+    glm::vec3 color;
+
+    JojoVertex(glm::vec3 pos, glm::vec3 color)
+            : pos(pos), color(color) {}
+
+
+};
+
 
 class JojoMaterial {
 
@@ -51,7 +65,7 @@ public:
     std::vector<JojoNode> children;
 
     std::vector<uint32_t> indexBuffer;
-    std::vector<Vertex> vertexBuffer;
+    std::vector<JojoVertex> vertexBuffer;
 
     std::vector<JojoMaterial> materials;
 
@@ -146,7 +160,7 @@ private:
 
             glm::vec3 color(1.0, 1.0, 1.0);
 
-            Vertex vert{pos, color};
+            JojoVertex vert{pos, color};
             this->root->vertexBuffer.push_back(vert);
         }
     }
