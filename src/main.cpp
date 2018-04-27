@@ -5,21 +5,20 @@
 #include <chrono>
 
 
-#define GLFW_INCLUDE_VULKAN
+#define TINYGLTF_IMPLEMENTATION
+#define TINYGLTF_NO_STB_IMAGE_WRITE
+#define STB_IMAGE_IMPLEMENTATION
+#include <tiny_gltf.h>
 
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-
-#include <GLFW/glfw3.h>
-
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#define TINYGLTF_IMPLEMENTATION
-#define STB_IMAGE_IMPLEMENTATION
-#include <tiny_gltf.h>
 
 #include <btBulletDynamicsCommon.h>
 
@@ -751,7 +750,7 @@ createCube(JojoMesh *meshes, JojoPhysics &physics, float width, float height, fl
 }
 
 
-void loadNode(const tinygltf::Node &node, std::vector<JojoNode> nodes, const tinygltf::Model &model, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer, std::vector<JojoMaterial>& materials)
+void loadNode(const tinygltf::Node &node, std::vector<JojoNode> &nodes, const tinygltf::Model &model, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer, std::vector<JojoMaterial>& materials)
 {
     // Generate local node matrix
     glm::vec3 translation = glm::vec3(0.0f);
@@ -907,11 +906,6 @@ int main(int argc, char *argv[]) {
 
 
 
-    int cubesAmount = 3;
-
-    std::vector<JojoMesh> meshes;
-    meshes.resize(cubesAmount + 1);
-
     tinygltf::Model gltfModel;
     tinygltf::TinyGLTF loader;
     std::string err;
@@ -942,15 +936,61 @@ int main(int argc, char *argv[]) {
 
     std::cout << "loaded " << jojoScene.children.size() << " own nodes" << std::endl;
 
+    std::cout << "vert " << vertexBuffer.size() << std::endl;
+    std::cout << "ind " << indexBuffer.size() << std::endl;
+
+
+
+
+    // bullet part
+    btCollisionShape *colShape = new btBoxShape(btVector3(1, 1, 1));
+
+    physics.collisionShapes.push_back(colShape);
+
+    btTransform startTransform;
+    startTransform.setIdentity();
+
+
+    startTransform.setOrigin(btVector3(0, 0, 0));
+    //meshes->modelMatrix = translate(glm::mat4(), glm::vec3(x, y, z));
+
+    btVector3 localInertia(0, 1, 0);
+    btScalar mass(1.0f);
+
+    colShape->calculateLocalInertia(mass, localInertia);
+
+    btDefaultMotionState *myMotionState = new btDefaultMotionState(startTransform);
+
+    btRigidBody *body = new btRigidBody(
+            btRigidBody::btRigidBodyConstructionInfo(mass, myMotionState, colShape, localInertia));
+    body->setRestitution(objectRestitution);
+    body->forceActivationState(DISABLE_DEACTIVATION);
+
+
+    physics.dynamicsWorld->addRigidBody(body);
+
 
     float width = 0.5f, height = 0.5f, depth = 0.5f;
     auto offset = -2.0f;
 
-    for (int i = 1; i < meshes.size(); ++i) {
+    /*
+     *
+    int cubesAmount = 3;
+
+    std::vector<JojoMesh> meshes;
+    meshes.resize(cubesAmount + 1);
+
+     for (int i = 0; i < meshes.size(); ++i) {
         createCube(&meshes[i], physics, width, height, depth, 0.0f, offset * i, 0.0f);
-    }
+    }*/
+
+    std::vector<JojoMesh> meshes;
+    meshes.resize(1);
 
 
+    meshes[0].vertices = vertexBuffer;
+    meshes[0].indices = indexBuffer;
+    meshes[0].modelMatrix = glm::mat4();
 
     startVulkan();
 
