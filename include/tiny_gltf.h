@@ -909,7 +909,7 @@ class TinyGLTF {
 #endif
 #endif
 
-#include "./json.hpp"
+#include <json.hpp>
 
 #ifndef TINYGLTF_NO_STB_IMAGE
 #include "./stb_image.h"

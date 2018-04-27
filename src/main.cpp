@@ -4,6 +4,11 @@
 #include <algorithm>
 #include <chrono>
 
+#define TINYGLTF_IMPLEMENTATION
+#define TINYGLTF_NO_STB_IMAGE
+#define TINYGLTF_NO_STB_IMAGE_WRITE
+#include <tiny_gltf.h>
+
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -15,8 +20,6 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <btBulletDynamicsCommon.h>
-
-#include "tiny_gltf.h"
 
 #include "jojo_data.hpp"
 #include "jojo_script.hpp"
