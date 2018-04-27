@@ -20,10 +20,15 @@ static void setImageLayout (
 ) {
 	VkImageMemoryBarrier b = {};
 	b.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	b.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	b.oldLayout = oldLayout;
 	b.newLayout = newLayout;
 	b.image = image;
 	b.subresourceRange = range;
+
+	VkPipelineStageFlags src = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+	VkPipelineStageFlags dst = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
 	switch (oldLayout) {
 	case VK_IMAGE_LAYOUT_UNDEFINED:
@@ -34,6 +39,7 @@ static void setImageLayout (
 		break;
 	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
 		b.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		src = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	}
 
@@ -43,14 +49,13 @@ static void setImageLayout (
 		break;
 	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
 		b.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		dst = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
 		b.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		dst = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		break;
 	}
-
-	VkPipelineStageFlags src = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-	VkPipelineStageFlags dst = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
 	vkCmdPipelineBarrier (
 		cmd,
@@ -196,7 +201,9 @@ VkSampler sampler (
 	s.mipLodBias = 0.0f;
 	s.compareOp = VK_COMPARE_OP_NEVER;
 	s.minLod = 0.0f;
-	s.maxLod = 1.0f;
+	s.maxLod = 0.0f;
+	s.maxAnisotropy = 1.0;
+	s.anisotropyEnable = VK_FALSE;
 	s.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 	ASSERT_VULKAN(vkCreateSampler(device, &s, nullptr, &sampler));
 
@@ -267,7 +274,7 @@ VkDescriptorImageInfo generateTexture (
 		256 * 256 * 4
 	);
 
-	VkBufferImageCopy copy;
+	VkBufferImageCopy copy = {};
 	copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	copy.imageSubresource.mipLevel = 0;
 	copy.imageSubresource.baseArrayLayer = 0;
@@ -276,6 +283,8 @@ VkDescriptorImageInfo generateTexture (
 	copy.imageExtent.height = 256;
 	copy.imageExtent.depth = 1;
 	copy.bufferOffset = 0;
+	copy.bufferRowLength = 0;
+	copy.bufferImageHeight = 0;
 
 	VkCommandBuffer commandBuffer;
     allocateAndBeginSingleUseBuffer(device, commandPool, &commandBuffer);
