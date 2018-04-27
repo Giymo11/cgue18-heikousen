@@ -98,7 +98,7 @@ void create (
 	ASSERT_VULKAN(vkAllocateMemory(device, &memAllocInfo, nullptr, stagingMem));
 	ASSERT_VULKAN(vkBindBufferMemory(device, *stagingBuffer, *stagingMem, 0));
 
-	VkImageCreateInfo imageInfo;
+	VkImageCreateInfo imageInfo = {};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageInfo.imageType = VK_IMAGE_TYPE_2D;
 	imageInfo.format = format;
@@ -179,7 +179,7 @@ VkSampler sampler (
 	uint32_t mipLevels
 ) {
 	VkSampler sampler;
-	VkSamplerCreateInfo s;
+	VkSamplerCreateInfo s = {};
 	s.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	/*
 		TODO:
@@ -196,7 +196,7 @@ VkSampler sampler (
 	s.mipLodBias = 0.0f;
 	s.compareOp = VK_COMPARE_OP_NEVER;
 	s.minLod = 0.0f;
-	s.maxLod = 0.0f;
+	s.maxLod = 1.0f;
 	s.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 	ASSERT_VULKAN(vkCreateSampler(device, &s, nullptr, &sampler));
 
@@ -239,9 +239,10 @@ VkDescriptorImageInfo generateTexture (
 
 	// Generate texture
 	std::array<uint32_t, 256 * 256> texData;
-	for (int i = 0; i < 256; i++) {
+	auto tex_ptr = texData.data();
+	for (int i = 0; i < 256; i++, tex_ptr += 256) {
 		for (int j = 0; j < 256; j++) {
-			texData[i * 256 + j] = 0xFFFFFFFF;
+			tex_ptr[j] = -((i ^ j) >> 5 & 1) | 0xFF00FF00;
 		}
 	}
 
