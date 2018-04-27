@@ -28,6 +28,8 @@ topic,                      date,           duration
 \#bullet colldet/collresp,          2018-03-26,     3   
 \#bullet movement,                  2018-04-19,     2
 \#bullet rotation,                  2018-04-19,     2
+\#testing at location,              2018-04-24,     1
+\#doing model loading,              2018-04-28,     3
 
 
 

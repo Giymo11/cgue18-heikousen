@@ -1,5 +1,12 @@
 # TU Wien - CGUE SS_2018
 
+## licenses
+
+models 
+- duck - Copyright 2006 Sony Computer Entertainment Inc.
+libs
+- tiny_gltf.h
+
 ## controls
 
 z translation: W, S
@@ -44,11 +51,12 @@ close game: ESC
 0. [x] configuration
 1. [x] hello world vulkan
 1. [/] val layers?
-1. [/] refactor for hotkey use
+1. [x] refactor for hotkey use
 1. [x] pipeline rebuild (wireframe etc)
 1. [/] bullet colldet/collresp test (= game over condition)
 1. [/] script engine
-1. [ ] movement in planning phase, bullet based (= win condition)
+1. [/] movement in planning phase
+1. [ ] bullet based (= win condition)
 1. [ ] movement tracking / replay system
 1. [ ] model loading
 1. [ ] textures (multiple maps)
@@ -93,7 +101,7 @@ gameplay ideas
 - have your previous ghost's explosions influence the current run
 - score?
 - have some kinda interactivity during the run (one shot, shield, particle elimination, automatic course correction)
-
+- rewind?
 
 ## effects list
 
