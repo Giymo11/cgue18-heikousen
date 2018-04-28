@@ -266,9 +266,6 @@ void gameloop(Config &config,
     // TODO: extract a bunch of this to JojoWindow
    
     auto window = jojoWindow->window;
-
-    const float PHYSICS_FRAMETIME = 16.0f;
-    auto bulletTimer = std::chrono::high_resolution_clock::now();
     jojoReplay->startRecording ();
 
     while (!glfwWindowShouldClose(window)) {
@@ -361,10 +358,7 @@ void gameloop(Config &config,
         glfwSetCursorPos(window, newXpos, newYpos);
         // TODO: fix dis
 
-        auto now = std::chrono::high_resolution_clock::now();
-        float delta = std::chrono::duration_cast<std::chrono::milliseconds>(now - bulletTimer).count();
-        if (delta >= PHYSICS_FRAMETIME) {
-            bulletTimer = now;
+        if (jojoReplay->nextTickReady()) {
             jojoReplay->nextTick ();
 
             if (!relativeForce.isZero () || !relativeTorque.isZero () || xPressed || yPressed) {

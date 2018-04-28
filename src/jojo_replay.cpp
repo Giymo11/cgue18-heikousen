@@ -8,12 +8,18 @@
 
 namespace Replay {
 
+static const float PHYSICS_FRAMETIME = 16.0f;
+static const size_t PHYSICS_FPS = 60;
+static const size_t MAX_RECORD_TIME = 600;
+static const size_t MAX_SLICES = PHYSICS_FPS * MAX_RECORD_TIME;
+
 Recorder::Recorder (GLFWwindow *window) :
     mState(RecorderState::Passthrough),
-    mStorage(PHYSICS_FPS * MAX_RECORD_TIME),
+    mStorage(MAX_SLICES),
     mWindow(window),
     mCurrentTick(0),
-    mTicksRecorded(0) {}
+    mTicksRecorded(0),
+    mLastMeasurement(std::chrono::high_resolution_clock::now ()) {}
 
 int Recorder::getKey (int key) {
     auto &buttonState = mStorage[mCurrentTick].buttonState;
@@ -107,31 +113,43 @@ void Recorder::getCursorPos (double *x, double *y) {
 void Recorder::startRecording () {
     mCurrentTick = 0;
     mTicksRecorded = 0;
+    mLastMeasurement = std::chrono::high_resolution_clock::now ();
     mState = RecorderState::Recording;
 }
 
 void Recorder::startReplay () {
     mCurrentTick = 0;
+    mLastMeasurement = std::chrono::high_resolution_clock::now ();
     mState = RecorderState::Replaying;
 }
 
-bool Recorder::nextTick () {
+bool Recorder::nextTickReady () {
+    mLastMeasurement = std::chrono::high_resolution_clock::now ();
+    auto delta = std::chrono::duration_cast<std::chrono::milliseconds> (
+        mLastMeasurement - mLastTickTime
+    ).count ();
+    return delta >= PHYSICS_FRAMETIME;
+}
+
+void Recorder::nextTick () {
+    mLastTickTime = mLastMeasurement;
+
     switch (mState) {
     case RecorderState::Recording:
-        if (mCurrentTick + 1 < PHYSICS_FPS * MAX_RECORD_TIME) {
+        if (mCurrentTick + 1 < MAX_SLICES) {
             mCurrentTick += 1;
             mTicksRecorded += 1;
-            return true;
+            return;
         }
 
         mState = RecorderState::Passthrough;
-        return false;
+        return;
     case RecorderState::Replaying:
-        mCurrentTick = (mCurrentTick + 1) % std::min (PHYSICS_FPS * MAX_RECORD_TIME, mTicksRecorded);
-        return true;
+        mCurrentTick = (mCurrentTick + 1) % std::min (MAX_SLICES, mTicksRecorded);
+        return;
     default:
         mState = RecorderState::Passthrough;
-        return false;
+        return;
     }    
 }
 

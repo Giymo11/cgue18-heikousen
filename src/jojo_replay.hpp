@@ -1,13 +1,11 @@
 #pragma once
 #include <vector>
+#include <chrono>
 
 // Forward declarations
 struct GLFWwindow;
 
 namespace Replay {
-
-static const size_t PHYSICS_FPS     = 60;
-static const size_t MAX_RECORD_TIME = 600;
 
 struct State {
     int64_t buttonState;
@@ -26,17 +24,24 @@ public:
     Recorder (GLFWwindow *window);
     int getKey (int key);
     void getCursorPos (double *x, double *y);
-    bool nextTick ();
+    bool nextTickReady ();
+    void nextTick ();
     void startRecording ();
     void startReplay ();
     RecorderState state ();
 
 private:
-    GLFWwindow         *mWindow;
-    std::vector<State>  mStorage;
-    RecorderState       mState;
-    size_t              mCurrentTick;
-    size_t              mTicksRecorded;
+    GLFWwindow                    *mWindow;
+    std::vector<State>             mStorage;
+    RecorderState                  mState;
+    size_t                         mCurrentTick;
+    size_t                         mTicksRecorded;
+    std::chrono::time_point<
+        std::chrono::steady_clock
+    >                              mLastTickTime;
+    std::chrono::time_point<
+        std::chrono::steady_clock
+    >                              mLastMeasurement;
 };
 
 }
