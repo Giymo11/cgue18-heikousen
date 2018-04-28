@@ -10,11 +10,13 @@
 #define TINYGLTF_NO_STB_IMAGE_WRITE
 #define STB_IMAGE_IMPLEMENTATION
 #define _SILENCE_CXX17_OLD_ALLOCATOR_MEMBERS_DEPRECATION_WARNING
+
 #include <tiny_gltf.h>
 
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -32,43 +34,51 @@
 #include "jojo_physics.hpp"
 #include "jojo_scene.hpp"
 #include "jojo_engine.hpp"
+#include "jojo_engine_helper.hpp"
 
-
-
-
-VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-
-
-const int numberOfCommandBuffers = 3;
-
-// TODO: refactor out a Frame class
-std::vector<VkImageView> imageViews;
-std::vector<VkFramebuffer> framebuffers;
-std::vector<VkCommandBuffer> commandBuffers;
-std::vector<VkFence> commandBufferFences;
 
 VkShaderModule shaderModuleVert;
 VkShaderModule shaderModuleFrag;
 
 VkPipelineLayout pipelineLayout;
-VkRenderPass renderPass;
 VkPipeline pipeline;
 
-
-VkSemaphore semaphoreImageAvailable;
-VkSemaphore semaphoreRenderingDone;
 
 VkDescriptorSetLayout descriptorSetLayout;
 VkDescriptorPool descriptorPool;
 
-VkImage depthImage;
-VkDeviceMemory depthImageMemory;
-VkImageView depthImageView;
 
+void bindBufferToDescriptorSet(VkDevice device, VkBuffer uniformBuffer, VkDescriptorSet descriptorSet) {
+    VkDescriptorBufferInfo descriptorBufferInfo;
+    descriptorBufferInfo.buffer = uniformBuffer;
+    descriptorBufferInfo.offset = 0;
+    descriptorBufferInfo.range = sizeof(glm::mat4);
 
+    VkWriteDescriptorSet writeDescriptorSet;
+    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet.pNext = nullptr;
+    writeDescriptorSet.dstSet = descriptorSet;
+    writeDescriptorSet.dstBinding = 0;
+    writeDescriptorSet.dstArrayElement = 0;
+    writeDescriptorSet.descriptorCount = 1;
+    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writeDescriptorSet.pImageInfo = nullptr;
+    writeDescriptorSet.pBufferInfo = &descriptorBufferInfo;
+    writeDescriptorSet.pTexelBufferView = nullptr;
 
-void recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFramebuffer framebuffer,
-                         std::vector<JojoVulkanMesh> &meshes) {
+    vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
+}
+
+void destroyPipeline(JojoEngine *engine) {
+    vkDestroyPipeline(engine->device, pipeline, nullptr);
+    vkDestroyPipelineLayout(engine->device, pipelineLayout, nullptr);
+    vkDestroyShaderModule(engine->device, shaderModuleVert, nullptr);
+    vkDestroyShaderModule(engine->device, shaderModuleFrag, nullptr);
+}
+
+void
+recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass,
+                    std::vector<JojoVulkanMesh> &meshes) {
     std::array<VkClearValue, 2> clearValues = {};
     clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
     clearValues[1].depthStencil = {1.0f, 0};
@@ -118,55 +128,79 @@ void recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFrameb
     vkCmdEndRenderPass(commandBuffer);
 }
 
-void bindBufferToDescriptorSet(VkDevice device, VkBuffer uniformBuffer, VkDescriptorSet descriptorSet) {
-    VkDescriptorBufferInfo descriptorBufferInfo;
-    descriptorBufferInfo.buffer = uniformBuffer;
-    descriptorBufferInfo.offset = 0;
-    descriptorBufferInfo.range = sizeof(glm::mat4);
 
-    VkWriteDescriptorSet writeDescriptorSet;
-    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSet.pNext = nullptr;
-    writeDescriptorSet.dstSet = descriptorSet;
-    writeDescriptorSet.dstBinding = 0;
-    writeDescriptorSet.dstArrayElement = 0;
-    writeDescriptorSet.descriptorCount = 1;
-    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writeDescriptorSet.pImageInfo = nullptr;
-    writeDescriptorSet.pBufferInfo = &descriptorBufferInfo;
-    writeDescriptorSet.pTexelBufferView = nullptr;
-
-    vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
-}
-
-void destroyPipeline(JojoEngine *engine) {
-    vkDestroyPipeline(engine->device, pipeline, nullptr);
-    vkDestroyPipelineLayout(engine->device, pipelineLayout, nullptr);
-    vkDestroyShaderModule(engine->device, shaderModuleVert, nullptr);
-    vkDestroyShaderModule(engine->device, shaderModuleFrag, nullptr);
-}
-
-
-void destroySwapchainChildren(JojoEngine *engine) {
-    for (auto &framebuffer : framebuffers) {
-        vkDestroyFramebuffer(engine->device, framebuffer, nullptr);
+void drawFrame(Config &config, JojoEngine *engine, JojoWindow *window, JojoSwapchain *swapchain,
+               std::vector<JojoVulkanMesh> &meshes) {
+    uint32_t imageIndex;
+    VkResult result = vkAcquireNextImageKHR(engine->device, swapchain->swapchain, std::numeric_limits<uint64_t>::max(),
+                                            swapchain->semaphoreImageAvailable, VK_NULL_HANDLE, &imageIndex);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+        swapchain->recreateSwapchain(config, engine, window);
+        return;
+        // throw away this frame, because after recreating the swapchain, the vkAcquireNexImageKHR is
+        // not signaling the semaphoreImageAvailable anymore
     }
+    ASSERT_VULKAN(result)
 
-    vkDestroyImageView(engine->device, depthImageView, nullptr);
-    vkDestroyImage(engine->device, depthImage, nullptr);
-    vkFreeMemory(engine->device, depthImageMemory, nullptr);
 
-    vkDestroyRenderPass(engine->device, renderPass, nullptr);
+    VkPipelineStageFlags waitStageMask[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
-    for (auto &imageView : imageViews) {
-        vkDestroyImageView(engine->device, imageView, nullptr);
+
+    VkSubmitInfo submitInfo;
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.pNext = nullptr;
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = &swapchain->semaphoreImageAvailable;
+    submitInfo.pWaitDstStageMask = waitStageMask;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &(swapchain->commandBuffers[imageIndex]);
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &swapchain->semaphoreRenderingDone;
+
+    result = vkWaitForFences(engine->device, 1, &swapchain->commandBufferFences[imageIndex], VK_TRUE, UINT64_MAX);
+    ASSERT_VULKAN(result)
+    result = vkResetFences(engine->device, 1, &swapchain->commandBufferFences[imageIndex]);
+    ASSERT_VULKAN(result)
+
+
+    result = beginCommandBuffer(swapchain->commandBuffers[imageIndex]);
+    ASSERT_VULKAN(result)
+
+    recordCommandBuffer(config, swapchain->commandBuffers[imageIndex], swapchain->framebuffers[imageIndex],
+                        swapchain->swapchainRenderPass, meshes);
+
+    result = vkEndCommandBuffer(swapchain->commandBuffers[imageIndex]);
+    ASSERT_VULKAN(result)
+
+
+    std::cout << "woto " << swapchain->commandBufferFences.size() << std::endl;
+    result = vkQueueSubmit(engine->queue, 1, &submitInfo, swapchain->commandBufferFences[imageIndex]);
+    ASSERT_VULKAN(result)
+
+    VkPresentInfoKHR presentInfo;
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.pNext = nullptr;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = &swapchain->semaphoreRenderingDone;
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = &swapchain->swapchain;
+    presentInfo.pImageIndices = &imageIndex;
+    presentInfo.pResults = nullptr;
+
+    result = vkQueuePresentKHR(engine->queue, &presentInfo);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+        swapchain->recreateSwapchain(config, engine, window);
+        return;
+        // same as with vkAcquireNextImageKHR
     }
+    ASSERT_VULKAN(result)
 }
 
 
-void createPipelineHelper(Config &config, JojoEngine *engine) {
+void createPipelineHelper(Config &config, JojoEngine *engine, VkRenderPass renderPass) {
     VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert;
-    VkResult result = createShaderStageCreateInfo(engine->device, "../shader/shader.vert.spv", VK_SHADER_STAGE_VERTEX_BIT,
+    VkResult result = createShaderStageCreateInfo(engine->device, "../shader/shader.vert.spv",
+                                                  VK_SHADER_STAGE_VERTEX_BIT,
                                                   &shaderStageCreateInfoVert, &shaderModuleVert);
     ASSERT_VULKAN(result)
 
@@ -185,155 +219,6 @@ void createPipelineHelper(Config &config, JojoEngine *engine) {
     ASSERT_VULKAN(result)
 }
 
-void createSwapchainAndChildren(Config &config, JojoEngine *engine) {
-    VkResult result;
-    auto chosenImageFormat = VK_FORMAT_B8G8R8A8_UNORM;   // TODO: check if valid via surfaceFormats[i].format
-
-    result = createSwapchain(engine->device, engine->surface, swapchain, &swapchain, chosenImageFormat, config.width, config.height);
-    ASSERT_VULKAN(result)
-
-
-    uint32_t numberOfImagesInSwapchain = 0;
-    result = vkGetSwapchainImagesKHR(engine->device, swapchain, &numberOfImagesInSwapchain, nullptr);
-    ASSERT_VULKAN(result)
-
-    // TODO: actually adjust the number of command buffers
-    if (numberOfImagesInSwapchain > numberOfCommandBuffers)
-        throw std::runtime_error("we didnt plan for this... (more than three swapchain images)");
-
-    // doesnt have to be freed because they are allocated by the swapchain -> error when trying to destroy
-    std::vector<VkImage> swapchainImages;
-    swapchainImages.resize(numberOfImagesInSwapchain);
-    result = vkGetSwapchainImagesKHR(engine->device, swapchain, &numberOfImagesInSwapchain, swapchainImages.data());
-    ASSERT_VULKAN(result)
-
-    imageViews.resize(numberOfImagesInSwapchain);
-    for (size_t i = 0; i < numberOfImagesInSwapchain; ++i) {
-        result = createImageView(engine->device, swapchainImages[i], &(imageViews[i]), chosenImageFormat,
-                                 VK_IMAGE_ASPECT_COLOR_BIT);
-        ASSERT_VULKAN(result)
-    }
-
-    VkFormat depthFormat = findSupportedFormat(engine->chosenDevice,
-                                               {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT,
-                                                VK_FORMAT_D24_UNORM_S8_UINT},
-                                               VK_IMAGE_TILING_OPTIMAL,
-                                               VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
-    );
-    createImage(engine->device, engine->chosenDevice, config.width, config.height, depthFormat, VK_IMAGE_TILING_OPTIMAL,
-                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage,
-                &depthImageMemory);
-    ASSERT_VULKAN(result)
-    result = createImageView(engine->device, depthImage, &depthImageView, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
-    ASSERT_VULKAN(result)
-
-    changeImageLayout(engine->device, engine->commandPool, engine->queue, depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED,
-                      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-
-    result = createRenderpass(engine->device, &renderPass, chosenImageFormat, depthFormat);
-    ASSERT_VULKAN(result)
-
-
-    framebuffers.resize(numberOfImagesInSwapchain);
-    for (size_t i = 0; i < numberOfImagesInSwapchain; ++i) {
-        result = createFramebuffer(engine->device, renderPass, imageViews[i], depthImageView, &(framebuffers[i]), config.width,
-                                   config.height);
-        ASSERT_VULKAN(result)
-    }
-}
-
-void recreateSwapchain(Config &config, JojoEngine *engine, JojoWindow *window) {
-    VkResult result;
-
-    result = vkDeviceWaitIdle(engine->device);
-    ASSERT_VULKAN(result)
-
-    VkSurfaceCapabilitiesKHR surfaceCapabilitiesKHR;
-    result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(engine->chosenDevice, engine->surface, &surfaceCapabilitiesKHR);
-    ASSERT_VULKAN(result)
-
-    int newWidth, newHeight;
-    glfwGetWindowSize(window->window, &newWidth, &newHeight);
-
-    config.width = (uint32_t) std::min(newWidth, (int) surfaceCapabilitiesKHR.maxImageExtent.width);;
-    config.height = (uint32_t) std::min(newHeight, (int) surfaceCapabilitiesKHR.maxImageExtent.height);
-
-    destroySwapchainChildren(engine);
-
-    VkSwapchainKHR oldSwapchain = swapchain;
-
-    createSwapchainAndChildren(config, engine);
-
-    vkDestroySwapchainKHR(engine->device, oldSwapchain, nullptr);
-}
-
-
-
-void drawFrame(Config &config, JojoEngine *engine, JojoWindow *window, std::vector<JojoVulkanMesh> &meshes) {
-    uint32_t imageIndex;
-    VkResult result = vkAcquireNextImageKHR(engine->device, swapchain, std::numeric_limits<uint64_t>::max(),
-                                            semaphoreImageAvailable, VK_NULL_HANDLE, &imageIndex);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        recreateSwapchain(config, engine, window);
-        return;
-        // throw away this frame, because after recreating the swapchain, the vkAcquireNexImageKHR is
-        // not signaling the semaphoreImageAvailable anymore
-    }
-    ASSERT_VULKAN(result)
-
-
-    VkPipelineStageFlags waitStageMask[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-
-
-    VkSubmitInfo submitInfo;
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.pNext = nullptr;
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = &semaphoreImageAvailable;
-    submitInfo.pWaitDstStageMask = waitStageMask;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &(commandBuffers[imageIndex]);
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = &semaphoreRenderingDone;
-
-    result = vkWaitForFences(engine->device, 1, &commandBufferFences[imageIndex], VK_TRUE, UINT64_MAX);
-    ASSERT_VULKAN(result)
-    result = vkResetFences(engine->device, 1, &commandBufferFences[imageIndex]);
-    ASSERT_VULKAN(result)
-
-
-    result = beginCommandBuffer(commandBuffers[imageIndex]);
-    ASSERT_VULKAN(result)
-
-    recordCommandBuffer(config, commandBuffers[imageIndex], framebuffers[imageIndex], meshes);
-
-    result = vkEndCommandBuffer(commandBuffers[imageIndex]);
-	ASSERT_VULKAN(result)
-
-
-		std::cout << "woto " << commandBufferFences.size() << std::endl;
-    result = vkQueueSubmit(engine->queue, 1, &submitInfo, commandBufferFences[imageIndex]);
-    ASSERT_VULKAN(result)
-
-    VkPresentInfoKHR presentInfo;
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.pNext = nullptr;
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = &semaphoreRenderingDone;
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = &swapchain;
-    presentInfo.pImageIndices = &imageIndex;
-    presentInfo.pResults = nullptr;
-
-    result = vkQueuePresentKHR(engine->queue, &presentInfo);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-        recreateSwapchain(config, engine, window);
-        return;
-        // same as with vkAcquireNextImageKHR
-    }
-    ASSERT_VULKAN(result)
-}
 
 auto lastFrameTime = std::chrono::high_resolution_clock::now();
 
@@ -389,7 +274,9 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, std::ve
 }
 
 
-void gameloop(Config &config, JojoEngine *engine, JojoWindow *jojoWindow, JojoPhysics &physics, std::vector<JojoVulkanMesh> &meshes) {
+void
+gameloop(Config &config, JojoEngine *engine, JojoWindow *jojoWindow, JojoSwapchain *swapchain, JojoPhysics &physics,
+         std::vector<JojoVulkanMesh> &meshes) {
     // TODO: extract a bunch of this to JojoWindow
 
     auto window = jojoWindow->window;
@@ -530,15 +417,12 @@ void gameloop(Config &config, JojoEngine *engine, JojoWindow *jojoWindow, JojoPh
 
         updateMvp(config, engine, physics, meshes);
 
-        drawFrame(config, engine, jojoWindow, meshes);
+        drawFrame(config, engine, jojoWindow, swapchain, meshes);
     }
 }
 
 
-void shutdownVulkan(JojoEngine *engine, std::vector<JojoVulkanMesh> &meshes) {
-    // block until vulkan has finished
-    VkResult result = vkDeviceWaitIdle(engine->device);
-    ASSERT_VULKAN(result)
+void destroyMeshStuff(JojoEngine *engine, std::vector<JojoVulkanMesh> &meshes) {
 
     vkDestroyDescriptorSetLayout(engine->device, descriptorSetLayout, nullptr);
     vkDestroyDescriptorPool(engine->device, descriptorPool, nullptr);
@@ -553,25 +437,28 @@ void shutdownVulkan(JojoEngine *engine, std::vector<JojoVulkanMesh> &meshes) {
         vkFreeMemory(engine->device, mesh.vertexBufferDeviceMemory, nullptr);
         vkDestroyBuffer(engine->device, mesh.vertexBuffer, nullptr);
     }
+}
 
-    for (auto &fence : commandBufferFences) {
-        vkDestroyFence(engine->device, fence, nullptr);
-    }
 
-    vkDestroySemaphore(engine->device, semaphoreImageAvailable, nullptr);
-    vkDestroySemaphore(engine->device, semaphoreRenderingDone, nullptr);
+void shutdownVulkan(JojoEngine *engine, JojoSwapchain *swapchain, std::vector<JojoVulkanMesh> &meshes) {
+    // block until vulkan has finished
+    VkResult result = vkDeviceWaitIdle(engine->device);
+    ASSERT_VULKAN(result)
 
-    vkFreeCommandBuffers(engine->device, engine->commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+    destroyMeshStuff(engine, meshes);
+
+    swapchain->destroyCommandBuffers(engine);
 
     destroyPipeline(engine);
-    destroySwapchainChildren(engine);
-    vkDestroySwapchainKHR(engine->device, swapchain, nullptr);
+
+    swapchain->destroySwapchainChildren(engine);
+    vkDestroySwapchainKHR(engine->device, swapchain->swapchain, nullptr);
+
     vkDestroyCommandPool(engine->device, engine->commandPool, nullptr);
     vkDestroyDevice(engine->device, nullptr);
     vkDestroySurfaceKHR(engine->instance, engine->surface, nullptr);
     vkDestroyInstance(engine->instance, nullptr);
 }
-
 
 
 void initializeBuffers(JojoEngine *engine, std::vector<JojoVulkanMesh> &meshes) {
@@ -582,45 +469,25 @@ void initializeBuffers(JojoEngine *engine, std::vector<JojoVulkanMesh> &meshes) 
     ASSERT_VULKAN(result)
 
     for (JojoVulkanMesh &mesh : meshes) {
-        createAndUploadBuffer(engine->device, engine->chosenDevice,engine-> commandPool, engine->queue, mesh.vertices,
+        createAndUploadBuffer(engine->device, engine->chosenDevice, engine->commandPool, engine->queue, mesh.vertices,
                               VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                               &(mesh.vertexBuffer), &(mesh.vertexBufferDeviceMemory));
-        createAndUploadBuffer(engine->device, engine->chosenDevice, engine->commandPool, engine->queue, mesh.indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        createAndUploadBuffer(engine->device, engine->chosenDevice, engine->commandPool, engine->queue, mesh.indices,
+                              VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                               &(mesh.indexBuffer), &(mesh.indexBufferDeviceMemory));
 
         VkDeviceSize bufferSize = sizeof(glm::mat4);
-        createBuffer(engine->device, engine->chosenDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &(mesh.uniformBuffer),
+        createBuffer(engine->device, engine->chosenDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                     &(mesh.uniformBuffer),
                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                      &(mesh.uniformBufferDeviceMemory));
 
 
-        result = allocateDescriptorSet(engine->device, descriptorPool, descriptorSetLayout, &(mesh.uniformDescriptorSet));
+        result = allocateDescriptorSet(engine->device, descriptorPool, descriptorSetLayout,
+                                       &(mesh.uniformDescriptorSet));
         ASSERT_VULKAN(result)
         bindBufferToDescriptorSet(engine->device, mesh.uniformBuffer, mesh.uniformDescriptorSet);
     }
-}
-
-
-void createCommandBuffers(JojoEngine *engine) {
-    VkResult result;
-    result = allocateCommandBuffers(engine->device, engine->commandPool, commandBuffers, numberOfCommandBuffers);
-    ASSERT_VULKAN(result)
-
-
-    VkFenceCreateInfo fenceCreateInfo = {};
-    fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-    commandBufferFences.resize(numberOfCommandBuffers);
-    for (auto &fence : commandBufferFences) {
-        result = vkCreateFence(engine->device, &fenceCreateInfo, nullptr, &fence);
-        ASSERT_VULKAN(result)
-    }
-
-    result = createSemaphore(engine->device, &semaphoreImageAvailable);
-    ASSERT_VULKAN(result)
-    result = createSemaphore(engine->device, &semaphoreRenderingDone);
-    ASSERT_VULKAN(result)
 }
 
 
@@ -638,7 +505,6 @@ int main(int argc, char *argv[]) {
 
 
     JojoPhysics physics;
-
 
 
     tinygltf::Model gltfModel;
@@ -695,8 +561,6 @@ int main(int argc, char *argv[]) {
 
     physics.dynamicsWorld->addRigidBody(body);
 
-    
-    
 
     float width = 0.5f, height = 0.5f, depth = 0.5f;
     auto offset = -2.0f;
@@ -721,21 +585,22 @@ int main(int argc, char *argv[]) {
     meshes[0].modelMatrix = glm::mat4();
 
 
-
-
     JojoEngine engine;
     engine.jojoWindow = &window;
     engine.startVulkan();
 
-    createSwapchainAndChildren(config, &engine);
+
+    JojoSwapchain swapchain;
+    swapchain.createCommandBuffers(&engine);
+    swapchain.createSwapchainAndChildren(config, &engine);
 
     initializeBuffers(&engine, meshes);
 
-    createPipelineHelper(config, &engine);
+    createPipelineHelper(config, &engine, swapchain.swapchainRenderPass);
 
-    gameloop(config, &engine, &window, physics, meshes);
+    gameloop(config, &engine, &window, &swapchain, physics, meshes);
 
-    shutdownVulkan(&engine, meshes);
+    shutdownVulkan(&engine, &swapchain, meshes);
     window.shutdownGlfw();
 
     return 0;
