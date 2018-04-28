@@ -1,13 +1,12 @@
 #include <iostream>
 #include <cstring>
 #include <vector>
+#include <array>
 #include <algorithm>
 #include <chrono>
 
 
 #define TINYGLTF_IMPLEMENTATION
-#define TINYGLTF_NO_STB_IMAGE_WRITE
-#define STB_IMAGE_IMPLEMENTATION
 #include <tiny_gltf.h>
 
 #define GLFW_INCLUDE_VULKAN
@@ -23,7 +22,7 @@
 #include <btBulletDynamicsCommon.h>
 
 #include "jojo_data.hpp"
-#include "jojo_script.hpp"
+// #include "jojo_script.hpp"
 
 #include "jojo_vulkan_data.hpp"
 #include "jojo_vulkan.hpp"
@@ -274,7 +273,12 @@ void recreateSwapchain(Config &config) {
 void startVulkan() {
     VkResult result;
 
-    result = createInstance(&instance);
+    uint32_t indexOfNumberOfGlfwExtensions = 0;
+    auto glfwExtensions = glfwGetRequiredInstanceExtensions(&indexOfNumberOfGlfwExtensions);
+    // vector constructor parameters take begin and end pointer
+    std::vector<const char *> usedExtensions(glfwExtensions, glfwExtensions + indexOfNumberOfGlfwExtensions);
+
+    result = createInstance(&instance, usedExtensions);
     ASSERT_VULKAN(result)
 
     //printInstanceLayers();
@@ -691,11 +695,11 @@ void initializeBuffers(std::vector<JojoVulkanMesh> &meshes) {
 
 
 int main(int argc, char *argv[]) {
-    Scripting::Engine jojoScript;
+    //Scripting::Engine jojoScript;
 
-    Scripting::GameObject helloObj;
-    jojoScript.hookScript(helloObj, "../scripts/hello.js");
-    helloObj.updateLogic();
+    //Scripting::GameObject helloObj;
+    //jojoScript.hookScript(helloObj, "../scripts/hello.js");
+    //helloObj.updateLogic();
 
     Config config = Config::readFromFile("../config.ini");
     startGlfw(config);

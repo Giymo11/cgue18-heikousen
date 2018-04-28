@@ -50,15 +50,16 @@ close game: ESC
 
 0. [x] configuration
 1. [x] hello world vulkan
-1. [/] val layers?
+1. [/] val layers? (works in linux I guess)
 1. [x] refactor for hotkey use
 1. [x] pipeline rebuild (wireframe etc)
-1. [/] bullet colldet/collresp test (= game over condition)
+1. [/] bullet colldet/collresp test 
+1. [ ] bullet based game over condition
 1. [/] script engine
 1. [/] movement in planning phase
-1. [ ] bullet based (= win condition)
+1. [ ] bullet based win condition
 1. [ ] movement tracking / replay system
-1. [ ] model loading
+1. [/] model loading
 1. [ ] textures (multiple maps)
 1. [ ] level design (= moving objects)
 1. [ ] GAME DAY
