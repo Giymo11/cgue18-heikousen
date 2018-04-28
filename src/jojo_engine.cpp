@@ -58,8 +58,10 @@ void JojoEngine::startVulkan() {
     ASSERT_VULKAN(result)
 }
 
-void JojoEngine::initialieDescriptorPool(uint32_t count) {
-    VkResult result = createDescriptorPool(device, &descriptorPool, count);
+void JojoEngine::initialieDescriptorPool(uint32_t uniformCount,
+                                         uint32_t dynamicUniformCount,
+                                         uint32_t samplerCount) {
+    VkResult result = createDescriptorPool(device, &descriptorPool, uniformCount, dynamicUniformCount, samplerCount);
     ASSERT_VULKAN(result)
 }
 

@@ -33,7 +33,7 @@ void JojoNode::loadFromGltf(const tinygltf::Model &gltfModel, JojoScene *root) {
     this->name = scene.name;
 
     for (auto &node : scene.nodes) {
-        this->loadNode(gltfModel.nodes[node], gltfModel, materials);
+        this->loadNode(gltfModel.nodes[node], gltfModel, materials, glm::mat4());
     }
 
     std::cout << "loaded " << this->children.size() << " own nodes" << std::endl;
@@ -41,25 +41,30 @@ void JojoNode::loadFromGltf(const tinygltf::Model &gltfModel, JojoScene *root) {
 
 
 void
-JojoNode::loadNode(const tinygltf::Node &gltfNode, const tinygltf::Model &model, std::vector<JojoMaterial> &materials) {
+JojoNode::loadNode(const tinygltf::Node &gltfNode,
+                   const tinygltf::Model &model,
+                   std::vector<JojoMaterial> &materials,
+                   glm::mat4 parent) {
 
     JojoNode jojoNode;
     jojoNode.root = this->root;
     jojoNode.name = gltfNode.name;
     jojoNode.loadMatrix(gltfNode);
 
-
     // Node contains mesh data
     if (gltfNode.mesh > -1) {
         const tinygltf::Mesh mesh = model.meshes[gltfNode.mesh];
         jojoNode.name += " - " + mesh.name;
 
+        auto dynOffset = root->mvps.size();
+        root->mvps.push_back(parent * matrix);
+
         for (const auto &primitive : mesh.primitives) {
             if (primitive.indices < 0) {
                 continue;
             }
-            const uint32_t indexStart = static_cast<uint32_t>(this->root->indexBuffer.size());
-            const uint32_t vertexStart = static_cast<uint32_t>(this->root->vertexBuffer.size());
+            const uint32_t indexStart = static_cast<uint32_t>(this->root->indices.size());
+            const uint32_t vertexStart = static_cast<uint32_t>(this->root->vertices.size());
             // Vertices
             jojoNode.loadVertices(model, primitive);
             // Indices
@@ -70,8 +75,9 @@ JojoNode::loadNode(const tinygltf::Node &gltfNode, const tinygltf::Model &model,
             }
 
             JojoPrimitive jojoPrimitive;
-            jojoPrimitive.firstIndex = indexStart;
+            jojoPrimitive.indexOffset = indexStart;
             jojoPrimitive.indexCount = indexCount;
+            jojoPrimitive.dynamicOffset = dynOffset;
             jojoPrimitive.material = nullptr;    // TODO from materials[primitive.material]}
 
             jojoNode.primitives.push_back(jojoPrimitive);
@@ -81,7 +87,7 @@ JojoNode::loadNode(const tinygltf::Node &gltfNode, const tinygltf::Model &model,
 
     if (!gltfNode.children.empty()) {
         for (auto i = 0; i < gltfNode.children.size(); i++) {
-            jojoNode.loadNode(model.nodes[gltfNode.children[i]], model, materials);
+            jojoNode.loadNode(model.nodes[gltfNode.children[i]], model, materials, parent * matrix);
         }
     }
 
@@ -104,7 +110,7 @@ uint32_t JojoNode::loadIndices(const tinygltf::Model &model,
             memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset],
                    accessor.count * sizeof(uint32_t));
             for (size_t index = 0; index < accessor.count; index++) {
-                this->root->indexBuffer.push_back(buf[index] + vertexStart);
+                this->root->indices.push_back(buf[index] + vertexStart);
             }
             break;
         }
@@ -113,7 +119,7 @@ uint32_t JojoNode::loadIndices(const tinygltf::Model &model,
             memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset],
                    accessor.count * sizeof(uint16_t));
             for (size_t index = 0; index < accessor.count; index++) {
-                this->root->indexBuffer.push_back(buf[index] + vertexStart);
+                this->root->indices.push_back(buf[index] + vertexStart);
             }
             break;
         }
@@ -122,7 +128,7 @@ uint32_t JojoNode::loadIndices(const tinygltf::Model &model,
             memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset],
                    accessor.count * sizeof(uint8_t));
             for (size_t index = 0; index < accessor.count; index++) {
-                this->root->indexBuffer.push_back(buf[index] + vertexStart);
+                this->root->indices.push_back(buf[index] + vertexStart);
             }
             break;
         }
@@ -178,7 +184,7 @@ void JojoNode::loadVertices(const tinygltf::Model &model,
         glm::vec3 color(1.0, 1.0, 1.0);
 
         JojoVertex vert{pos, color};
-        this->root->vertexBuffer.push_back(vert);
+        this->root->vertices.push_back(vert);
     }
 }
 
@@ -207,4 +213,13 @@ void JojoNode::loadMatrix(const tinygltf::Node &gltfNode) {
     }
     // localNodeMatrix = parentMatrix * localNodeMatrix;
     this->matrix = localNodeMatrix;
+}
+
+const glm::mat4 &JojoNode::getMatrix() const {
+    return matrix;
+}
+
+void JojoNode::setMatrix(const glm::mat4 &matrix) {
+    JojoNode::matrix = matrix;
+    // TODO: update matrix vector of subtree
 }

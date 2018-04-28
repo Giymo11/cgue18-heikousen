@@ -10,11 +10,14 @@
 #include <vulkan/vulkan.h>
 
 #include "jojo_scene.hpp"
+#include "jojo_engine.hpp"
+#include "jojo_pipeline.hpp"
 
 class JojoVulkanMesh {
 public:
-    std::vector<JojoVertex> vertices;
-    std::vector<uint32_t> indices;
+
+    JojoScene *scene;
+
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferDeviceMemory;
     VkBuffer indexBuffer;
@@ -22,7 +25,6 @@ public:
     VkBuffer uniformBuffer;
     VkDeviceMemory uniformBufferDeviceMemory;
     VkDescriptorSet uniformDescriptorSet;
-    glm::mat4 modelMatrix;
     VkDescriptorImageInfo texture;
 
     JojoVulkanMesh();
@@ -31,6 +33,13 @@ public:
     static VkVertexInputBindingDescription getVertexInputBindingDescription();
 
     static std::vector<VkVertexInputAttributeDescription> getVertexInputAttributeDescriptions();
+
+
+    void initializeBuffers(JojoEngine *engine, JojoPipeline *pipeline);
+
+    void bindBufferToDescriptorSet(VkDevice device, VkBuffer uniformBuffer, VkDescriptorSet descriptorSet);
+
+    void destroyBuffers(JojoEngine *engine);
 };
 
 

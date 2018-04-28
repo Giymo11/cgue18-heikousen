@@ -35,29 +35,7 @@
 #include "jojo_pipeline.hpp"
 
 
-void bindBufferToDescriptorSet(VkDevice device,
-                               VkBuffer uniformBuffer,
-                               VkDescriptorSet descriptorSet) {
 
-    VkDescriptorBufferInfo descriptorBufferInfo;
-    descriptorBufferInfo.buffer = uniformBuffer;
-    descriptorBufferInfo.offset = 0;
-    descriptorBufferInfo.range = sizeof(glm::mat4);
-
-    VkWriteDescriptorSet writeDescriptorSet;
-    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSet.pNext = nullptr;
-    writeDescriptorSet.dstSet = descriptorSet;
-    writeDescriptorSet.dstBinding = 0;
-    writeDescriptorSet.dstArrayElement = 0;
-    writeDescriptorSet.descriptorCount = 1;
-    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writeDescriptorSet.pImageInfo = nullptr;
-    writeDescriptorSet.pBufferInfo = &descriptorBufferInfo;
-    writeDescriptorSet.pTexelBufferView = nullptr;
-
-    vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
-}
 
 
 void recordCommandBuffer(Config &config,
@@ -407,44 +385,10 @@ void gameloop(Config &config,
 }
 
 
-void destroyMeshStuff(JojoEngine *engine, std::vector<JojoVulkanMesh> &meshes) {
-
-    for (JojoVulkanMesh &mesh : meshes) {
-        vkFreeMemory(engine->device, mesh.uniformBufferDeviceMemory, nullptr);
-        vkDestroyBuffer(engine->device, mesh.uniformBuffer, nullptr);
-
-        vkFreeMemory(engine->device, mesh.indexBufferDeviceMemory, nullptr);
-        vkDestroyBuffer(engine->device, mesh.indexBuffer, nullptr);
-
-        vkFreeMemory(engine->device, mesh.vertexBufferDeviceMemory, nullptr);
-        vkDestroyBuffer(engine->device, mesh.vertexBuffer, nullptr);
-    }
-}
 
 
-void initializeBuffers(JojoEngine *engine, JojoPipeline *pipeline, std::vector<JojoVulkanMesh> &meshes) {
-
-    for (JojoVulkanMesh &mesh : meshes) {
-        createAndUploadBuffer(engine->device, engine->chosenDevice, engine->commandPool, engine->queue, mesh.vertices,
-                              VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                              &(mesh.vertexBuffer), &(mesh.vertexBufferDeviceMemory));
-        createAndUploadBuffer(engine->device, engine->chosenDevice, engine->commandPool, engine->queue, mesh.indices,
-                              VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                              &(mesh.indexBuffer), &(mesh.indexBufferDeviceMemory));
-
-        VkDeviceSize bufferSize = sizeof(glm::mat4);
-        createBuffer(engine->device, engine->chosenDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                     &(mesh.uniformBuffer),
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                     &(mesh.uniformBufferDeviceMemory));
 
 
-        VkResult result = allocateDescriptorSet(engine->device, engine->descriptorPool, pipeline->descriptorSetLayout,
-                                                &(mesh.uniformDescriptorSet));
-        ASSERT_VULKAN(result)
-        bindBufferToDescriptorSet(engine->device, mesh.uniformBuffer, mesh.uniformDescriptorSet);
-    }
-}
 
 void loadFromGlb(tinygltf::Model *modelDst, std::string relPath) {
     tinygltf::TinyGLTF loader;
@@ -490,64 +434,54 @@ int main(int argc, char *argv[]) {
     loadFromGlb(&gltfModel, "../models/icosphere.glb");
     JojoNode icosphere;
     icosphere.loadFromGltf(gltfModel, &scene);
+    icosphere.setMatrix(glm::mat4());
     scene.children.push_back(icosphere);
 
 
-    // bullet part
-    btCollisionShape *colShape = new btBoxShape(btVector3(1, 1, 1));
+    auto collisionShapeIndex = physics.collisionShapes.size();
+    auto collisionObjectArrayIndex = physics.dynamicsWorld->getCollisionObjectArray().size();
 
+    std::cout << "shapeIndex " << collisionShapeIndex << ", objectIndex " << collisionObjectArrayIndex << std::endl;
+
+    btCollisionShape *colShape = new btSphereShape(1);
     physics.collisionShapes.push_back(colShape);
 
     btTransform startTransform;
     startTransform.setIdentity();
-
-
     startTransform.setOrigin(btVector3(0, 0, 0));
-    //meshes->modelMatrix = translate(glm::mat4(), glm::vec3(x, y, z));
 
     btVector3 localInertia(0, 1, 0);
     btScalar mass(1.0f);
-
     colShape->calculateLocalInertia(mass, localInertia);
 
     btDefaultMotionState *myMotionState = new btDefaultMotionState(startTransform);
-
-    btRigidBody *body = new btRigidBody(
-            btRigidBody::btRigidBodyConstructionInfo(mass, myMotionState, colShape, localInertia));
+    auto rigidBodyConstuctionInfo = btRigidBody::btRigidBodyConstructionInfo(mass, myMotionState, colShape, localInertia);
+    btRigidBody *body = new btRigidBody(rigidBodyConstuctionInfo);
     body->setRestitution(objectRestitution);
     body->forceActivationState(DISABLE_DEACTIVATION);
-
 
     physics.dynamicsWorld->addRigidBody(body);
 
 
-    float width = 0.5f, height = 0.5f, depth = 0.5f;
-    auto offset = -2.0f;
 
-    /*
-     *
-    int cubesAmount = 3;
+    auto translation = glm::vec3(1, 1, 1);
+    auto scale = glm::vec3(1, 1, 1);
 
-    std::vector<JojoVulkanMesh> meshes;
-    meshes.resize(cubesAmount + 1);
-
-     for (int i = 0; i < meshes.size(); ++i) {
-        createCube(&meshes[i], physics, width, height, depth, 0.0f, offset * i, 0.0f);
-    }*/
-
-    std::vector<JojoVulkanMesh> meshes;
-    meshes.resize(1);
+    JojoNode icosphere2;
+    icosphere2.loadFromGltf(gltfModel, &scene);
+    icosphere2.setMatrix(glm::translate(glm::scale(icosphere.getMatrix(), scale), translation));
+    scene.children.push_back(icosphere2);
 
 
-    meshes[0].vertices = scene.vertexBuffer;
-    meshes[0].indices = scene.indexBuffer;
-    meshes[0].modelMatrix = glm::mat4();
+
+    JojoVulkanMesh mesh;
+    mesh.scene = &scene;
 
 
     JojoEngine engine;
     engine.jojoWindow = &window;
     engine.startVulkan();
-    engine.initialieDescriptorPool(meshes.size());
+    engine.initialieDescriptorPool(0, 1, 0);
 
 
     JojoSwapchain swapchain;
@@ -558,7 +492,7 @@ int main(int argc, char *argv[]) {
     JojoPipeline pipeline;
     pipeline.initializeDescriptorSetLayout(&engine);
 
-    initializeBuffers(&engine, &pipeline, meshes);
+    mesh.initializeBuffers(&engine, &pipeline);
 
     pipeline.createPipelineHelper(config, &engine, swapchain.swapchainRenderPass);
 
@@ -572,7 +506,7 @@ int main(int argc, char *argv[]) {
     pipeline.destroyDescriptorSetLayout(&engine);
     engine.destroyDescriptorPool();
 
-    destroyMeshStuff(&engine, meshes);
+    mesh.destroyBuffers(&engine);
 
     swapchain.destroyCommandBuffers(&engine);
 

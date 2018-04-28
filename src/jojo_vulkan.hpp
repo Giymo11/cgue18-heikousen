@@ -71,7 +71,11 @@ VkResult beginCommandBuffer(const VkCommandBuffer commandBuffer);
 
 VkResult createSemaphore(const VkDevice device, VkSemaphore *semaphore);
 
-VkResult createDescriptorPool(const VkDevice device, VkDescriptorPool *descriptorPool, uint32_t descriptorCount);
+VkResult createDescriptorPool(const VkDevice device,
+                              VkDescriptorPool *descriptorPool,
+                              uint32_t uniformCount,
+                              uint32_t dynamicUniformCount,
+                              uint32_t samplerCount);
 
 VkResult allocateDescriptorSet(const VkDevice device, const VkDescriptorPool descriptorPool,
                                const VkDescriptorSetLayout descriptorSetLayout,
