@@ -456,15 +456,15 @@ void updateMvp(Config &config, JojoPhysics &physics, std::vector<JojoMesh> &mesh
             trans = obj->getWorldTransform();
         }
         btVector3 origin = trans.getOrigin();
-        std::printf("%d " PRINTF_FLOAT " " PRINTF_FLOAT " " PRINTF_FLOAT " ",
-                    i, origin.getX(), origin.getY(), origin.getZ());
+        //std::printf("%d " PRINTF_FLOAT " " PRINTF_FLOAT " " PRINTF_FLOAT " ",
+        //            i, origin.getX(), origin.getY(), origin.getZ());
         auto &manifoldPoints = physics.objectsCollisions[body];
         if (manifoldPoints.empty()) {
-            std::printf("0");
+            //std::printf("0");
         } else {
-            std::printf("1");
+            //std::printf("1");
         }
-        puts("");
+        //puts("");
 
 
         trans.getOpenGLMatrix(glm::value_ptr(mesh.modelMatrix));
@@ -541,15 +541,23 @@ void initializeBuffers(std::vector<JojoMesh> &meshes) {
     ASSERT_VULKAN(result)
 
     result = createDescriptorSetLayout(device, &descriptorSetLayout);
-    ASSERT_VULKAN(result)
+	ASSERT_VULKAN(result)
+
+	uint32_t colors[] = {
+		0xFF00FF00,
+		0xFFFF0000
+	};
+	int color_index = 0;
 
     for (JojoMesh &mesh : meshes) {
-        mesh.texture = Textures::generateTexture (
-            device,
+		mesh.texture = Textures::generateTexture(
+			device,
 			memoryProperties,
-            commandPool,
-            queue
+			commandPool,
+			queue,
+			colors[color_index]
         );
+		color_index = (color_index + 1) & 1;
 
         createAndUploadBuffer(device, chosenDevice, commandPool, queue, mesh.vertices,
                               VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,

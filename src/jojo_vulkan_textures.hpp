@@ -199,6 +199,7 @@ VkSampler sampler (
 	s.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	s.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	s.mipLodBias = 0.0f;
+	s.compareEnable = VK_FALSE;
 	s.compareOp = VK_COMPARE_OP_NEVER;
 	s.minLod = 0.0f;
 	s.maxLod = 0.0f;
@@ -236,7 +237,8 @@ VkDescriptorImageInfo generateTexture (
 	VkDevice device,
 	const VkPhysicalDeviceMemoryProperties &memoryProperties,
 	VkCommandPool commandPool,
-	VkQueue queue
+	VkQueue queue,
+	uint32_t color
 ) {
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingMem;
@@ -249,7 +251,7 @@ VkDescriptorImageInfo generateTexture (
 	auto tex_ptr = texData.data();
 	for (int i = 0; i < 256; i++, tex_ptr += 256) {
 		for (int j = 0; j < 256; j++) {
-			tex_ptr[j] = -((i ^ j) >> 5 & 1) | 0xFF00FF00;
+			tex_ptr[j] = -((i ^ j) >> 5 & 1) | color;
 		}
 	}
 
@@ -257,7 +259,7 @@ VkDescriptorImageInfo generateTexture (
 		device,
 		memoryProperties,
 		256 * 256 * 4,
-		VK_FORMAT_R8G8B8A8_UINT,
+		VK_FORMAT_R8G8B8A8_SRGB,
 		1,
 		256,
 		256,
@@ -306,7 +308,7 @@ VkDescriptorImageInfo generateTexture (
 	auto v = view (
 		device,
 		image,
-		VK_FORMAT_R8G8B8A8_UINT,
+		VK_FORMAT_R8G8B8A8_SRGB,
 		1
 	);
 
