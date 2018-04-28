@@ -56,8 +56,8 @@ void JojoNode::loadNode(const tinygltf::Node &gltfNode, const tinygltf::Model &m
             if (primitive.indices < 0) {
                 continue;
             }
-            const uint32_t indexStart = this->root->indexBuffer.size();
-            const uint32_t vertexStart = this->root->vertexBuffer.size();
+            const uint32_t indexStart = static_cast<uint32_t>(this->root->indexBuffer.size());
+            const uint32_t vertexStart = static_cast<uint32_t>(this->root->vertexBuffer.size());
             // Vertices
             jojoNode.loadVertices(model, primitive);
             // Indices

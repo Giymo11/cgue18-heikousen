@@ -6,6 +6,7 @@
 
 #include <vulkan/vulkan.h>
 #include <cstring>
+#include <vector>
 
 #include "debug_trap.h"
 
@@ -16,6 +17,12 @@ if(val != VK_SUCCESS)\
 
 
 uint32_t findMemoryTypeIndex(VkPhysicalDevice chosenDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
+uint32_t findMemoryTypeIndex(
+	VkPhysicalDeviceMemoryProperties deviceProperties,
+	uint32_t typeBits,
+	VkMemoryPropertyFlags properties
+);
 
 bool isFormatSupported(VkPhysicalDevice chosenDeice, VkFormat format, VkImageTiling tiling,
                        VkFormatFeatureFlags featureFlags);

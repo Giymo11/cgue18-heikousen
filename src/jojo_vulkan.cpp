@@ -56,10 +56,10 @@ VkResult createInstance(VkInstance *instance, std::vector<const char *> &usedExt
     instanceCreateInfo.flags = 0;
     instanceCreateInfo.pApplicationInfo = &applicationInfo;
     // Layers are used for debugging, profiling, error handling,
-    instanceCreateInfo.enabledLayerCount = usedLayers.size();
+    instanceCreateInfo.enabledLayerCount = static_cast<uint32_t>(usedLayers.size());
     instanceCreateInfo.ppEnabledLayerNames = usedLayers.data();
     // Extensions are used to extend vulkan functionality
-    instanceCreateInfo.enabledExtensionCount = usedExtensions.size();
+    instanceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(usedExtensions.size());
     instanceCreateInfo.ppEnabledExtensionNames = usedExtensions.data();
 
 
@@ -97,7 +97,7 @@ VkResult createLogicalDevice(const VkPhysicalDevice chosenDevice,
     deviceCreateInfo.pQueueCreateInfos = &deviceQueueCreateInfo;
     deviceCreateInfo.enabledLayerCount = 0;
     deviceCreateInfo.ppEnabledLayerNames = nullptr;
-    deviceCreateInfo.enabledExtensionCount = usedDeviceExtensions.size();
+    deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(usedDeviceExtensions.size());
     deviceCreateInfo.ppEnabledExtensionNames = usedDeviceExtensions.data();
     deviceCreateInfo.pEnabledFeatures = &usedFeatures;
 
@@ -251,7 +251,7 @@ VkResult createRenderpass(const VkDevice device, VkRenderPass *renderPass, const
     renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     renderPassCreateInfo.pNext = nullptr;
     renderPassCreateInfo.flags = 0;
-    renderPassCreateInfo.attachmentCount = attachments.size();
+    renderPassCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
     renderPassCreateInfo.pAttachments = attachments.data();
     renderPassCreateInfo.subpassCount = 1;
     renderPassCreateInfo.pSubpasses = &subpassDescription;
@@ -309,7 +309,7 @@ VkResult createPipeline(const VkDevice device, const VkPipelineShaderStageCreate
     vertexInputStateCreateInfo.flags = 0;
     vertexInputStateCreateInfo.vertexBindingDescriptionCount = 1;
     vertexInputStateCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
-    vertexInputStateCreateInfo.vertexAttributeDescriptionCount = vertexAttributeDesciptions.size();
+    vertexInputStateCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexAttributeDesciptions.size());
     vertexInputStateCreateInfo.pVertexAttributeDescriptions = vertexAttributeDesciptions.data();
 
 
@@ -324,8 +324,8 @@ VkResult createPipeline(const VkDevice device, const VkPipelineShaderStageCreate
     VkViewport viewport;
     viewport.x = 0;
     viewport.y = 0;
-    viewport.width = width;
-    viewport.height = height;
+    viewport.width = static_cast<float>(width);
+    viewport.height = static_cast<float>(height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
@@ -466,7 +466,7 @@ VkResult createFramebuffer(const VkDevice device, const VkRenderPass renderPass,
     framebufferCreateInfo.pNext = nullptr;
     framebufferCreateInfo.flags = 0;
     framebufferCreateInfo.renderPass = renderPass;
-    framebufferCreateInfo.attachmentCount = attachments.size();
+    framebufferCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
     framebufferCreateInfo.pAttachments = attachments.data();
     framebufferCreateInfo.width = width;
     framebufferCreateInfo.height = height;

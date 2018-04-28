@@ -17,7 +17,28 @@ uint32_t findMemoryTypeIndex(VkPhysicalDevice chosenDevice, uint32_t typeFilter,
             return i;
         }
     }
+
+	psnip_trap();
+	return 0;
 }
+
+uint32_t findMemoryTypeIndex(
+	VkPhysicalDeviceMemoryProperties deviceProperties,
+	uint32_t typeBits,
+	VkMemoryPropertyFlags properties
+) {
+	for (uint32_t i = 0; i < deviceProperties.memoryTypeCount; i++) {
+		if ((typeBits & 1) == 1) {
+			if ((deviceProperties.memoryTypes[i].propertyFlags & properties) == properties)
+				return i;
+		}
+		typeBits >>= 1;
+	}
+
+	psnip_trap();
+	return 0;
+}
+
 
 bool isFormatSupported(VkPhysicalDevice chosenDeice, VkFormat format, VkImageTiling tiling,
                        VkFormatFeatureFlags featureFlags) {

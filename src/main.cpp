@@ -9,9 +9,9 @@
 #define TINYGLTF_IMPLEMENTATION
 #define TINYGLTF_NO_STB_IMAGE_WRITE
 #define STB_IMAGE_IMPLEMENTATION
+#define _SILENCE_CXX17_OLD_ALLOCATOR_MEMBERS_DEPRECATION_WARNING
 #include <tiny_gltf.h>
 
-#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #define GLM_FORCE_RADIANS
@@ -83,7 +83,7 @@ void recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFrameb
     renderPassBeginInfo.framebuffer = framebuffer;
     renderPassBeginInfo.renderArea.offset = {0, 0};
     renderPassBeginInfo.renderArea.extent = {config.width, config.height};
-    renderPassBeginInfo.clearValueCount = clearValues.size();
+    renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
     renderPassBeginInfo.pClearValues = clearValues.data();
 
     // _INLINE means to only use primary command buffers
@@ -94,8 +94,8 @@ void recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFrameb
     VkViewport viewport;
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = config.width;
-    viewport.height = config.height;
+    viewport.width = static_cast<float>(config.width);
+    viewport.height = static_cast<float>(config.height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
@@ -115,7 +115,7 @@ void recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFrameb
                                 &(mesh.uniformDescriptorSet), 0,
                                 nullptr);
 
-        vkCmdDrawIndexed(commandBuffer, mesh.indices.size(), 1, 0, 0, 0);
+        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(mesh.indices.size()), 1, 0, 0, 0);
     }
 
     vkCmdEndRenderPass(commandBuffer);
@@ -552,7 +552,7 @@ void gameloop(Config &config, JojoPhysics &physics, std::vector<JojoVulkanMesh> 
                 absXpos = maxX;
             }
             double torque = (absXpos - minX) / (maxX - minX) * glm::sign(relXpos) * -1;
-            relativeTorque = relativeTorque + btVector3(0, 0, torque);
+            relativeTorque = relativeTorque + btVector3(0, 0, static_cast<float>(torque));
         }
 
         if (absYpos > minY) {
@@ -560,7 +560,7 @@ void gameloop(Config &config, JojoPhysics &physics, std::vector<JojoVulkanMesh> 
                 absYpos = maxY;
             }
             double torque = (absYpos - minY) / (maxY - minY) * glm::sign(relYpos) * -1;
-            relativeTorque = relativeTorque + btVector3(torque, 0, 0);
+            relativeTorque = relativeTorque + btVector3(static_cast<float>(torque), 0, 0);
         }
 
         double newXpos = absXpos * glm::sign(relXpos) + config.width / 2.0f;
@@ -652,7 +652,7 @@ void shutdownVulkan(std::vector<JojoVulkanMesh> &meshes) {
     vkDestroySemaphore(device, semaphoreImageAvailable, nullptr);
     vkDestroySemaphore(device, semaphoreRenderingDone, nullptr);
 
-    vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
+    vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 
     destroyPipeline();
     destroySwapchainChildren();

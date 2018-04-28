@@ -14,8 +14,8 @@
 
 // tinygltf forward declarations, makes header handling easier
 namespace tinygltf {
-struct Node;
-struct Model;
+class Node;
+class Model;
 struct Primitive;
 }
 
