@@ -556,6 +556,15 @@ int main(int argc, char *argv[]) {
     meshes[0].modelMatrix = glm::mat4();
 
     Replay::Recorder jojoReplay(window.window);
+    jojoReplay.setResetFunc ([body, &startTransform]() {
+        // TODO: Reset state of the world here
+        btVector3 zeroVector (0, 0, 0);
+
+        body->clearForces ();
+        body->setLinearVelocity (zeroVector);
+        body->setAngularVelocity (zeroVector);
+        body->setWorldTransform (startTransform);
+    });
 
 
     JojoEngine engine;

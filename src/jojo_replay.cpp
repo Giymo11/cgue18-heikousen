@@ -19,7 +19,12 @@ Recorder::Recorder (GLFWwindow *window) :
     mWindow(window),
     mCurrentTick(0),
     mTicksRecorded(0),
-    mLastMeasurement(std::chrono::high_resolution_clock::now ()) {}
+    mLastMeasurement (std::chrono::high_resolution_clock::now ()),
+    mResetFunc ([]() {}) {}
+
+void Recorder::setResetFunc (const std::function<void ()> &func) {
+    mResetFunc = func;
+}
 
 int Recorder::getKey (int key) {
     auto &buttonState = mStorage[mCurrentTick].buttonState;
@@ -121,6 +126,7 @@ void Recorder::startReplay () {
     mCurrentTick = 0;
     mLastMeasurement = std::chrono::high_resolution_clock::now ();
     mState = RecorderState::Replaying;
+    mResetFunc ();
 }
 
 bool Recorder::nextTickReady () {
@@ -146,6 +152,8 @@ void Recorder::nextTick () {
         return;
     case RecorderState::Replaying:
         mCurrentTick = (mCurrentTick + 1) % std::min (MAX_SLICES, mTicksRecorded);
+        if (mCurrentTick == 0)
+            mResetFunc ();
         return;
     default:
         mState = RecorderState::Passthrough;
