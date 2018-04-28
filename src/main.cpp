@@ -35,17 +35,10 @@
 #include "jojo_scene.hpp"
 #include "jojo_engine.hpp"
 #include "jojo_engine_helper.hpp"
+#include "jojo_pipeline.hpp"
 
 
-VkShaderModule shaderModuleVert;
-VkShaderModule shaderModuleFrag;
 
-VkPipelineLayout pipelineLayout;
-VkPipeline pipeline;
-
-
-VkDescriptorSetLayout descriptorSetLayout;
-VkDescriptorPool descriptorPool;
 
 
 void bindBufferToDescriptorSet(VkDevice device, VkBuffer uniformBuffer, VkDescriptorSet descriptorSet) {
@@ -69,15 +62,10 @@ void bindBufferToDescriptorSet(VkDevice device, VkBuffer uniformBuffer, VkDescri
     vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
 }
 
-void destroyPipeline(JojoEngine *engine) {
-    vkDestroyPipeline(engine->device, pipeline, nullptr);
-    vkDestroyPipelineLayout(engine->device, pipelineLayout, nullptr);
-    vkDestroyShaderModule(engine->device, shaderModuleVert, nullptr);
-    vkDestroyShaderModule(engine->device, shaderModuleFrag, nullptr);
-}
+
 
 void
-recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass,
+recordCommandBuffer(Config &config, JojoPipeline *pipeline, VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass,
                     std::vector<JojoVulkanMesh> &meshes) {
     std::array<VkClearValue, 2> clearValues = {};
     clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -96,7 +84,7 @@ recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFramebuffer
     // _INLINE means to only use primary command buffers
     vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 
     VkViewport viewport;
     viewport.x = 0.0f;
@@ -118,7 +106,7 @@ recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFramebuffer
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &(mesh.vertexBuffer), offsets);
         vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1,
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipelineLayout, 0, 1,
                                 &(mesh.uniformDescriptorSet), 0,
                                 nullptr);
 
@@ -129,7 +117,7 @@ recordCommandBuffer(Config &config, VkCommandBuffer commandBuffer, VkFramebuffer
 }
 
 
-void drawFrame(Config &config, JojoEngine *engine, JojoWindow *window, JojoSwapchain *swapchain,
+void drawFrame(Config &config, JojoEngine *engine, JojoWindow *window, JojoSwapchain *swapchain, JojoPipeline *pipeline,
                std::vector<JojoVulkanMesh> &meshes) {
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(engine->device, swapchain->swapchain, std::numeric_limits<uint64_t>::max(),
@@ -166,7 +154,7 @@ void drawFrame(Config &config, JojoEngine *engine, JojoWindow *window, JojoSwapc
     result = beginCommandBuffer(swapchain->commandBuffers[imageIndex]);
     ASSERT_VULKAN(result)
 
-    recordCommandBuffer(config, swapchain->commandBuffers[imageIndex], swapchain->framebuffers[imageIndex],
+    recordCommandBuffer(config, pipeline, swapchain->commandBuffers[imageIndex], swapchain->framebuffers[imageIndex],
                         swapchain->swapchainRenderPass, meshes);
 
     result = vkEndCommandBuffer(swapchain->commandBuffers[imageIndex]);
@@ -197,27 +185,7 @@ void drawFrame(Config &config, JojoEngine *engine, JojoWindow *window, JojoSwapc
 }
 
 
-void createPipelineHelper(Config &config, JojoEngine *engine, VkRenderPass renderPass) {
-    VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert;
-    VkResult result = createShaderStageCreateInfo(engine->device, "../shader/shader.vert.spv",
-                                                  VK_SHADER_STAGE_VERTEX_BIT,
-                                                  &shaderStageCreateInfoVert, &shaderModuleVert);
-    ASSERT_VULKAN(result)
 
-    VkPipelineShaderStageCreateInfo shaderStageCreateInfoFrag;
-    result = createShaderStageCreateInfo(engine->device, "../shader/shader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT,
-                                         &shaderStageCreateInfoFrag, &shaderModuleFrag);
-    ASSERT_VULKAN(result)
-
-    VkPipelineShaderStageCreateInfo shaderStages[] = {shaderStageCreateInfoVert, shaderStageCreateInfoFrag};
-
-    result = createPipelineLayout(engine->device, &descriptorSetLayout, &pipelineLayout);
-    ASSERT_VULKAN(result)
-
-    result = createPipeline(engine->device, shaderStages, renderPass, pipelineLayout, &pipeline, config.width,
-                            config.height);
-    ASSERT_VULKAN(result)
-}
 
 
 auto lastFrameTime = std::chrono::high_resolution_clock::now();
@@ -275,7 +243,7 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, std::ve
 
 
 void
-gameloop(Config &config, JojoEngine *engine, JojoWindow *jojoWindow, JojoSwapchain *swapchain, JojoPhysics &physics,
+gameloop(Config &config, JojoEngine *engine, JojoWindow *jojoWindow, JojoSwapchain *swapchain, JojoPipeline *pipeline, JojoPhysics &physics,
          std::vector<JojoVulkanMesh> &meshes) {
     // TODO: extract a bunch of this to JojoWindow
 
@@ -417,15 +385,12 @@ gameloop(Config &config, JojoEngine *engine, JojoWindow *jojoWindow, JojoSwapcha
 
         updateMvp(config, engine, physics, meshes);
 
-        drawFrame(config, engine, jojoWindow, swapchain, meshes);
+        drawFrame(config, engine, jojoWindow, swapchain, pipeline, meshes);
     }
 }
 
 
 void destroyMeshStuff(JojoEngine *engine, std::vector<JojoVulkanMesh> &meshes) {
-
-    vkDestroyDescriptorSetLayout(engine->device, descriptorSetLayout, nullptr);
-    vkDestroyDescriptorPool(engine->device, descriptorPool, nullptr);
 
     for (JojoVulkanMesh &mesh : meshes) {
         vkFreeMemory(engine->device, mesh.uniformBufferDeviceMemory, nullptr);
@@ -440,33 +405,7 @@ void destroyMeshStuff(JojoEngine *engine, std::vector<JojoVulkanMesh> &meshes) {
 }
 
 
-void shutdownVulkan(JojoEngine *engine, JojoSwapchain *swapchain, std::vector<JojoVulkanMesh> &meshes) {
-    // block until vulkan has finished
-    VkResult result = vkDeviceWaitIdle(engine->device);
-    ASSERT_VULKAN(result)
-
-    destroyMeshStuff(engine, meshes);
-
-    swapchain->destroyCommandBuffers(engine);
-
-    destroyPipeline(engine);
-
-    swapchain->destroySwapchainChildren(engine);
-    vkDestroySwapchainKHR(engine->device, swapchain->swapchain, nullptr);
-
-    vkDestroyCommandPool(engine->device, engine->commandPool, nullptr);
-    vkDestroyDevice(engine->device, nullptr);
-    vkDestroySurfaceKHR(engine->instance, engine->surface, nullptr);
-    vkDestroyInstance(engine->instance, nullptr);
-}
-
-
-void initializeBuffers(JojoEngine *engine, std::vector<JojoVulkanMesh> &meshes) {
-    VkResult result = createDescriptorPool(engine->device, &descriptorPool, meshes.size());
-    ASSERT_VULKAN(result)
-
-    result = createDescriptorSetLayout(engine->device, &descriptorSetLayout);
-    ASSERT_VULKAN(result)
+void initializeBuffers(JojoEngine *engine, JojoPipeline *pipeline, std::vector<JojoVulkanMesh> &meshes) {
 
     for (JojoVulkanMesh &mesh : meshes) {
         createAndUploadBuffer(engine->device, engine->chosenDevice, engine->commandPool, engine->queue, mesh.vertices,
@@ -483,7 +422,7 @@ void initializeBuffers(JojoEngine *engine, std::vector<JojoVulkanMesh> &meshes) 
                      &(mesh.uniformBufferDeviceMemory));
 
 
-        result = allocateDescriptorSet(engine->device, descriptorPool, descriptorSetLayout,
+        VkResult result = allocateDescriptorSet(engine->device, engine->descriptorPool, pipeline->descriptorSetLayout,
                                        &(mesh.uniformDescriptorSet));
         ASSERT_VULKAN(result)
         bindBufferToDescriptorSet(engine->device, mesh.uniformBuffer, mesh.uniformDescriptorSet);
@@ -588,19 +527,43 @@ int main(int argc, char *argv[]) {
     JojoEngine engine;
     engine.jojoWindow = &window;
     engine.startVulkan();
+    engine.initialieDescriptorPool(meshes.size());
 
 
     JojoSwapchain swapchain;
     swapchain.createCommandBuffers(&engine);
     swapchain.createSwapchainAndChildren(config, &engine);
 
-    initializeBuffers(&engine, meshes);
 
-    createPipelineHelper(config, &engine, swapchain.swapchainRenderPass);
+    JojoPipeline pipeline;
+    pipeline.initializeDescriptorSetLayout(&engine);
 
-    gameloop(config, &engine, &window, &swapchain, physics, meshes);
+    initializeBuffers(&engine, &pipeline, meshes);
 
-    shutdownVulkan(&engine, &swapchain, meshes);
+    pipeline.createPipelineHelper(config, &engine, swapchain.swapchainRenderPass);
+
+    gameloop(config, &engine, &window, &swapchain, &pipeline, physics, meshes);
+
+
+
+    VkResult result = vkDeviceWaitIdle(engine.device);
+    ASSERT_VULKAN(result)
+
+
+    pipeline.destroyDescriptorSetLayout(&engine);
+    engine.destroyDescriptorPool();
+
+    destroyMeshStuff(&engine, meshes);
+
+    swapchain.destroyCommandBuffers(&engine);
+
+    pipeline.destroyPipeline(&engine);
+
+    swapchain.destroySwapchainChildren(&engine);
+    vkDestroySwapchainKHR(engine.device, swapchain.swapchain, nullptr);
+
+    engine.shutdownVulkan();
+
     window.shutdownGlfw();
 
     return 0;

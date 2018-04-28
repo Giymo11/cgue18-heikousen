@@ -104,3 +104,19 @@ void JojoEngine::startVulkan() {
     ASSERT_VULKAN(result)
 }
 
+void JojoEngine::initialieDescriptorPool(uint32_t count) {
+    VkResult result = createDescriptorPool(device, &descriptorPool, count);
+    ASSERT_VULKAN(result)
+}
+
+void JojoEngine::destroyDescriptorPool() {
+    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+}
+
+void JojoEngine::shutdownVulkan() {
+    vkDestroyCommandPool(device, commandPool, nullptr);
+    vkDestroyDevice(device, nullptr);
+    vkDestroySurfaceKHR(instance, surface, nullptr);
+    vkDestroyInstance(instance, nullptr);
+}
+

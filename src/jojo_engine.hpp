@@ -8,6 +8,7 @@
 
 #include <GLFW/glfw3.h>
 #include "jojo_data.hpp"
+#include "jojo_engine_helper.hpp"
 
 class JojoWindow {
 public:
@@ -19,9 +20,6 @@ public:
 
     std::vector<const char *> getUsedExtensions();
     void createSurface(VkInstance instance, VkSurfaceKHR *surface);
-
-
-
 };
 
 class JojoEngine {
@@ -37,8 +35,14 @@ public:
     VkQueue queue;
 
     VkCommandPool commandPool;
-
+    VkDescriptorPool descriptorPool;
 
     void startVulkan();
+
+    void initialieDescriptorPool(uint32_t count);
+
+    void destroyDescriptorPool();
+
+    void shutdownVulkan();
 };
 

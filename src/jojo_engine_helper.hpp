@@ -2,13 +2,15 @@
 
 #pragma once
 
+#include <vulkan/vulkan.h>
+
 #include "jojo_engine.hpp"
 #include "jojo_vulkan_data.hpp"
 
 class JojoSwapchain {
 public:
 
-    const int numberOfCommandBuffers = 3;
+    const uint32_t numberOfCommandBuffers = 3;
 
     // TODO: refactor out a Frame class
     std::vector<VkImageView> imageViews;
@@ -36,11 +38,5 @@ public:
 
     void recreateSwapchain(Config &config, JojoEngine *engine, JojoWindow *window);
 
-
-
     void destroyCommandBuffers(JojoEngine *engine);
-
-
-
-
 };
