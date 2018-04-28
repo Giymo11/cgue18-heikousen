@@ -1,8 +1,6 @@
 #include <iostream>
-#include <cstring>
 #include <vector>
 #include <array>
-#include <algorithm>
 #include <chrono>
 
 
@@ -24,24 +22,23 @@
 
 #include <btBulletDynamicsCommon.h>
 
-#include "jojo_data.hpp"
+#include "jojo_utils.hpp"
 // #include "jojo_script.hpp"
 
 #include "jojo_vulkan_data.hpp"
 #include "jojo_vulkan.hpp"
 #include "jojo_vulkan_utils.hpp"
-#include "jojo_vulkan_info.hpp"
 #include "jojo_physics.hpp"
-#include "jojo_scene.hpp"
 #include "jojo_engine.hpp"
-#include "jojo_engine_helper.hpp"
+#include "jojo_swapchain.hpp"
+#include "jojo_window.hpp"
 #include "jojo_pipeline.hpp"
 
 
+void bindBufferToDescriptorSet(VkDevice device,
+                               VkBuffer uniformBuffer,
+                               VkDescriptorSet descriptorSet) {
 
-
-
-void bindBufferToDescriptorSet(VkDevice device, VkBuffer uniformBuffer, VkDescriptorSet descriptorSet) {
     VkDescriptorBufferInfo descriptorBufferInfo;
     descriptorBufferInfo.buffer = uniformBuffer;
     descriptorBufferInfo.offset = 0;
@@ -63,10 +60,13 @@ void bindBufferToDescriptorSet(VkDevice device, VkBuffer uniformBuffer, VkDescri
 }
 
 
+void recordCommandBuffer(Config &config,
+                         JojoPipeline *pipeline,
+                         VkCommandBuffer commandBuffer,
+                         VkFramebuffer framebuffer,
+                         VkRenderPass renderPass,
+                         std::vector<JojoVulkanMesh> &meshes) {
 
-void
-recordCommandBuffer(Config &config, JojoPipeline *pipeline, VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, VkRenderPass renderPass,
-                    std::vector<JojoVulkanMesh> &meshes) {
     std::array<VkClearValue, 2> clearValues = {};
     clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
     clearValues[1].depthStencil = {1.0f, 0};
@@ -106,8 +106,13 @@ recordCommandBuffer(Config &config, JojoPipeline *pipeline, VkCommandBuffer comm
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &(mesh.vertexBuffer), offsets);
         vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipelineLayout, 0, 1,
-                                &(mesh.uniformDescriptorSet), 0,
+        vkCmdBindDescriptorSets(commandBuffer,
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                pipeline->pipelineLayout,
+                                0,
+                                1,
+                                &(mesh.uniformDescriptorSet),
+                                0,
                                 nullptr);
 
         vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(mesh.indices.size()), 1, 0, 0, 0);
@@ -117,11 +122,20 @@ recordCommandBuffer(Config &config, JojoPipeline *pipeline, VkCommandBuffer comm
 }
 
 
-void drawFrame(Config &config, JojoEngine *engine, JojoWindow *window, JojoSwapchain *swapchain, JojoPipeline *pipeline,
+void drawFrame(Config &config,
+               JojoEngine *engine,
+               JojoWindow *window,
+               JojoSwapchain *swapchain,
+               JojoPipeline *pipeline,
                std::vector<JojoVulkanMesh> &meshes) {
+
     uint32_t imageIndex;
-    VkResult result = vkAcquireNextImageKHR(engine->device, swapchain->swapchain, std::numeric_limits<uint64_t>::max(),
-                                            swapchain->semaphoreImageAvailable, VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(engine->device,
+                                            swapchain->swapchain,
+                                            std::numeric_limits<uint64_t>::max(),
+                                            swapchain->semaphoreImageAvailable,
+                                            VK_NULL_HANDLE,
+                                            &imageIndex);
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         swapchain->recreateSwapchain(config, engine, window);
         return;
@@ -154,8 +168,12 @@ void drawFrame(Config &config, JojoEngine *engine, JojoWindow *window, JojoSwapc
     result = beginCommandBuffer(swapchain->commandBuffers[imageIndex]);
     ASSERT_VULKAN(result)
 
-    recordCommandBuffer(config, pipeline, swapchain->commandBuffers[imageIndex], swapchain->framebuffers[imageIndex],
-                        swapchain->swapchainRenderPass, meshes);
+    recordCommandBuffer(config,
+                        pipeline,
+                        swapchain->commandBuffers[imageIndex],
+                        swapchain->framebuffers[imageIndex],
+                        swapchain->swapchainRenderPass,
+                        meshes);
 
     result = vkEndCommandBuffer(swapchain->commandBuffers[imageIndex]);
     ASSERT_VULKAN(result)
@@ -183,9 +201,6 @@ void drawFrame(Config &config, JojoEngine *engine, JojoWindow *window, JojoSwapc
     }
     ASSERT_VULKAN(result)
 }
-
-
-
 
 
 auto lastFrameTime = std::chrono::high_resolution_clock::now();
@@ -242,9 +257,13 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, std::ve
 }
 
 
-void
-gameloop(Config &config, JojoEngine *engine, JojoWindow *jojoWindow, JojoSwapchain *swapchain, JojoPipeline *pipeline, JojoPhysics &physics,
-         std::vector<JojoVulkanMesh> &meshes) {
+void gameloop(Config &config,
+              JojoEngine *engine,
+              JojoWindow *jojoWindow,
+              JojoSwapchain *swapchain,
+              JojoPipeline *pipeline,
+              JojoPhysics &physics,
+              std::vector<JojoVulkanMesh> &meshes) {
     // TODO: extract a bunch of this to JojoWindow
 
     auto window = jojoWindow->window;
@@ -423,7 +442,7 @@ void initializeBuffers(JojoEngine *engine, JojoPipeline *pipeline, std::vector<J
 
 
         VkResult result = allocateDescriptorSet(engine->device, engine->descriptorPool, pipeline->descriptorSetLayout,
-                                       &(mesh.uniformDescriptorSet));
+                                                &(mesh.uniformDescriptorSet));
         ASSERT_VULKAN(result)
         bindBufferToDescriptorSet(engine->device, mesh.uniformBuffer, mesh.uniformDescriptorSet);
     }
@@ -543,7 +562,6 @@ int main(int argc, char *argv[]) {
     pipeline.createPipelineHelper(config, &engine, swapchain.swapchainRenderPass);
 
     gameloop(config, &engine, &window, &swapchain, &pipeline, physics, meshes);
-
 
 
     VkResult result = vkDeviceWaitIdle(engine.device);

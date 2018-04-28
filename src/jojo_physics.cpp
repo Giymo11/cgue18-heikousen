@@ -2,13 +2,12 @@
 // Created by benja on 4/28/2018.
 //
 
+#include "jojo_physics.hpp"
+
 #include <vector>
-#include <functional>
 #include <map>
 
 #include <btBulletDynamicsCommon.h>
-
-#include "jojo_physics.hpp"
 
 
 void myTickCallback(btDynamicsWorld *world, btScalar timeStep) {
@@ -25,8 +24,8 @@ JojoPhysics::JojoPhysics() {
 JojoPhysics::~JojoPhysics() {
     // Cleanup.
     for (int i = dynamicsWorld->getNumCollisionObjects() - 1; i >= 0; --i) {
-        btCollisionObject* obj = dynamicsWorld->getCollisionObjectArray()[i];
-        btRigidBody* body = btRigidBody::upcast(obj);
+        btCollisionObject *obj = dynamicsWorld->getCollisionObjectArray()[i];
+        btRigidBody *body = btRigidBody::upcast(obj);
         if (body && body->getMotionState()) {
             delete body->getMotionState();
         }
@@ -55,12 +54,12 @@ void JojoPhysics::theTickCallback(btDynamicsWorld *dynamicsWorld, btScalar timeS
         auto *objA = contactManifold->getBody0();
         auto *objB = contactManifold->getBody1();
 
-        auto& collisionsA = objectsCollisions[objA];
-        auto& collisionsB = objectsCollisions[objB];
+        auto &collisionsA = objectsCollisions[objA];
+        auto &collisionsB = objectsCollisions[objB];
 
         int numContacts = contactManifold->getNumContacts();
         for (int j = 0; j < numContacts; j++) {
-            btManifoldPoint& pt = contactManifold->getContactPoint(j);
+            btManifoldPoint &pt = contactManifold->getContactPoint(j);
 
             collisionsA.push_back(&pt);
             collisionsB.push_back(&pt);

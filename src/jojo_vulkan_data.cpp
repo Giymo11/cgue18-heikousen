@@ -2,15 +2,15 @@
 // Created by benja on 4/28/2018.
 //
 
+#include "jojo_vulkan_data.hpp"
+
 #include <vector>
 
 #include <vulkan/vulkan.h>
-
 #include <glm/glm.hpp>
 
 #include "jojo_scene.hpp"
 
-#include "jojo_vulkan_data.hpp"
 
 JojoVulkanMesh::JojoVulkanMesh() {}
 

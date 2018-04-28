@@ -6,6 +6,7 @@
 
 #include "jojo_engine.hpp"
 #include "jojo_vulkan_data.hpp"
+#include "jojo_utils.hpp"
 
 class JojoSwapchain {
 public:

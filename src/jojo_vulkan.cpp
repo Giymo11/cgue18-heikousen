@@ -2,6 +2,8 @@
 // Created by benja on 4/28/2018.
 //
 
+#include "jojo_vulkan.hpp"
+
 #include <array>
 #include <vector>
 #include <vulkan/vulkan.h>
@@ -9,12 +11,12 @@
 #include "debug_trap.h"
 
 #include "jojo_utils.hpp"
-#include "jojo_vulkan_utils.hpp"
 #include "jojo_vulkan_data.hpp"
 
 
 #define BREAK_BREAK_BREAK\
 psnip_trap();\
+
 
 VkResult createShaderModule(const VkDevice device, const std::vector<char> &code, VkShaderModule *shaderModule) {
     VkShaderModuleCreateInfo shaderModuleCreateInfo;

@@ -2,8 +2,10 @@
 // Created by benja on 4/28/2018.
 //
 
-#include <vector>
 #include "jojo_vulkan_utils.hpp"
+
+#include <vector>
+
 
 uint32_t findMemoryTypeIndex(VkPhysicalDevice chosenDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
@@ -18,25 +20,25 @@ uint32_t findMemoryTypeIndex(VkPhysicalDevice chosenDevice, uint32_t typeFilter,
         }
     }
 
-	psnip_trap();
-	return 0;
+    psnip_trap();
+    return 0;
 }
 
 uint32_t findMemoryTypeIndex(
-	VkPhysicalDeviceMemoryProperties deviceProperties,
-	uint32_t typeBits,
-	VkMemoryPropertyFlags properties
+        VkPhysicalDeviceMemoryProperties deviceProperties,
+        uint32_t typeBits,
+        VkMemoryPropertyFlags properties
 ) {
-	for (uint32_t i = 0; i < deviceProperties.memoryTypeCount; i++) {
-		if ((typeBits & 1) == 1) {
-			if ((deviceProperties.memoryTypes[i].propertyFlags & properties) == properties)
-				return i;
-		}
-		typeBits >>= 1;
-	}
+    for (uint32_t i = 0; i < deviceProperties.memoryTypeCount; i++) {
+        if ((typeBits & 1) == 1) {
+            if ((deviceProperties.memoryTypes[i].propertyFlags & properties) == properties)
+                return i;
+        }
+        typeBits >>= 1;
+    }
 
-	psnip_trap();
-	return 0;
+    psnip_trap();
+    return 0;
 }
 
 
@@ -165,26 +167,27 @@ void copyBuffer(VkDevice device, VkCommandPool commandPool, VkQueue queue,
 }
 
 void createAndUploadBufferUntyped(VkDevice device, VkPhysicalDevice chosenDevice, VkCommandPool commandPool,
-	VkQueue queue, VkBufferUsageFlags usageFlags, VkBuffer *buffer, VkDeviceMemory *deviceMemory,
-	const uint8_t *data, VkDeviceSize bufferSize) {
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	createBuffer(device, chosenDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, &stagingBuffer,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBufferMemory);
+                                  VkQueue queue, VkBufferUsageFlags usageFlags, VkBuffer *buffer,
+                                  VkDeviceMemory *deviceMemory,
+                                  const uint8_t *data, VkDeviceSize bufferSize) {
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    createBuffer(device, chosenDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, &stagingBuffer,
+                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBufferMemory);
 
-	uint8_t *rawData;
-	VkResult result = vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, reinterpret_cast<void **>(&rawData));
-	ASSERT_VULKAN(result)
-	std::copy(data, data + bufferSize, rawData);
-	vkUnmapMemory(device, stagingBufferMemory);
+    uint8_t *rawData;
+    VkResult result = vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, reinterpret_cast<void **>(&rawData));
+    ASSERT_VULKAN(result)
+    std::copy(data, data + bufferSize, rawData);
+    vkUnmapMemory(device, stagingBufferMemory);
 
-	createBuffer(device, chosenDevice, bufferSize, usageFlags | VK_BUFFER_USAGE_TRANSFER_DST_BIT, buffer,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, deviceMemory);
+    createBuffer(device, chosenDevice, bufferSize, usageFlags | VK_BUFFER_USAGE_TRANSFER_DST_BIT, buffer,
+                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, deviceMemory);
 
-	copyBuffer(device, commandPool, queue, stagingBuffer, *buffer, bufferSize);
+    copyBuffer(device, commandPool, queue, stagingBuffer, *buffer, bufferSize);
 
-	vkDestroyBuffer(device, stagingBuffer, nullptr);
-	vkFreeMemory(device, stagingBufferMemory, nullptr);
+    vkDestroyBuffer(device, stagingBuffer, nullptr);
+    vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
 

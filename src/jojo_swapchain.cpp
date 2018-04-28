@@ -2,19 +2,22 @@
 // Created by benja on 4/28/2018.
 //
 
+#include "jojo_swapchain.hpp"
 
 #include <algorithm>
 #include <iostream>
-#include "jojo_engine_helper.hpp"
+
 #include "jojo_vulkan.hpp"
 #include "jojo_vulkan_utils.hpp"
+#include "jojo_window.hpp"
 
 
 void JojoSwapchain::createSwapchainAndChildren(Config &config, JojoEngine *engine) {
     VkResult result;
     auto chosenImageFormat = VK_FORMAT_B8G8R8A8_UNORM;   // TODO: check if valid via surfaceFormats[i].format
 
-    result = createSwapchain(engine->device, engine->surface, swapchain, &swapchain, chosenImageFormat, config.width, config.height);
+    result = createSwapchain(engine->device, engine->surface, swapchain, &swapchain, chosenImageFormat, config.width,
+                             config.height);
     ASSERT_VULKAN(result)
 
 
@@ -45,14 +48,26 @@ void JojoSwapchain::createSwapchainAndChildren(Config &config, JojoEngine *engin
                                                VK_IMAGE_TILING_OPTIMAL,
                                                VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
     );
-    createImage(engine->device, engine->chosenDevice, config.width, config.height, depthFormat, VK_IMAGE_TILING_OPTIMAL,
-                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage,
+    createImage(engine->device,
+                engine->chosenDevice,
+                config.width,
+                config.height,
+                depthFormat,
+                VK_IMAGE_TILING_OPTIMAL,
+                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                depthImage,
                 &depthImageMemory);
     ASSERT_VULKAN(result)
     result = createImageView(engine->device, depthImage, &depthImageView, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
     ASSERT_VULKAN(result)
 
-    changeImageLayout(engine->device, engine->commandPool, engine->queue, depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED,
+    changeImageLayout(engine->device,
+                      engine->commandPool,
+                      engine->queue,
+                      depthImage,
+                      depthFormat,
+                      VK_IMAGE_LAYOUT_UNDEFINED,
                       VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 
@@ -62,13 +77,18 @@ void JojoSwapchain::createSwapchainAndChildren(Config &config, JojoEngine *engin
 
     framebuffers.resize(numberOfImagesInSwapchain);
     for (size_t i = 0; i < numberOfImagesInSwapchain; ++i) {
-        result = createFramebuffer(engine->device, swapchainRenderPass, imageViews[i], depthImageView, &(framebuffers[i]), config.width,
+        result = createFramebuffer(engine->device,
+                                   swapchainRenderPass,
+                                   imageViews[i],
+                                   depthImageView,
+                                   &(framebuffers[i]),
+                                   config.width,
                                    config.height);
         ASSERT_VULKAN(result)
     }
 }
 
-void JojoSwapchain::createCommandBuffers(JojoEngine *engine)  {
+void JojoSwapchain::createCommandBuffers(JojoEngine *engine) {
     VkResult result;
     result = allocateCommandBuffers(engine->device, engine->commandPool, commandBuffers, numberOfCommandBuffers);
     ASSERT_VULKAN(result)
@@ -106,7 +126,7 @@ void JojoSwapchain::destroySwapchainChildren(JojoEngine *engine) {
     }
 }
 
-void JojoSwapchain::recreateSwapchain(Config &config, JojoEngine *engine, JojoWindow *window)  {
+void JojoSwapchain::recreateSwapchain(Config &config, JojoEngine *engine, JojoWindow *window) {
     VkResult result;
 
     result = vkDeviceWaitIdle(engine->device);
@@ -117,7 +137,8 @@ void JojoSwapchain::recreateSwapchain(Config &config, JojoEngine *engine, JojoWi
     ASSERT_VULKAN(result)
 
     int newWidth, newHeight;
-    glfwGetWindowSize(window->window, &newWidth, &newHeight);
+    window->getWindowSize(&newWidth, &newHeight);
+
 
     config.width = (uint32_t) std::min(newWidth, (int) surfaceCapabilitiesKHR.maxImageExtent.width);;
     config.height = (uint32_t) std::min(newHeight, (int) surfaceCapabilitiesKHR.maxImageExtent.height);
@@ -140,6 +161,7 @@ void JojoSwapchain::destroyCommandBuffers(JojoEngine *engine) {
     vkDestroySemaphore(engine->device, semaphoreImageAvailable, nullptr);
     vkDestroySemaphore(engine->device, semaphoreRenderingDone, nullptr);
 
-    vkFreeCommandBuffers(engine->device, engine->commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+    vkFreeCommandBuffers(engine->device, engine->commandPool, static_cast<uint32_t>(commandBuffers.size()),
+                         commandBuffers.data());
 
 }

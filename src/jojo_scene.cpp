@@ -8,6 +8,7 @@
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -17,7 +18,7 @@
 
 
 JojoVertex::JojoVertex(glm::vec3 pos, glm::vec3 color)
-: pos(pos), color(color) {}
+        : pos(pos), color(color) {}
 
 void JojoNode::loadFromGltf(const tinygltf::Model &gltfModel, JojoScene *root) {
     // loadImages(gltfModel, device, transferQueue);
@@ -39,7 +40,8 @@ void JojoNode::loadFromGltf(const tinygltf::Model &gltfModel, JojoScene *root) {
 }
 
 
-void JojoNode::loadNode(const tinygltf::Node &gltfNode, const tinygltf::Model &model, std::vector<JojoMaterial> &materials) {
+void
+JojoNode::loadNode(const tinygltf::Node &gltfNode, const tinygltf::Model &model, std::vector<JojoMaterial> &materials) {
 
     JojoNode jojoNode;
     jojoNode.root = this->root;
@@ -86,8 +88,10 @@ void JojoNode::loadNode(const tinygltf::Node &gltfNode, const tinygltf::Model &m
     this->children.push_back(jojoNode);
 }
 
-uint32_t JojoNode::loadIndices(const tinygltf::Model &model, const tinygltf::Primitive &primitive,
+uint32_t JojoNode::loadIndices(const tinygltf::Model &model,
+                               const tinygltf::Primitive &primitive,
                                const uint32_t vertexStart) {
+
     const tinygltf::Accessor &accessor = model.accessors[primitive.indices];
     const tinygltf::BufferView &bufferView = model.bufferViews[accessor.bufferView];
     const tinygltf::Buffer &buffer = model.buffers[bufferView.buffer];
@@ -132,7 +136,8 @@ uint32_t JojoNode::loadIndices(const tinygltf::Model &model, const tinygltf::Pri
 }
 
 
-void JojoNode::loadVertices(const tinygltf::Model &model, const tinygltf::Primitive &primitive) {
+void JojoNode::loadVertices(const tinygltf::Model &model,
+                            const tinygltf::Primitive &primitive) {
     const float *bufferPos = nullptr;
     const float *bufferNormals = nullptr;
     const float *bufferTexCoords = nullptr;

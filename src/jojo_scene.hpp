@@ -10,13 +10,16 @@
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+
 #include <glm/glm.hpp>
 
 // tinygltf forward declarations, makes header handling easier
 namespace tinygltf {
-class Node;
-class Model;
-struct Primitive;
+    class Node;
+
+    class Model;
+
+    struct Primitive;
 }
 
 // TODO: make sure to create these classes with proper constructors and constant member fields in place
@@ -103,7 +106,8 @@ private:
 
     void loadVertices(const tinygltf::Model &model, const tinygltf::Primitive &primitive);
 
-    uint32_t loadIndices(const tinygltf::Model &model, const tinygltf::Primitive &primitive, const uint32_t vertexStart);
+    uint32_t
+    loadIndices(const tinygltf::Model &model, const tinygltf::Primitive &primitive, const uint32_t vertexStart);
 
     void loadNode(const tinygltf::Node &gltfNode, const tinygltf::Model &model, std::vector<JojoMaterial> &materials);
 

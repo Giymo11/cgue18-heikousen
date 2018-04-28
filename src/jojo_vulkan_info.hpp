@@ -6,6 +6,7 @@
 
 
 void printStats(const VkPhysicalDevice physicalDevice, const VkSurfaceKHR surface);
+
 void printInstanceLayers();
 
 void printInstanceExtensions();

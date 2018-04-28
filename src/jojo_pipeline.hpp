@@ -5,7 +5,9 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
+
 #include "jojo_engine.hpp"
+#include "jojo_utils.hpp"
 
 class JojoPipeline {
 public:
@@ -16,6 +18,7 @@ public:
     VkPipeline pipeline;
 
     VkDescriptorSetLayout descriptorSetLayout;
+
 
     void destroyPipeline(JojoEngine *engine);
 

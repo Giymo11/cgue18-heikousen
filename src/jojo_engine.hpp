@@ -5,22 +5,10 @@
 
 #include <vector>
 
+#include <vulkan/vulkan.h>
 
-#include <GLFW/glfw3.h>
-#include "jojo_data.hpp"
-#include "jojo_engine_helper.hpp"
+class JojoWindow;
 
-class JojoWindow {
-public:
-
-    GLFWwindow *window;
-
-    void startGlfw(Config &config);
-    void shutdownGlfw();
-
-    std::vector<const char *> getUsedExtensions();
-    void createSurface(VkInstance instance, VkSurfaceKHR *surface);
-};
 
 class JojoEngine {
 
@@ -36,6 +24,7 @@ public:
 
     VkCommandPool commandPool;
     VkDescriptorPool descriptorPool;
+
 
     void startVulkan();
 

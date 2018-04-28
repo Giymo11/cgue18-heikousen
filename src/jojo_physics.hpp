@@ -5,7 +5,10 @@
 #pragma once
 
 #include <vector>
+#include <map>
 
+#include <btBulletCollisionCommon.h>
+#include <btBulletDynamicsCommon.h>
 
 #define PRINTF_FLOAT "%7.3f"
 
@@ -23,13 +26,16 @@ public:
     btCollisionDispatcher *dispatcher = new btCollisionDispatcher(collisionConfiguration);
 
     btBroadphaseInterface *overlappingPairCache = new btDbvtBroadphase();
-    btSequentialImpulseConstraintSolver* solver = new btSequentialImpulseConstraintSolver;
+    btSequentialImpulseConstraintSolver *solver = new btSequentialImpulseConstraintSolver;
 
-    btDiscreteDynamicsWorld *dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
+    btDiscreteDynamicsWorld *dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher,
+                                                                         overlappingPairCache,
+                                                                         solver,
+                                                                         collisionConfiguration);
 
-    btAlignedObjectArray<btCollisionShape*> collisionShapes;
+    btAlignedObjectArray<btCollisionShape *> collisionShapes;
 
-    std::map<const btCollisionObject*,std::vector<btManifoldPoint*>> objectsCollisions;
+    std::map<const btCollisionObject *, std::vector<btManifoldPoint *>> objectsCollisions;
 
     void theTickCallback(btDynamicsWorld *dynamicsWorld, btScalar timeStep);
 
