@@ -2,6 +2,8 @@
 // Created by benja on 4/28/2018.
 //
 
+#include <vector>
+#include "jojo_vulkan_utils.hpp"
 
 uint32_t findMemoryTypeIndex(VkPhysicalDevice chosenDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
@@ -141,31 +143,27 @@ void copyBuffer(VkDevice device, VkCommandPool commandPool, VkQueue queue,
     endAndSubmitCommandBuffer(device, commandPool, queue, commandBuffer);
 }
 
-template<typename T>
-void createAndUploadBuffer(VkDevice device, VkPhysicalDevice chosenDevice, VkCommandPool commandPool, VkQueue queue,
-                           std::vector<T> data, VkBufferUsageFlags usageFlags, VkBuffer *buffer,
-                           VkDeviceMemory *deviceMemory) {
+void createAndUploadBufferUntyped(VkDevice device, VkPhysicalDevice chosenDevice, VkCommandPool commandPool,
+	VkQueue queue, VkBufferUsageFlags usageFlags, VkBuffer *buffer, VkDeviceMemory *deviceMemory,
+	const uint8_t *data, VkDeviceSize bufferSize) {
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	createBuffer(device, chosenDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, &stagingBuffer,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBufferMemory);
 
-    VkDeviceSize bufferSize = sizeof(T) * data.size();
+	uint8_t *rawData;
+	VkResult result = vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, reinterpret_cast<void **>(&rawData));
+	ASSERT_VULKAN(result)
+	std::copy(data, data + bufferSize, rawData);
+	vkUnmapMemory(device, stagingBufferMemory);
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    createBuffer(device, chosenDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, &stagingBuffer,
-                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBufferMemory);
+	createBuffer(device, chosenDevice, bufferSize, usageFlags | VK_BUFFER_USAGE_TRANSFER_DST_BIT, buffer,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, deviceMemory);
 
-    void *rawData;
-    VkResult result = vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &rawData);
-    ASSERT_VULKAN(result)
-    memcpy(rawData, data.data(), bufferSize);
-    vkUnmapMemory(device, stagingBufferMemory);
+	copyBuffer(device, commandPool, queue, stagingBuffer, *buffer, bufferSize);
 
-    createBuffer(device, chosenDevice, bufferSize, usageFlags | VK_BUFFER_USAGE_TRANSFER_DST_BIT, buffer,
-                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, deviceMemory);
-
-    copyBuffer(device, commandPool, queue, stagingBuffer, *buffer, bufferSize);
-
-    vkDestroyBuffer(device, stagingBuffer, nullptr);
-    vkFreeMemory(device, stagingBufferMemory, nullptr);
+	vkDestroyBuffer(device, stagingBuffer, nullptr);
+	vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
 

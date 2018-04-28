@@ -12,7 +12,12 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 
-#include <tiny_gltf.h>
+// tinygltf forward declarations, makes header handling easier
+namespace tinygltf {
+struct Node;
+struct Model;
+struct Primitive;
+}
 
 // TODO: make sure to create these classes with proper constructors and constant member fields in place
 
