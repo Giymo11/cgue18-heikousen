@@ -178,8 +178,6 @@ void drawFrame(Config &config,
     result = vkEndCommandBuffer(swapchain->commandBuffers[imageIndex]);
     ASSERT_VULKAN(result)
 
-
-    std::cout << "woto " << swapchain->commandBufferFences.size() << std::endl;
     result = vkQueueSubmit(engine->queue, 1, &submitInfo, swapchain->commandBufferFences[imageIndex]);
     ASSERT_VULKAN(result)
 
@@ -448,6 +446,20 @@ void initializeBuffers(JojoEngine *engine, JojoPipeline *pipeline, std::vector<J
     }
 }
 
+void loadFromGlb(tinygltf::Model *modelDst, std::string relPath) {
+    tinygltf::TinyGLTF loader;
+    std::string err;
+
+    bool loaded = loader.LoadBinaryFromFile(modelDst, &err, relPath);
+    if (!err.empty()) {
+        std::cout << "Err: " << err << std::endl;
+    }
+    if (!loaded) {
+        std::cout << "Failed to parse glTF: " << std::endl;
+        psnip_trap();
+    }
+}
+
 
 int main(int argc, char *argv[]) {
     //Scripting::Engine jojoScript;
@@ -466,30 +478,19 @@ int main(int argc, char *argv[]) {
 
 
     tinygltf::Model gltfModel;
-    tinygltf::TinyGLTF loader;
-    std::string err;
-
-    bool loaded = loader.LoadBinaryFromFile(&gltfModel, &err, "../models/duck.glb");
-    if (!err.empty()) {
-        std::cout << "Err: " << err << std::endl;
-    }
-    if (!loaded) {
-        std::cout << "Failed to parse glTF: " << std::endl;
-        return -1;
-    }
+    loadFromGlb(&gltfModel, "../models/duck.glb");
 
     JojoScene scene;
+/*
+    JojoNode duck;
+    duck.loadFromGltf(gltfModel, &scene);
+    scene.children.push_back(duck);
+*/
 
-    JojoNode duckNode;
-    duckNode.loadFromGltf(gltfModel, &scene);
-
-    scene.children.push_back(duckNode);
-
-
-
-
-
-
+    loadFromGlb(&gltfModel, "../models/icosphere.glb");
+    JojoNode icosphere;
+    icosphere.loadFromGltf(gltfModel, &scene);
+    scene.children.push_back(icosphere);
 
 
     // bullet part
