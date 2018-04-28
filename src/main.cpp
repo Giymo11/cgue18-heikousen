@@ -33,7 +33,7 @@
 #include "jojo_swapchain.hpp"
 #include "jojo_window.hpp"
 #include "jojo_pipeline.hpp"
-
+#include "jojo_replay.hpp"
 
 void bindBufferToDescriptorSet(VkDevice device,
                                VkBuffer uniformBuffer,
@@ -263,58 +263,73 @@ void gameloop(Config &config,
               JojoPhysics &physics,
               std::vector<JojoVulkanMesh> &meshes) {
     // TODO: extract a bunch of this to JojoWindow
-
+   
     auto window = jojoWindow->window;
+    auto recorder = std::make_unique<Replay::Recorder> (window);
+    auto jojoRecord = recorder.get ();
+
+    const float PHYSICS_FRAMETIME = 16.0f;
+    auto bulletTimer = std::chrono::high_resolution_clock::now();
+    bool replaying = false;
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
+        if (!replaying) {
+            auto state = jojoRecord->getKey (GLFW_KEY_SPACE);
+            if (state == GLFW_PRESS) {
+                replaying = true;
+                jojoRecord->startReplay ();
+            }
+        }
+
         btVector3 relativeForce(0, 0, 0);
 
-        int state = glfwGetKey(window, GLFW_KEY_W);
+        int state = jojoRecord->getKey (GLFW_KEY_W);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(0, 0, -1);
         }
-        state = glfwGetKey(window, GLFW_KEY_S);
+        state = jojoRecord->getKey (GLFW_KEY_S);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(0, 0, 1);
         }
-        state = glfwGetKey(window, GLFW_KEY_A);
+        state = jojoRecord->getKey (GLFW_KEY_A);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(-1, 0, 0);
         }
-        state = glfwGetKey(window, GLFW_KEY_D);
+        state = jojoRecord->getKey (GLFW_KEY_D);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(1, 0, 0);
         }
-        state = glfwGetKey(window, GLFW_KEY_R);
+        state = jojoRecord->getKey (GLFW_KEY_R);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(0, 1, 0);
         }
-        state = glfwGetKey(window, GLFW_KEY_F);
+        state = jojoRecord->getKey (GLFW_KEY_F);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(0, -1, 0);
         }
-
-        state = glfwGetKey(window, GLFW_KEY_X);
+       
+        state = jojoRecord->getKey (GLFW_KEY_X);
         bool xPressed = state == GLFW_PRESS;
 
-        state = glfwGetKey(window, GLFW_KEY_Z);
+        state = jojoRecord->getKey (GLFW_KEY_Z);
         bool yPressed = state == GLFW_PRESS;
 
 
         btVector3 relativeTorque(0, 0, 0);
 
-        state = glfwGetKey(window, GLFW_KEY_Q);
+        state = jojoRecord->getKey (GLFW_KEY_Q);
         if (state == GLFW_PRESS) {
             relativeTorque = relativeTorque + btVector3(0, 1, 0);
         }
-        state = glfwGetKey(window, GLFW_KEY_E);
+        state = jojoRecord->getKey (GLFW_KEY_E);
         if (state == GLFW_PRESS) {
             relativeTorque = relativeTorque + btVector3(0, -1, 0);
         }
 
         double xpos, ypos;
-        glfwGetCursorPos(window, &xpos, &ypos);
+        jojoRecord->getCursorPos (&xpos, &ypos);
 
         double relXpos = xpos - config.width / 2.0f;
         double relYpos = ypos - config.height / 2.0f;
@@ -349,58 +364,64 @@ void gameloop(Config &config,
         glfwSetCursorPos(window, newXpos, newYpos);
         // TODO: fix dis
 
+        auto now = std::chrono::high_resolution_clock::now();
+        float delta = std::chrono::duration_cast<std::chrono::milliseconds>(now - bulletTimer).count();
+        if (delta >= PHYSICS_FRAMETIME) {
+            bulletTimer = now;
+            jojoRecord->nextTick ();
 
-        if (!relativeForce.isZero() || !relativeTorque.isZero() || xPressed || yPressed) {
-            btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[0];
-            btRigidBody *body = btRigidBody::upcast(obj);
+            if (!relativeForce.isZero () || !relativeTorque.isZero () || xPressed || yPressed) {
+                btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray ()[0];
+                btRigidBody *body = btRigidBody::upcast (obj);
 
-            btTransform trans;
-            if (body && body->getMotionState()) {
-                body->getMotionState()->getWorldTransform(trans);
+                btTransform trans;
+                if (body && body->getMotionState ()) {
+                    body->getMotionState ()->getWorldTransform (trans);
 
-                btMatrix3x3 &boxRot = trans.getBasis();
+                    btMatrix3x3 &boxRot = trans.getBasis ();
 
-                if (xPressed) {
-                    if (body->getLinearVelocity().norm() < 0.01) {
-                        // stop the jiggling around
-                        body->setLinearVelocity(btVector3(0, 0, 0));
-                    } else {
-                        // counteract the current inertia
-                        // TODO: think about maybe making halting easier than accelerating.
-                        btVector3 correctedForce = (body->getLinearVelocity() * -1).normalized();
-                        body->applyCentralForce(correctedForce);
+                    if (xPressed) {
+                        if (body->getLinearVelocity ().norm () < 0.01) {
+                            // stop the jiggling around
+                            body->setLinearVelocity (btVector3 (0, 0, 0));
+                        } else {
+                            // counteract the current inertia
+                            // TODO: think about maybe making halting easier than accelerating.
+                            btVector3 correctedForce = (body->getLinearVelocity () * -1).normalized ();
+                            body->applyCentralForce (correctedForce);
+                        }
                     }
-                }
-                if (yPressed) {
-                    if (body->getAngularVelocity().norm() < 0.01) {
-                        body->setAngularVelocity(btVector3(0, 0, 0));
-                    } else {
-                        btVector3 correctedTorque = (body->getAngularVelocity() * -1).normalized();
-                        body->applyTorque(correctedTorque);
+                    if (yPressed) {
+                        if (body->getAngularVelocity ().norm () < 0.01) {
+                            body->setAngularVelocity (btVector3 (0, 0, 0));
+                        } else {
+                            btVector3 correctedTorque = (body->getAngularVelocity () * -1).normalized ();
+                            body->applyTorque (correctedTorque);
+                        }
                     }
-                }
 
-                if (!xPressed) {
-                    if (!relativeForce.isZero()) {
-                        // TODO: decide about maybe normalizing
-                        btVector3 correctedForce = boxRot * relativeForce;
-                        body->applyCentralForce(correctedForce);
+                    if (!xPressed) {
+                        if (!relativeForce.isZero ()) {
+                            // TODO: decide about maybe normalizing
+                            btVector3 correctedForce = boxRot * relativeForce;
+                            body->applyCentralForce (correctedForce);
+                        }
                     }
-                }
-                if (!yPressed) {
-                    if (!relativeTorque.isZero()) {
-                        btVector3 correctedTorque = boxRot * relativeTorque;
-                        body->applyTorque(correctedTorque);
+                    if (!yPressed) {
+                        if (!relativeTorque.isZero ()) {
+                            btVector3 correctedTorque = boxRot * relativeTorque;
+                            body->applyTorque (correctedTorque);
+                        }
                     }
-                }
 
-            } else {
-                // for later use
-                trans = obj->getWorldTransform();
+                } else {
+                    // for later use
+                    trans = obj->getWorldTransform ();
+                }
             }
-        }
 
-        updateMvp(config, engine, physics, meshes);
+            updateMvp (config, engine, physics, meshes);
+        }
 
         drawFrame(config, engine, jojoWindow, swapchain, pipeline, meshes);
     }
