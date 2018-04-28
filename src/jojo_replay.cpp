@@ -9,7 +9,7 @@
 namespace Replay {
 
 Recorder::Recorder (GLFWwindow *window) :
-    mState(RecorderState::Recording),
+    mState(RecorderState::Passthrough),
     mStorage(PHYSICS_FPS * MAX_RECORD_TIME),
     mWindow(window),
     mCurrentTick(0),
@@ -104,6 +104,12 @@ void Recorder::getCursorPos (double *x, double *y) {
     }
 }
 
+void Recorder::startRecording () {
+    mCurrentTick = 0;
+    mTicksRecorded = 0;
+    mState = RecorderState::Recording;
+}
+
 void Recorder::startReplay () {
     mCurrentTick = 0;
     mState = RecorderState::Replaying;
@@ -127,6 +133,10 @@ bool Recorder::nextTick () {
         mState = RecorderState::Passthrough;
         return false;
     }    
+}
+
+RecorderState Recorder::state () {
+    return mState;
 }
 
 }

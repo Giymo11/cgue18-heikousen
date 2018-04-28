@@ -260,76 +260,73 @@ void gameloop(Config &config,
               JojoWindow *jojoWindow,
               JojoSwapchain *swapchain,
               JojoPipeline *pipeline,
+              Replay::Recorder *jojoReplay,
               JojoPhysics &physics,
               std::vector<JojoVulkanMesh> &meshes) {
     // TODO: extract a bunch of this to JojoWindow
    
     auto window = jojoWindow->window;
-    auto recorder = std::make_unique<Replay::Recorder> (window);
-    auto jojoRecord = recorder.get ();
 
     const float PHYSICS_FRAMETIME = 16.0f;
     auto bulletTimer = std::chrono::high_resolution_clock::now();
-    bool replaying = false;
+    jojoReplay->startRecording ();
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        if (!replaying) {
-            auto state = jojoRecord->getKey (GLFW_KEY_SPACE);
-            if (state == GLFW_PRESS) {
-                replaying = true;
-                jojoRecord->startReplay ();
-            }
+        if (jojoReplay->state() != Replay::RecorderState::Replaying) {
+            auto state = jojoReplay->getKey (GLFW_KEY_SPACE);
+            if (state == GLFW_PRESS)
+                jojoReplay->startReplay ();
         }
 
         btVector3 relativeForce(0, 0, 0);
 
-        int state = jojoRecord->getKey (GLFW_KEY_W);
+        int state = jojoReplay->getKey (GLFW_KEY_W);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(0, 0, -1);
         }
-        state = jojoRecord->getKey (GLFW_KEY_S);
+        state = jojoReplay->getKey (GLFW_KEY_S);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(0, 0, 1);
         }
-        state = jojoRecord->getKey (GLFW_KEY_A);
+        state = jojoReplay->getKey (GLFW_KEY_A);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(-1, 0, 0);
         }
-        state = jojoRecord->getKey (GLFW_KEY_D);
+        state = jojoReplay->getKey (GLFW_KEY_D);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(1, 0, 0);
         }
-        state = jojoRecord->getKey (GLFW_KEY_R);
+        state = jojoReplay->getKey (GLFW_KEY_R);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(0, 1, 0);
         }
-        state = jojoRecord->getKey (GLFW_KEY_F);
+        state = jojoReplay->getKey (GLFW_KEY_F);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(0, -1, 0);
         }
        
-        state = jojoRecord->getKey (GLFW_KEY_X);
+        state = jojoReplay->getKey (GLFW_KEY_X);
         bool xPressed = state == GLFW_PRESS;
 
-        state = jojoRecord->getKey (GLFW_KEY_Z);
+        state = jojoReplay->getKey (GLFW_KEY_Z);
         bool yPressed = state == GLFW_PRESS;
 
 
         btVector3 relativeTorque(0, 0, 0);
 
-        state = jojoRecord->getKey (GLFW_KEY_Q);
+        state = jojoReplay->getKey (GLFW_KEY_Q);
         if (state == GLFW_PRESS) {
             relativeTorque = relativeTorque + btVector3(0, 1, 0);
         }
-        state = jojoRecord->getKey (GLFW_KEY_E);
+        state = jojoReplay->getKey (GLFW_KEY_E);
         if (state == GLFW_PRESS) {
             relativeTorque = relativeTorque + btVector3(0, -1, 0);
         }
 
         double xpos, ypos;
-        jojoRecord->getCursorPos (&xpos, &ypos);
+        jojoReplay->getCursorPos (&xpos, &ypos);
 
         double relXpos = xpos - config.width / 2.0f;
         double relYpos = ypos - config.height / 2.0f;
@@ -368,7 +365,7 @@ void gameloop(Config &config,
         float delta = std::chrono::duration_cast<std::chrono::milliseconds>(now - bulletTimer).count();
         if (delta >= PHYSICS_FRAMETIME) {
             bulletTimer = now;
-            jojoRecord->nextTick ();
+            jojoReplay->nextTick ();
 
             if (!relativeForce.isZero () || !relativeTorque.isZero () || xPressed || yPressed) {
                 btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray ()[0];
@@ -564,6 +561,8 @@ int main(int argc, char *argv[]) {
     meshes[0].indices = scene.indexBuffer;
     meshes[0].modelMatrix = glm::mat4();
 
+    Replay::Recorder jojoReplay(window.window);
+
 
     JojoEngine engine;
     engine.jojoWindow = &window;
@@ -583,7 +582,7 @@ int main(int argc, char *argv[]) {
 
     pipeline.createPipelineHelper(config, &engine, swapchain.swapchainRenderPass);
 
-    gameloop(config, &engine, &window, &swapchain, &pipeline, physics, meshes);
+    gameloop(config, &engine, &window, &swapchain, &pipeline, &jojoReplay, physics, meshes);
 
 
     VkResult result = vkDeviceWaitIdle(engine.device);

@@ -27,7 +27,9 @@ public:
     int getKey (int key);
     void getCursorPos (double *x, double *y);
     bool nextTick ();
+    void startRecording ();
     void startReplay ();
+    RecorderState state ();
 
 private:
     GLFWwindow         *mWindow;
