@@ -43,7 +43,7 @@ void recordCommandBuffer(Config &config,
                          VkCommandBuffer commandBuffer,
                          VkFramebuffer framebuffer,
                          VkRenderPass renderPass,
-                         std::vector<JojoVulkanMesh> &meshes) {
+                         JojoVulkanMesh *mesh) {
 
     std::array<VkClearValue, 2> clearValues = {};
     clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -78,23 +78,8 @@ void recordCommandBuffer(Config &config,
     scissor.extent = {config.width, config.height};
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    VkDeviceSize offsets[] = {0};
 
-    for (JojoVulkanMesh &mesh : meshes) {
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &(mesh.vertexBuffer), offsets);
-        vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-        vkCmdBindDescriptorSets(commandBuffer,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                pipeline->pipelineLayout,
-                                0,
-                                1,
-                                &(mesh.uniformDescriptorSet),
-                                0,
-                                nullptr);
-
-        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(mesh.indices.size()), 1, 0, 0, 0);
-    }
+    mesh->goDrawYourself(commandBuffer, pipeline->pipelineLayout);
 
     vkCmdEndRenderPass(commandBuffer);
 }
@@ -105,7 +90,7 @@ void drawFrame(Config &config,
                JojoWindow *window,
                JojoSwapchain *swapchain,
                JojoPipeline *pipeline,
-               std::vector<JojoVulkanMesh> &meshes) {
+               JojoVulkanMesh *mesh) {
 
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(engine->device,
@@ -151,7 +136,7 @@ void drawFrame(Config &config,
                         swapchain->commandBuffers[imageIndex],
                         swapchain->framebuffers[imageIndex],
                         swapchain->swapchainRenderPass,
-                        meshes);
+                        mesh);
 
     result = vkEndCommandBuffer(swapchain->commandBuffers[imageIndex]);
     ASSERT_VULKAN(result)
@@ -181,7 +166,7 @@ void drawFrame(Config &config,
 
 auto lastFrameTime = std::chrono::high_resolution_clock::now();
 
-void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, std::vector<JojoVulkanMesh> &meshes) {
+void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVulkanMesh *mesh) {
     auto now = std::chrono::high_resolution_clock::now();
     float timeSinceLastFrame =
             std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count() / 1000.0f;
@@ -198,37 +183,46 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, std::ve
 
     physics.dynamicsWorld->stepSimulation(timeSinceLastFrame);
 
+    // TODO: have a mapping from physics to node
+    JojoNode &node = mesh->scene->children[0];
 
-    void *rawData;
-    for (int i = 0; i < meshes.size(); ++i) {
-        JojoVulkanMesh &mesh = meshes[i];
+    // TODO: maybe move this over to the physics class as well
+    btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[0];
+    btRigidBody *body = btRigidBody::upcast(obj);
 
-        // TODO: maybe move this over to the physics class as well
-        btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[i];
-        btRigidBody *body = btRigidBody::upcast(obj);
-
-        btTransform trans;
-        if (body && body->getMotionState()) {
-            body->getMotionState()->getWorldTransform(trans);
-        } else {
-            trans = obj->getWorldTransform();
-        }
-        btVector3 origin = trans.getOrigin();
-
-        auto &manifoldPoints = physics.objectsCollisions[body];
-
-        trans.getOpenGLMatrix(glm::value_ptr(mesh.modelMatrix));
-
-        //int direction = (i % 2 * 2 - 1);
-        //mesh.modelMatrix = glm::rotate(mesh.modelMatrix, timeSinceLastFrame * glm::radians(30.0f) * direction, glm::vec3(0, 0, 1));
-
-        glm::mat4 mvp = projection * view * mesh.modelMatrix;
-        VkResult result = vkMapMemory(engine->device, mesh.uniformBufferDeviceMemory, 0, sizeof(mvp), 0, &rawData);
-        ASSERT_VULKAN(result)
-        memcpy(rawData, &mvp, sizeof(mvp));
-        vkUnmapMemory(engine->device, mesh.uniformBufferDeviceMemory);
+    btTransform trans;
+    if (body && body->getMotionState()) {
+        body->getMotionState()->getWorldTransform(trans);
+    } else {
+        trans = obj->getWorldTransform();
     }
+    btVector3 origin = trans.getOrigin();
 
+    auto &manifoldPoints = physics.objectsCollisions[body];
+
+    glm::mat4 matrix;
+    trans.getOpenGLMatrix(glm::value_ptr(matrix));
+    node.setRelativeMatrix(matrix);
+
+    //int direction = (i % 2 * 2 - 1);
+    //mesh.modelMatrix = glm::rotate(mesh.modelMatrix, timeSinceLastFrame * glm::radians(30.0f) * direction, glm::vec3(0, 0, 1));
+
+    glm::mat4 proj_view = projection * view;
+
+    mesh->updateAlignedUniforms(proj_view);
+    auto bufferSize = mesh->dynamicAlignment * mesh->scene->mvps.size();
+
+    // TODO: copy the model matrices to GPU memory via some kind of flushing / not via coherent memory
+    void *rawData;
+    VkResult result = vkMapMemory(engine->device,
+                                  mesh->uniformBufferDeviceMemory,
+                                  0,
+                                  bufferSize,
+                                  0,
+                                  &rawData);
+    ASSERT_VULKAN(result)
+    memcpy(rawData, mesh->alignedMvps, bufferSize);
+    vkUnmapMemory(engine->device, mesh->uniformBufferDeviceMemory);
 
 }
 
@@ -239,7 +233,7 @@ void gameloop(Config &config,
               JojoSwapchain *swapchain,
               JojoPipeline *pipeline,
               JojoPhysics &physics,
-              std::vector<JojoVulkanMesh> &meshes) {
+              JojoVulkanMesh *mesh) {
     // TODO: extract a bunch of this to JojoWindow
 
     auto window = jojoWindow->window;
@@ -378,9 +372,9 @@ void gameloop(Config &config,
             }
         }
 
-        updateMvp(config, engine, physics, meshes);
+        updateMvp(config, engine, physics, mesh);
 
-        drawFrame(config, engine, jojoWindow, swapchain, pipeline, meshes);
+        drawFrame(config, engine, jojoWindow, swapchain, pipeline, mesh);
     }
 }
 
@@ -412,10 +406,6 @@ int main(int argc, char *argv[]) {
     //jojoScript.hookScript(helloObj, "../scripts/hello.js");
     //helloObj.updateLogic();
 
-    Config config = Config::readFromFile("../config.ini");
-
-    JojoWindow window;
-    window.startGlfw(config);
 
 
     JojoPhysics physics;
@@ -434,7 +424,7 @@ int main(int argc, char *argv[]) {
     loadFromGlb(&gltfModel, "../models/icosphere.glb");
     JojoNode icosphere;
     icosphere.loadFromGltf(gltfModel, &scene);
-    icosphere.setMatrix(glm::mat4());
+    icosphere.setRelativeMatrix(glm::mat4());
     scene.children.push_back(icosphere);
 
 
@@ -469,19 +459,26 @@ int main(int argc, char *argv[]) {
 
     JojoNode icosphere2;
     icosphere2.loadFromGltf(gltfModel, &scene);
-    icosphere2.setMatrix(glm::translate(glm::scale(icosphere.getMatrix(), scale), translation));
+    icosphere2.setRelativeMatrix(glm::translate(glm::scale(icosphere.getRelativeMatrix(), scale), translation));
     scene.children.push_back(icosphere2);
 
 
 
-    JojoVulkanMesh mesh;
-    mesh.scene = &scene;
 
+
+    Config config = Config::readFromFile("../config.ini");
+
+    JojoWindow window;
+    window.startGlfw(config);
 
     JojoEngine engine;
     engine.jojoWindow = &window;
     engine.startVulkan();
     engine.initialieDescriptorPool(0, 1, 0);
+
+
+    JojoVulkanMesh mesh;
+    mesh.scene = &scene;
 
 
     JojoSwapchain swapchain;
@@ -492,11 +489,13 @@ int main(int argc, char *argv[]) {
     JojoPipeline pipeline;
     pipeline.initializeDescriptorSetLayout(&engine);
 
+
     mesh.initializeBuffers(&engine, &pipeline);
+
 
     pipeline.createPipelineHelper(config, &engine, swapchain.swapchainRenderPass);
 
-    gameloop(config, &engine, &window, &swapchain, &pipeline, physics, meshes);
+    gameloop(config, &engine, &window, &swapchain, &pipeline, physics, &mesh);
 
 
     VkResult result = vkDeviceWaitIdle(engine.device);

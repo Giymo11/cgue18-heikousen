@@ -93,9 +93,9 @@ private:
     glm::mat4 matrix;
 
 public:
-    //Node* parent;
-
+    JojoNode* parent;
     JojoScene *root;
+
     std::vector<JojoNode> children;
     std::string name;
 
@@ -117,17 +117,17 @@ private:
 
     void loadNode(const tinygltf::Node &gltfNode,
                   const tinygltf::Model &model,
-                  std::vector<JojoMaterial> &materials,
-                  glm::mat4 parent);
+                  std::vector<JojoMaterial> &materials);
 
 public:
-    const glm::mat4 &getMatrix() const;
+    const glm::mat4 &getRelativeMatrix() const;
 
-    void setMatrix(const glm::mat4 &matrix);
+    void setRelativeMatrix(const glm::mat4 &newMatrix);
+    void setParent(JojoNode *newParent);
 
-public:
     void loadFromGltf(const tinygltf::Model &gltfModel, JojoScene *root);
 
+    glm::mat4 calculateAbsoluteMatrix();
 };
 
 

@@ -33,7 +33,7 @@ void JojoNode::loadFromGltf(const tinygltf::Model &gltfModel, JojoScene *root) {
     this->name = scene.name;
 
     for (auto &node : scene.nodes) {
-        this->loadNode(gltfModel.nodes[node], gltfModel, materials, glm::mat4());
+        this->loadNode(gltfModel.nodes[node], gltfModel, materials);
     }
 
     std::cout << "loaded " << this->children.size() << " own nodes" << std::endl;
@@ -43,8 +43,7 @@ void JojoNode::loadFromGltf(const tinygltf::Model &gltfModel, JojoScene *root) {
 void
 JojoNode::loadNode(const tinygltf::Node &gltfNode,
                    const tinygltf::Model &model,
-                   std::vector<JojoMaterial> &materials,
-                   glm::mat4 parent) {
+                   std::vector<JojoMaterial> &materials) {
 
     JojoNode jojoNode;
     jojoNode.root = this->root;
@@ -56,15 +55,17 @@ JojoNode::loadNode(const tinygltf::Node &gltfNode,
         const tinygltf::Mesh mesh = model.meshes[gltfNode.mesh];
         jojoNode.name += " - " + mesh.name;
 
+        // add matrix to the vector
         auto dynOffset = root->mvps.size();
-        root->mvps.push_back(parent * matrix);
+        root->mvps.push_back(matrix);
 
+        // generate primitive information
         for (const auto &primitive : mesh.primitives) {
             if (primitive.indices < 0) {
                 continue;
             }
-            const uint32_t indexStart = static_cast<uint32_t>(this->root->indices.size());
-            const uint32_t vertexStart = static_cast<uint32_t>(this->root->vertices.size());
+            const auto indexStart = static_cast<uint32_t>(this->root->indices.size());
+            const auto vertexStart = static_cast<uint32_t>(this->root->vertices.size());
             // Vertices
             jojoNode.loadVertices(model, primitive);
             // Indices
@@ -78,7 +79,7 @@ JojoNode::loadNode(const tinygltf::Node &gltfNode,
             jojoPrimitive.indexOffset = indexStart;
             jojoPrimitive.indexCount = indexCount;
             jojoPrimitive.dynamicOffset = dynOffset;
-            jojoPrimitive.material = nullptr;    // TODO from materials[primitive.material]}
+            jojoPrimitive.material = nullptr;    // TODO from materials[primitive.material]} build a materialOffset
 
             jojoNode.primitives.push_back(jojoPrimitive);
         }
@@ -87,10 +88,11 @@ JojoNode::loadNode(const tinygltf::Node &gltfNode,
 
     if (!gltfNode.children.empty()) {
         for (auto i = 0; i < gltfNode.children.size(); i++) {
-            jojoNode.loadNode(model.nodes[gltfNode.children[i]], model, materials, parent * matrix);
+            jojoNode.loadNode(model.nodes[gltfNode.children[i]], model, materials);
         }
     }
 
+    jojoNode.setParent(this);
     this->children.push_back(jojoNode);
 }
 
@@ -170,6 +172,7 @@ void JojoNode::loadVertices(const tinygltf::Model &model,
                 uvAccessor.byteOffset + uvView.byteOffset]));
     }
 
+    // generate vertex information
     for (size_t v = 0; v < posAccessor.count; v++) {
 
         //auto pos = localNodeMatrix * glm::vec4(glm::make_vec3(&bufferPos[v * 3]), 1.0f);
@@ -208,18 +211,45 @@ void JojoNode::loadMatrix(const tinygltf::Node &gltfNode) {
         localNodeMatrix = glm::make_mat4x4(gltfNode.matrix.data());
     } else {
         // T * R * S
-        localNodeMatrix =
-                glm::translate(glm::mat4(1.0f), translation) * rotation * glm::scale(glm::mat4(1.0f), scale);
+        localNodeMatrix = glm::translate(glm::mat4(1.0f), translation) * rotation * glm::scale(glm::mat4(1.0f), scale);
     }
     // localNodeMatrix = parentMatrix * localNodeMatrix;
     this->matrix = localNodeMatrix;
 }
 
-const glm::mat4 &JojoNode::getMatrix() const {
+const glm::mat4 &JojoNode::getRelativeMatrix() const {
     return matrix;
 }
 
-void JojoNode::setMatrix(const glm::mat4 &matrix) {
-    JojoNode::matrix = matrix;
-    // TODO: update matrix vector of subtree
+// TODO: maybe make sure not to recompute the parent matrices for every request
+glm::mat4 JojoNode::calculateAbsoluteMatrix() {
+    if(parent) {
+        return parent->calculateAbsoluteMatrix() * matrix;
+    }
+    return matrix;
 }
+
+void JojoNode::setRelativeMatrix(const glm::mat4 &newMatrix) {
+    matrix = newMatrix;
+
+    if(!primitives.empty()) {
+        auto &primitive = primitives[0];
+        auto dynOffset = primitive.dynamicOffset;
+
+        if(parent) {
+            root->mvps[dynOffset] = calculateAbsoluteMatrix();
+            // TODO: add into aligned array
+        }
+    }
+    for(auto &child : children) {
+        child.setParent(this);
+    }
+}
+
+void JojoNode::setParent(JojoNode *newParent) {
+    parent = newParent;
+    setRelativeMatrix(matrix);
+}
+
+
+

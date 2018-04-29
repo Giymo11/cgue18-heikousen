@@ -18,6 +18,9 @@ public:
 
     JojoScene *scene;
 
+    size_t dynamicAlignment;
+    glm::mat4 *alignedMvps = nullptr;
+
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferDeviceMemory;
     VkBuffer indexBuffer;
@@ -25,6 +28,7 @@ public:
     VkBuffer uniformBuffer;
     VkDeviceMemory uniformBufferDeviceMemory;
     VkDescriptorSet uniformDescriptorSet;
+
     VkDescriptorImageInfo texture;
 
     JojoVulkanMesh();
@@ -40,6 +44,12 @@ public:
     void bindBufferToDescriptorSet(VkDevice device, VkBuffer uniformBuffer, VkDescriptorSet descriptorSet);
 
     void destroyBuffers(JojoEngine *engine);
+
+    void updateAlignedUniforms(glm::mat4 proj_view);
+
+    void goDrawYourself(VkCommandBuffer &commandBuffer, VkPipelineLayout &pipelineLayout);
+
+    void drawNode(VkCommandBuffer &commandBuffer, VkPipelineLayout &pipelineLayout, const JojoNode &node);
 };
 
 
