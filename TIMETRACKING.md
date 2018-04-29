@@ -30,7 +30,10 @@ topic,                      date,           duration
 \#bullet rotation,                  2018-04-19,     2
 \#testing at location,              2018-04-24,     1
 \#doing model loading,              2018-04-28,     3
-
+\#scenegraph,                       2018-04-28,     5
+\#scenegraph fix,                   2018-04-29,     3
+\#camera,                           2018-04-29,     2
+\#bullet to camera mapping,         2018-04-29,     3
 
 
 

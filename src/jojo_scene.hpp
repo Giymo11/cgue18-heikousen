@@ -129,6 +129,8 @@ public:
     void loadFromGltf(const tinygltf::Model &gltfModel, JojoScene *root);
 
     glm::mat4 calculateAbsoluteMatrix();
+
+    glm::mat4 startTransform;
 };
 
 

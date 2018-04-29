@@ -18,6 +18,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 
 
 #include <btBulletDynamicsCommon.h>
@@ -163,6 +164,7 @@ void drawFrame(Config &config,
 
 auto lastFrameTime = std::chrono::high_resolution_clock::now();
 
+
 void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVulkanMesh *mesh) {
     auto now = std::chrono::high_resolution_clock::now();
     float timeSinceLastFrame =
@@ -171,7 +173,7 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVul
 
     std::cout << "frame time " << timeSinceLastFrame << std::endl;
 
-    glm::mat4 view = glm::translate(glm::mat4(), glm::vec3(0.0f, 0.0f, -5.0f));
+    //glm::mat4 view = glm::translate(glm::mat4(), glm::vec3(0.0f, 0.0f, -5.0f));
     //view[1][1] *= -1;
     glm::mat4 projection = glm::perspective(glm::radians(60.0f), config.width / (float) config.height, 0.001f, 100.0f);
     // openGL has the z dir flipped
@@ -180,8 +182,33 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVul
 
     physics.dynamicsWorld->stepSimulation(timeSinceLastFrame);
 
+
+    for (JojoPhysicsNode &physicsNode : physics.dynamicNodes) {
+
+        auto index = physicsNode.collisionObjectArrayIndex;
+        // TODO: have a mapping from physics to node
+        JojoNode *node = physicsNode.node;
+
+        // TODO: maybe move this over to the physics class as well
+        btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[index];
+        btRigidBody *body = btRigidBody::upcast(obj);
+
+        btTransform trans;
+        if (body && body->getMotionState()) {
+            body->getMotionState()->getWorldTransform(trans);
+        } else {
+            trans = obj->getWorldTransform();
+        }
+        btVector3 origin = trans.getOrigin();
+
+        auto &manifoldPoints = physics.objectsCollisions[body];
+
+        glm::mat4 matrix;
+        trans.getOpenGLMatrix(glm::value_ptr(matrix));
+        node->setRelativeMatrix(matrix);
+    }
     // TODO: have a mapping from physics to node
-    JojoNode &node = mesh->scene->children[0];
+    JojoNode &playerNode = mesh->scene->children[0];
 
     // TODO: maybe move this over to the physics class as well
     btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[0];
@@ -199,11 +226,12 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVul
 
     glm::mat4 matrix;
     trans.getOpenGLMatrix(glm::value_ptr(matrix));
-    node.setRelativeMatrix(matrix);
+    playerNode.setRelativeMatrix(matrix);
 
     //int direction = (i % 2 * 2 - 1);
     //mesh.modelMatrix = glm::rotate(mesh.modelMatrix, timeSinceLastFrame * glm::radians(30.0f) * direction, glm::vec3(0, 0, 1));
 
+    glm::mat4 view = glm::inverse(matrix);
     glm::mat4 proj_view = projection * view;
 
     mesh->updateAlignedUniforms(proj_view, view);
@@ -233,66 +261,66 @@ void gameloop(Config &config,
               JojoPhysics &physics,
               JojoVulkanMesh *mesh) {
     // TODO: extract a bunch of this to JojoWindow
-   
+
     auto window = jojoWindow->window;
-    jojoReplay->startRecording ();
+    jojoReplay->startRecording();
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
         if (jojoReplay->state() != Replay::RecorderState::Replaying) {
-            auto state = jojoReplay->getKey (GLFW_KEY_SPACE);
+            auto state = jojoReplay->getKey(GLFW_KEY_SPACE);
             if (state == GLFW_PRESS)
-                jojoReplay->startReplay ();
+                jojoReplay->startReplay();
         }
 
         btVector3 relativeForce(0, 0, 0);
 
-        int state = jojoReplay->getKey (GLFW_KEY_W);
+        int state = jojoReplay->getKey(GLFW_KEY_W);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(0, 0, -1);
         }
-        state = jojoReplay->getKey (GLFW_KEY_S);
+        state = jojoReplay->getKey(GLFW_KEY_S);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(0, 0, 1);
         }
-        state = jojoReplay->getKey (GLFW_KEY_A);
+        state = jojoReplay->getKey(GLFW_KEY_A);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(-1, 0, 0);
         }
-        state = jojoReplay->getKey (GLFW_KEY_D);
+        state = jojoReplay->getKey(GLFW_KEY_D);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(1, 0, 0);
         }
-        state = jojoReplay->getKey (GLFW_KEY_R);
+        state = jojoReplay->getKey(GLFW_KEY_R);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(0, 1, 0);
         }
-        state = jojoReplay->getKey (GLFW_KEY_F);
+        state = jojoReplay->getKey(GLFW_KEY_F);
         if (state == GLFW_PRESS) {
             relativeForce = relativeForce + btVector3(0, -1, 0);
         }
-       
-        state = jojoReplay->getKey (GLFW_KEY_X);
+
+        state = jojoReplay->getKey(GLFW_KEY_X);
         bool xPressed = state == GLFW_PRESS;
 
-        state = jojoReplay->getKey (GLFW_KEY_Z);
+        state = jojoReplay->getKey(GLFW_KEY_Z);
         bool yPressed = state == GLFW_PRESS;
 
 
         btVector3 relativeTorque(0, 0, 0);
 
-        state = jojoReplay->getKey (GLFW_KEY_Q);
+        state = jojoReplay->getKey(GLFW_KEY_Q);
         if (state == GLFW_PRESS) {
             relativeTorque = relativeTorque + btVector3(0, 1, 0);
         }
-        state = jojoReplay->getKey (GLFW_KEY_E);
+        state = jojoReplay->getKey(GLFW_KEY_E);
         if (state == GLFW_PRESS) {
             relativeTorque = relativeTorque + btVector3(0, -1, 0);
         }
 
         double xpos, ypos;
-        jojoReplay->getCursorPos (&xpos, &ypos);
+        jojoReplay->getCursorPos(&xpos, &ypos);
 
         double relXpos = xpos - config.width / 2.0f;
         double relYpos = ypos - config.height / 2.0f;
@@ -326,62 +354,62 @@ void gameloop(Config &config,
         double newYpos = absYpos * glm::sign(relYpos) + config.height / 2.0f;
         glfwSetCursorPos(window, newXpos, newYpos);
 
-        if (jojoReplay->nextTickReady ()) {
-            jojoReplay->nextTick ();
+        if (jojoReplay->nextTickReady()) {
+            jojoReplay->nextTick();
 
             // TODO: extract into script
 
-            if (!relativeForce.isZero () || !relativeTorque.isZero () || xPressed || yPressed) {
-                btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray ()[0];
-                btRigidBody *body = btRigidBody::upcast (obj);
+            if (!relativeForce.isZero() || !relativeTorque.isZero() || xPressed || yPressed) {
+                btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[0];
+                btRigidBody *body = btRigidBody::upcast(obj);
 
                 btTransform trans;
-                if (body && body->getMotionState ()) {
-                    body->getMotionState ()->getWorldTransform (trans);
+                if (body && body->getMotionState()) {
+                    body->getMotionState()->getWorldTransform(trans);
 
-                    btMatrix3x3 &boxRot = trans.getBasis ();
+                    btMatrix3x3 &boxRot = trans.getBasis();
 
                     if (xPressed) {
-                        if (body->getLinearVelocity ().norm () < 0.01) {
+                        if (body->getLinearVelocity().norm() < 0.01) {
                             // stop the jiggling around
-                            body->setLinearVelocity (btVector3 (0, 0, 0));
+                            body->setLinearVelocity(btVector3(0, 0, 0));
                         } else {
                             // counteract the current inertia
                             // TODO: think about maybe making halting easier than accelerating.
-                            btVector3 correctedForce = (body->getLinearVelocity () * -1).normalized ();
-                            body->applyCentralForce (correctedForce);
+                            btVector3 correctedForce = (body->getLinearVelocity() * -1).normalized();
+                            body->applyCentralForce(correctedForce);
                         }
                     }
                     if (yPressed) {
-                        if (body->getAngularVelocity ().norm () < 0.01) {
-                            body->setAngularVelocity (btVector3 (0, 0, 0));
+                        if (body->getAngularVelocity().norm() < 0.01) {
+                            body->setAngularVelocity(btVector3(0, 0, 0));
                         } else {
-                            btVector3 correctedTorque = (body->getAngularVelocity () * -1).normalized ();
-                            body->applyTorque (correctedTorque);
+                            btVector3 correctedTorque = (body->getAngularVelocity() * -1).normalized();
+                            body->applyTorque(correctedTorque);
                         }
                     }
 
                     if (!xPressed) {
-                        if (!relativeForce.isZero ()) {
+                        if (!relativeForce.isZero()) {
                             // TODO: decide about maybe normalizing
                             btVector3 correctedForce = boxRot * relativeForce;
-                            body->applyCentralForce (correctedForce);
+                            body->applyCentralForce(correctedForce);
                         }
                     }
                     if (!yPressed) {
-                        if (!relativeTorque.isZero ()) {
+                        if (!relativeTorque.isZero()) {
                             btVector3 correctedTorque = boxRot * relativeTorque;
-                            body->applyTorque (correctedTorque);
+                            body->applyTorque(correctedTorque);
                         }
                     }
 
                 } else {
                     // for later use
-                    trans = obj->getWorldTransform ();
+                    trans = obj->getWorldTransform();
                 }
             }
 
-            updateMvp (config, engine, physics, mesh);
+            updateMvp(config, engine, physics, mesh);
         }
 
         drawFrame(config, engine, jojoWindow, swapchain, pipeline, mesh);
@@ -413,6 +441,43 @@ void Rendering::DescriptorSets::createLayouts ()
     layouts.push_back (createLayout (phong));
 }
 
+JojoPhysicsNode *makeSphereNode(JojoPhysics &physics, JojoNode *node) {
+    auto collisionShapeIndex = physics.collisionShapes.size();
+    auto collisionObjectArrayIndex = physics.dynamicsWorld->getCollisionObjectArray().size();
+
+    std::cout << "shapeIndex " << collisionShapeIndex << ", objectIndex " << collisionObjectArrayIndex << std::endl;
+
+    btCollisionShape *colShape = new btSphereShape(1.5);
+    physics.collisionShapes.push_back(colShape);
+
+    auto absoluteMatrix = node->calculateAbsoluteMatrix();
+    btTransform startTransform;
+    startTransform.setFromOpenGLMatrix(glm::value_ptr(absoluteMatrix));
+    node->startTransform = absoluteMatrix;
+
+    btVector3 localInertia(0, 1, 0);
+    btScalar mass(1.0f);
+    colShape->calculateLocalInertia(mass, localInertia);
+
+    btDefaultMotionState *myMotionState = new btDefaultMotionState(startTransform);
+    auto rigidBodyConstuctionInfo = btRigidBody::btRigidBodyConstructionInfo(mass,
+                                                                             myMotionState,
+                                                                             colShape,
+                                                                             localInertia);
+    btRigidBody *body = new btRigidBody(rigidBodyConstuctionInfo);
+    body->setRestitution(objectRestitution);
+    body->forceActivationState(DISABLE_DEACTIVATION);
+
+    physics.dynamicsWorld->addRigidBody(body);
+
+    JojoPhysicsNode *physicsNode = new JojoPhysicsNode();
+    physicsNode->collisionObjectArrayIndex = collisionObjectArrayIndex;
+    physicsNode->collisionShapeIndex = collisionShapeIndex;
+    physicsNode->node = node;
+
+    return physicsNode;
+}
+
 int main(int argc, char *argv[]) {
     //Scripting::Engine jojoScript;
 
@@ -421,11 +486,8 @@ int main(int argc, char *argv[]) {
     //helloObj.updateLogic();
 
 
-
     JojoPhysics physics;
 
-
-    tinygltf::Model gltfModel;
     //loadFromGlb(&gltfModel, "../models/duck.glb");
 
     JojoScene scene;
@@ -435,46 +497,51 @@ int main(int argc, char *argv[]) {
     scene.children.push_back(duck);
 */
 
-    loadFromGlb(&gltfModel, "../models/uvcube.glb");
-    JojoNode icosphere;
-    icosphere.loadFromGltf(gltfModel, &scene);
-    icosphere.setRelativeMatrix(glm::mat4());
-    scene.children.push_back(icosphere);
+    tinygltf::Model gltfModel;
+    loadFromGlb(&gltfModel, "../models/cobra3_cleaned2_textured.glb");
+    JojoNode playerNode;
+    playerNode.loadFromGltf(gltfModel, &scene);
+    playerNode.setRelativeMatrix(glm::rotate(glm::mat4(), 3.1415926f, glm::vec3(0, 1, 0)));
+    scene.children.push_back(playerNode);
+
+    JojoPhysicsNode *playerPhysicsNode = makeSphereNode(physics, &playerNode);
+    physics.player = playerPhysicsNode;
 
 
-    auto collisionShapeIndex = physics.collisionShapes.size();
-    auto collisionObjectArrayIndex = physics.dynamicsWorld->getCollisionObjectArray().size();
-
-    std::cout << "shapeIndex " << collisionShapeIndex << ", objectIndex " << collisionObjectArrayIndex << std::endl;
-
-    btCollisionShape *colShape = new btSphereShape(1);
-    physics.collisionShapes.push_back(colShape);
-
-    btTransform startTransform;
-    startTransform.setIdentity();
-    startTransform.setOrigin(btVector3(0, 0, 0));
-
-    btVector3 localInertia(0, 1, 0);
-    btScalar mass(1.0f);
-    colShape->calculateLocalInertia(mass, localInertia);
-
-    btDefaultMotionState *myMotionState = new btDefaultMotionState(startTransform);
-    auto rigidBodyConstuctionInfo = btRigidBody::btRigidBodyConstructionInfo(mass, myMotionState, colShape,
-                                                                             localInertia);
-    btRigidBody *body = new btRigidBody(rigidBodyConstuctionInfo);
-    body->setRestitution(objectRestitution);
-    body->forceActivationState(DISABLE_DEACTIVATION);
-
-    physics.dynamicsWorld->addRigidBody(body);
-
-
-    auto translation = glm::vec3(1, 1, 1);
+    auto translation = glm::vec3(10, 1, 1);
     auto scale = glm::vec3(1, 1, 1);
 
-    JojoNode icosphere2;
-    icosphere2.loadFromGltf(gltfModel, &scene);
-    icosphere2.setRelativeMatrix(glm::translate(glm::scale(icosphere.getRelativeMatrix(), scale), translation));
-    scene.children.push_back(icosphere2);
+    tinygltf::Model gltfModel2;
+    loadFromGlb(&gltfModel2, "../models/uvcube.glb");
+    JojoNode *icosphere = new JojoNode();
+    icosphere->loadFromGltf(gltfModel2, &scene);
+    icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
+    scene.children.push_back(*icosphere);
+
+    JojoPhysicsNode *winnerPhysicsNode = makeSphereNode(physics, icosphere);
+    physics.winner = winnerPhysicsNode;
+
+
+    translation = glm::vec3(1, 1, 10);
+    icosphere = new JojoNode();
+    icosphere->loadFromGltf(gltfModel2, &scene);
+    icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
+    scene.children.push_back(*icosphere);
+    physics.dynamicNodes.push_back(*makeSphereNode(physics, icosphere));
+
+    translation = glm::vec3(1, 1, -10);
+    icosphere = new JojoNode();
+    icosphere->loadFromGltf(gltfModel2, &scene);
+    icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
+    scene.children.push_back(*icosphere);
+    physics.dynamicNodes.push_back(*makeSphereNode(physics, icosphere));
+
+    translation = glm::vec3(-10, 1, 1);
+    icosphere = new JojoNode();
+    icosphere->loadFromGltf(gltfModel2, &scene);
+    icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
+    scene.children.push_back(*icosphere);
+    physics.dynamicNodes.push_back(*makeSphereNode(physics, icosphere));
 
 
     Config config = Config::readFromFile("../config.ini");
@@ -482,15 +549,23 @@ int main(int argc, char *argv[]) {
     JojoWindow window;
     window.startGlfw(config);
 
-    Replay::Recorder jojoReplay (window.window);
-    jojoReplay.setResetFunc ([body, &startTransform]() {
+    Replay::Recorder jojoReplay(window.window);
+    jojoReplay.setResetFunc([&physics]() {
         // TODO: Reset state of the world here
-        btVector3 zeroVector (0, 0, 0);
+        btVector3 zeroVector(0, 0, 0);
 
-        body->clearForces ();
-        body->setLinearVelocity (zeroVector);
-        body->setAngularVelocity (zeroVector);
-        body->setWorldTransform (startTransform);
+        auto playerIndex = physics.player->collisionObjectArrayIndex;
+        btTransform startTransform;
+        auto startMatrix = physics.player->node->startTransform;
+        startTransform.setFromOpenGLMatrix(glm::value_ptr(startMatrix));
+
+        btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[playerIndex];
+        btRigidBody *body = btRigidBody::upcast(obj);
+
+        body->clearForces();
+        body->setLinearVelocity(zeroVector);
+        body->setAngularVelocity(zeroVector);
+        body->setWorldTransform(startTransform);
     });
 
     JojoEngine engine;
@@ -543,3 +618,5 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
+
