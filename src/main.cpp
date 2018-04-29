@@ -416,7 +416,7 @@ int main(int argc, char *argv[]) {
 
 
     tinygltf::Model gltfModel;
-    loadFromGlb(&gltfModel, "../models/duck.glb");
+    //loadFromGlb(&gltfModel, "../models/duck.glb");
 
     JojoScene scene;
 /*
@@ -425,7 +425,7 @@ int main(int argc, char *argv[]) {
     scene.children.push_back(duck);
 */
 
-    loadFromGlb(&gltfModel, "../models/icosphere.glb");
+    loadFromGlb(&gltfModel, "../models/uvcube.glb");
     JojoNode icosphere;
     icosphere.loadFromGltf(gltfModel, &scene);
     icosphere.setRelativeMatrix(glm::mat4());

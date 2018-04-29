@@ -176,14 +176,10 @@ void JojoNode::loadVertices(const tinygltf::Model &model,
     for (size_t v = 0; v < posAccessor.count; v++) {
         // TOOD: Are these transformation one-time only?
 
-        //auto pos = localNodeMatrix * glm::vec4(glm::make_vec3(&bufferPos[v * 3]), 1.0f);
         auto pos = glm::make_vec3(&bufferPos[v * 3]);
         auto normal = bufferNormals ? glm::make_vec3 (&bufferNormals[v * 3]) : glm::vec3 (0.f);
         auto uv = bufferTexCoords ? glm::make_vec2 (&bufferTexCoords[v * 2]) : glm::vec2 (0.f);
 
-        //vert.normal = glm::normalize(glm::mat3(localNodeMatrix) * glm::vec3(bufferNormals ? glm::make_vec3(&bufferNormals[v * 3]) : glm::vec3(0.0f)));
-        //vert.uv = bufferTexCoords ? glm::make_vec2(&bufferTexCoords[v * 2]) : glm::vec3(0.0f);
-        // Vulkan coordinate system
         pos.y *= -1.0f;
         normal.y *= -1.0f;
 
