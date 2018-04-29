@@ -9,12 +9,9 @@ layout(location = 0) out vec4 outPosition;
 layout(location = 1) out vec3 outNormal;
 layout(location = 2) out vec2 outUv;
 
-layout(binding = 0) uniform GlobalTransforms {
-	uniform mat3 normalMatrix;
-} globalTrans;
-
-layout(binding = 1) uniform ModelTransformations {
+layout(binding = 0) uniform ModelTransformations {
 	mat4 mvp;
+	mat3 normalMatrix;
 } modelTrans;
 
 out gl_PerVertex {
@@ -23,7 +20,7 @@ out gl_PerVertex {
 
 void main() {
 	outPosition = modelTrans.mvp * vec4(inPosition, 1.);
-	outNormal = globalTrans.normalMatrix * inNormal;
+	outNormal = modelTrans.normalMatrix * inNormal;
 	outUv = inUv;
 	gl_Position = outPosition;
 }

@@ -2,6 +2,8 @@
 // Created by benja on 4/28/2018.
 //
 
+#include <glm/gtc/matrix_inverse.hpp>
+
 #include "jojo_vulkan_data.hpp"
 
 #include "jojo_vulkan_utils.hpp"
@@ -62,15 +64,15 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
     vkGetPhysicalDeviceProperties(engine->chosenDevice, &properties);
 
     size_t minUboAlignment = properties.limits.minUniformBufferOffsetAlignment;
-    dynamicAlignment = sizeof(glm::mat4);
+    dynamicAlignment = sizeof(ModelTransformations);
     if (minUboAlignment > 0) {
         dynamicAlignment = (dynamicAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
     }
 
-    size_t bufferSize = scene->mvps.size() * dynamicAlignment;
+    size_t bufferSize = scene->mvps.size() * dynamicAlignment; 
 
-    alignedMvps = (glm::mat4 *) alignedAlloc(bufferSize, dynamicAlignment);
-    assert(alignedMvps);
+    alignedTransforms = (ModelTransformations *) alignedAlloc(bufferSize, dynamicAlignment);
+    assert(alignedTransforms);
 
     std::cout << "minUniformBufferOffsetAlignment = " << minUboAlignment << std::endl;
     std::cout << "dynamicAlignment = " << dynamicAlignment << std::endl;
@@ -81,11 +83,11 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                  &(uniformBufferDeviceMemory));
 
+
     VkDescriptorBufferInfo info = {};
     info.buffer = uniformBuffer;
-    info.range = sizeof (glm::mat4);
-    descriptors->update (set, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, info);
-
+    info.range = sizeof (ModelTransformations);
+    descriptors->update (set, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, info);
 }
 
 void JojoVulkanMesh::destroyBuffers(JojoEngine *engine) {
@@ -99,13 +101,14 @@ void JojoVulkanMesh::destroyBuffers(JojoEngine *engine) {
     vkDestroyBuffer(engine->device, vertexBuffer, nullptr);
 }
 
-void JojoVulkanMesh::updateAlignedUniforms(glm::mat4 proj_view) {
+void JojoVulkanMesh::updateAlignedUniforms(const glm::mat4 &proj_view, const glm::mat4 &view) {
     assert(scene != nullptr);
 
     for (int i = 0; i < scene->mvps.size(); ++i) {
         // cast pointer to number to circumvent the step size of glm::mat4
-        glm::mat4 *alignedMatrix = (glm::mat4 *) (((uint64_t) alignedMvps + (i * dynamicAlignment)));
-        *alignedMatrix = proj_view * scene->mvps[i];
+        ModelTransformations *alignedMatrix = (ModelTransformations *) (((uint64_t) alignedTransforms + (i * dynamicAlignment)));
+        alignedMatrix->normalMatrix = glm::inverseTranspose (glm::mat3 (view * scene->mvps[i]));
+        alignedMatrix->mvp = proj_view * scene->mvps[i];
     }
 
 }

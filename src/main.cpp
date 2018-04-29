@@ -206,7 +206,7 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVul
 
     glm::mat4 proj_view = projection * view;
 
-    mesh->updateAlignedUniforms(proj_view);
+    mesh->updateAlignedUniforms(proj_view, view);
     auto bufferSize = mesh->dynamicAlignment * mesh->scene->mvps.size();
 
     // TODO: copy the model matrices to GPU memory via some kind of flushing / not via coherent memory
@@ -218,7 +218,7 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVul
                                   0,
                                   &rawData);
     ASSERT_VULKAN(result)
-    memcpy(rawData, mesh->alignedMvps, bufferSize);
+    memcpy(rawData, mesh->alignedTransforms, bufferSize);
     vkUnmapMemory(engine->device, mesh->uniformBufferDeviceMemory);
 
 }
@@ -406,11 +406,10 @@ void loadFromGlb(tinygltf::Model *modelDst, std::string relPath) {
 void Rendering::DescriptorSets::createLayouts ()
 {
     std::vector<VkDescriptorSetLayoutBinding> phong;
-    addLayout (phong, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-    addLayout (phong, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT);
-    addLayout (phong, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addLayout (phong, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addLayout (phong, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (phong, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT);
+    addLayout (phong, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (phong, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (phong, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (phong));
 }
 
@@ -518,7 +517,7 @@ int main(int argc, char *argv[]) {
 
     pipeline.createPipelineHelper (
         config, &engine,
-        swapchain.swapchainRenderPass, "shader",
+        swapchain.swapchainRenderPass, "phong",
         engine.descriptors->layout (Rendering::Set::Phong)
     );
 

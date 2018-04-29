@@ -32,8 +32,6 @@ public:
 
     void startVulkan();
 
-    void destroyDescriptorPool();
-
     void shutdownVulkan();
 
     void initializeDescriptorPool(uint32_t uniformCount, uint32_t dynamicUniformCount, uint32_t samplerCount);

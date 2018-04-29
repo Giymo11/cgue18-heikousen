@@ -17,11 +17,16 @@
 
 class JojoVulkanMesh {
 public:
+    struct ModelTransformations {
+        glm::mat4 mvp;
+        glm::mat3 normalMatrix;
+        glm::vec4 padding;
+    };
 
     JojoScene *scene = nullptr;
 
     size_t dynamicAlignment;
-    glm::mat4 *alignedMvps = nullptr;
+    ModelTransformations *alignedTransforms = nullptr;
 
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferDeviceMemory;
@@ -45,7 +50,7 @@ public:
 
     void destroyBuffers(JojoEngine *engine);
 
-    void updateAlignedUniforms(glm::mat4 proj_view);
+    void updateAlignedUniforms(const glm::mat4 &proj_view, const glm::mat4 &view);
 
     void goDrawYourself(VkCommandBuffer &commandBuffer, VkPipelineLayout &pipelineLayout);
 
