@@ -4,8 +4,6 @@
 
 #include "jojo_vulkan_utils.hpp"
 
-#include <vector>
-
 
 uint32_t findMemoryTypeIndex(VkPhysicalDevice chosenDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;

@@ -4,12 +4,6 @@
 
 #include "jojo_vulkan_data.hpp"
 
-#include <vector>
-
-#include <vulkan/vulkan.h>
-#include <glm/glm.hpp>
-
-#include "jojo_scene.hpp"
 #include "jojo_vulkan_utils.hpp"
 #include "jojo_vulkan.hpp"
 
@@ -42,8 +36,8 @@ std::vector<VkVertexInputAttributeDescription> JojoVulkanMesh::getVertexInputAtt
 }
 
 void JojoVulkanMesh::bindBufferToDescriptorSet(VkDevice device,
-                               VkBuffer uniformBuffer,
-                               VkDescriptorSet descriptorSet) {
+                                               VkBuffer uniformBuffer,
+                                               VkDescriptorSet descriptorSet) {
 
     VkDescriptorBufferInfo descriptorBufferInfo;
     descriptorBufferInfo.buffer = uniformBuffer;
@@ -89,14 +83,13 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
 
     size_t bufferSize = scene->mvps.size() * dynamicAlignment;
 
-    alignedMvps = (glm::mat4*)alignedAlloc(bufferSize, dynamicAlignment);
+    alignedMvps = (glm::mat4 *) alignedAlloc(bufferSize, dynamicAlignment);
     assert(alignedMvps);
 
     std::cout << "minUniformBufferOffsetAlignment = " << minUboAlignment << std::endl;
     std::cout << "dynamicAlignment = " << dynamicAlignment << std::endl;
 
 
-    // TODO: actually do this for the dynamic buffers
     createBuffer(engine->device, engine->chosenDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                  &(uniformBuffer),
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -110,7 +103,7 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
 
 }
 
-void JojoVulkanMesh::destroyBuffers(JojoEngine *engine)  {
+void JojoVulkanMesh::destroyBuffers(JojoEngine *engine) {
     vkFreeMemory(engine->device, uniformBufferDeviceMemory, nullptr);
     vkDestroyBuffer(engine->device, uniformBuffer, nullptr);
 
@@ -124,16 +117,16 @@ void JojoVulkanMesh::destroyBuffers(JojoEngine *engine)  {
 void JojoVulkanMesh::updateAlignedUniforms(glm::mat4 proj_view) {
     assert(scene != nullptr);
 
-    for(int i = 0; i < scene->mvps.size(); ++i) {
+    for (int i = 0; i < scene->mvps.size(); ++i) {
         // cast pointer to number to circumvent the step size of glm::mat4
-        glm::mat4 *alignedMatrix = (glm::mat4*)(((uint64_t)alignedMvps + (i * dynamicAlignment)));
+        glm::mat4 *alignedMatrix = (glm::mat4 *) (((uint64_t) alignedMvps + (i * dynamicAlignment)));
         *alignedMatrix = proj_view * scene->mvps[i];
     }
 
 }
 
 void JojoVulkanMesh::drawNode(VkCommandBuffer &commandBuffer, VkPipelineLayout &pipelineLayout, const JojoNode &node) {
-    for(const JojoPrimitive &primitive : node.primitives) {
+    for (const JojoPrimitive &primitive : node.primitives) {
         uint32_t dynamicOffset = primitive.dynamicOffset * static_cast<uint32_t>(dynamicAlignment);
 
         vkCmdBindDescriptorSets(commandBuffer,
@@ -147,8 +140,8 @@ void JojoVulkanMesh::drawNode(VkCommandBuffer &commandBuffer, VkPipelineLayout &
 
         vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.indexOffset, 0, 0);
     }
-    for(const JojoNode &child : node.children) {
-        drawNode(commandBuffer, pipelineLayout, node);
+    for (const JojoNode &child : node.children) {
+        drawNode(commandBuffer, pipelineLayout, child);
     }
 }
 
@@ -157,7 +150,7 @@ void JojoVulkanMesh::goDrawYourself(VkCommandBuffer &commandBuffer, VkPipelineLa
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-    for(JojoNode &child : scene->children) {
+    for (JojoNode &child : scene->children) {
         drawNode(commandBuffer, pipelineLayout, child);
     }
 

@@ -16,7 +16,7 @@
 class JojoVulkanMesh {
 public:
 
-    JojoScene *scene;
+    JojoScene *scene = nullptr;
 
     size_t dynamicAlignment;
     glm::mat4 *alignedMvps = nullptr;

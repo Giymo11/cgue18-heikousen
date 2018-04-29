@@ -221,9 +221,8 @@ const glm::mat4 &JojoNode::getRelativeMatrix() const {
     return matrix;
 }
 
-// TODO: maybe make sure not to recompute the parent matrices for every request
 glm::mat4 JojoNode::calculateAbsoluteMatrix() {
-    if(parent) {
+    if (parent != nullptr) {
         return parent->calculateAbsoluteMatrix() * matrix;
     }
     return matrix;
@@ -232,16 +231,15 @@ glm::mat4 JojoNode::calculateAbsoluteMatrix() {
 void JojoNode::setRelativeMatrix(const glm::mat4 &newMatrix) {
     matrix = newMatrix;
 
-    if(!primitives.empty()) {
+    if (!primitives.empty()) {
         auto &primitive = primitives[0];
         auto dynOffset = primitive.dynamicOffset;
 
-        if(parent) {
+        if (parent) {
             root->mvps[dynOffset] = calculateAbsoluteMatrix();
-            // TODO: add into aligned array
         }
     }
-    for(auto &child : children) {
+    for (auto &child : children) {
         child.setParent(this);
     }
 }

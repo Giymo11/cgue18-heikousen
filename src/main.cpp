@@ -29,13 +29,8 @@
 #include "jojo_vulkan.hpp"
 #include "jojo_vulkan_utils.hpp"
 #include "jojo_physics.hpp"
-#include "jojo_engine.hpp"
 #include "jojo_swapchain.hpp"
 #include "jojo_window.hpp"
-#include "jojo_pipeline.hpp"
-
-
-
 
 
 void recordCommandBuffer(Config &config,
@@ -319,8 +314,7 @@ void gameloop(Config &config,
         double newXpos = absXpos * glm::sign(relXpos) + config.width / 2.0f;
         double newYpos = absYpos * glm::sign(relYpos) + config.height / 2.0f;
         glfwSetCursorPos(window, newXpos, newYpos);
-        // TODO: fix dis
-
+        // TODO: extract into script
 
         if (!relativeForce.isZero() || !relativeTorque.isZero() || xPressed || yPressed) {
             btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[0];
@@ -377,11 +371,6 @@ void gameloop(Config &config,
         drawFrame(config, engine, jojoWindow, swapchain, pipeline, mesh);
     }
 }
-
-
-
-
-
 
 
 void loadFromGlb(tinygltf::Model *modelDst, std::string relPath) {
@@ -445,13 +434,13 @@ int main(int argc, char *argv[]) {
     colShape->calculateLocalInertia(mass, localInertia);
 
     btDefaultMotionState *myMotionState = new btDefaultMotionState(startTransform);
-    auto rigidBodyConstuctionInfo = btRigidBody::btRigidBodyConstructionInfo(mass, myMotionState, colShape, localInertia);
+    auto rigidBodyConstuctionInfo = btRigidBody::btRigidBodyConstructionInfo(mass, myMotionState, colShape,
+                                                                             localInertia);
     btRigidBody *body = new btRigidBody(rigidBodyConstuctionInfo);
     body->setRestitution(objectRestitution);
     body->forceActivationState(DISABLE_DEACTIVATION);
 
     physics.dynamicsWorld->addRigidBody(body);
-
 
 
     auto translation = glm::vec3(1, 1, 1);
@@ -461,9 +450,6 @@ int main(int argc, char *argv[]) {
     icosphere2.loadFromGltf(gltfModel, &scene);
     icosphere2.setRelativeMatrix(glm::translate(glm::scale(icosphere.getRelativeMatrix(), scale), translation));
     scene.children.push_back(icosphere2);
-
-
-
 
 
     Config config = Config::readFromFile("../config.ini");

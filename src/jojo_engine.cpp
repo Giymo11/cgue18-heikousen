@@ -6,8 +6,6 @@
 
 #include <iostream>
 
-#include <vulkan/vulkan.h>
-
 #include "jojo_window.hpp"
 #include "jojo_vulkan.hpp"
 #include "jojo_vulkan_utils.hpp"

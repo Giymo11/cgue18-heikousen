@@ -5,8 +5,6 @@
 #include "jojo_vulkan.hpp"
 
 #include <array>
-#include <vector>
-#include <vulkan/vulkan.h>
 
 #include "debug_trap.h"
 
@@ -138,7 +136,7 @@ VkResult createSwapchain(const VkDevice device, const VkSurfaceKHR surface, cons
     swapchainCreateInfo.pQueueFamilyIndices = nullptr;
     swapchainCreateInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
     swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    swapchainCreateInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR; // TODO: maybe mailbox?
+    swapchainCreateInfo.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR; // TODO: maybe mailbox?
     swapchainCreateInfo.clipped = VK_TRUE;
     swapchainCreateInfo.oldSwapchain = oldSwapchain;
 

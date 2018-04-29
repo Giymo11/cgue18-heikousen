@@ -72,7 +72,6 @@ class JojoNode;
  * Representing the whole scene
  */
 class JojoScene {
-    // TODO: vulkan data
 public:
     std::vector<JojoNode> children;
 
@@ -93,8 +92,8 @@ private:
     glm::mat4 matrix;
 
 public:
-    JojoNode* parent;
-    JojoScene *root;
+    JojoNode *parent = nullptr;
+    JojoScene *root = nullptr;
 
     std::vector<JojoNode> children;
     std::string name;
@@ -123,6 +122,7 @@ public:
     const glm::mat4 &getRelativeMatrix() const;
 
     void setRelativeMatrix(const glm::mat4 &newMatrix);
+
     void setParent(JojoNode *newParent);
 
     void loadFromGltf(const tinygltf::Model &gltfModel, JojoScene *root);
