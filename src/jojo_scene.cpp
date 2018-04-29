@@ -17,8 +17,8 @@
 #include "jojo_vulkan_utils.hpp"
 
 
-JojoVertex::JojoVertex(glm::vec3 pos, glm::vec3 color)
-        : pos(pos), color(color) {}
+JojoVertex::JojoVertex(glm::vec3 pos, glm::vec3 normal, glm::vec2 uv)
+        : pos(pos), normal(normal), uv(uv) {}
 
 void JojoNode::loadFromGltf(const tinygltf::Model &gltfModel, JojoScene *root) {
     // loadImages(gltfModel, device, transferQueue);
@@ -174,20 +174,20 @@ void JojoNode::loadVertices(const tinygltf::Model &model,
 
     // generate vertex information
     for (size_t v = 0; v < posAccessor.count; v++) {
+        // TOOD: Are these transformation one-time only?
 
         //auto pos = localNodeMatrix * glm::vec4(glm::make_vec3(&bufferPos[v * 3]), 1.0f);
         auto pos = glm::make_vec3(&bufferPos[v * 3]);
+        auto normal = bufferNormals ? glm::make_vec3 (&bufferNormals[v * 3]) : glm::vec3 (0.f);
+        auto uv = bufferTexCoords ? glm::make_vec2 (&bufferTexCoords[v * 2]) : glm::vec2 (0.f);
 
         //vert.normal = glm::normalize(glm::mat3(localNodeMatrix) * glm::vec3(bufferNormals ? glm::make_vec3(&bufferNormals[v * 3]) : glm::vec3(0.0f)));
         //vert.uv = bufferTexCoords ? glm::make_vec2(&bufferTexCoords[v * 2]) : glm::vec3(0.0f);
         // Vulkan coordinate system
         pos.y *= -1.0f;
-        //vert.normal.y *= -1.0f;
+        normal.y *= -1.0f;
 
-        glm::vec3 color(1.0, 1.0, 1.0);
-
-        JojoVertex vert{pos, color};
-        this->root->vertices.push_back(vert);
+        this->root->vertices.emplace_back (pos, normal, uv);
     }
 }
 

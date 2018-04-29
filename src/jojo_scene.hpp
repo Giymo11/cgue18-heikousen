@@ -27,9 +27,10 @@ namespace tinygltf {
 class JojoVertex {
 public:
     glm::vec3 pos;
-    glm::vec3 color;
+    glm::vec3 normal;
+    glm::vec2 uv;
 
-    JojoVertex(glm::vec3 pos, glm::vec3 color);
+    JojoVertex(glm::vec3 pos, glm::vec3 normal, glm::vec2 uv);
 
 
 };

@@ -21,7 +21,7 @@ VkVertexInputBindingDescription JojoVulkanMesh::getVertexInputBindingDescription
 }
 
 std::vector<VkVertexInputAttributeDescription> JojoVulkanMesh::getVertexInputAttributeDescriptions() {
-    std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions(2);
+    std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions(3);
     vertexInputAttributeDescriptions[0].location = 0;   // location in shader
     vertexInputAttributeDescriptions[0].binding = 0;
     vertexInputAttributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;   // for vec2 in shader
@@ -30,7 +30,12 @@ std::vector<VkVertexInputAttributeDescription> JojoVulkanMesh::getVertexInputAtt
     vertexInputAttributeDescriptions[1].location = 1;
     vertexInputAttributeDescriptions[1].binding = 0;
     vertexInputAttributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;   // for vec3 in shader
-    vertexInputAttributeDescriptions[1].offset = offsetof(JojoVertex, color);
+    vertexInputAttributeDescriptions[1].offset = offsetof(JojoVertex, normal);
+
+    vertexInputAttributeDescriptions[2].location = 2;
+    vertexInputAttributeDescriptions[2].binding = 0; 
+    vertexInputAttributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;   // for vec2 in shader
+    vertexInputAttributeDescriptions[2].offset = offsetof (JojoVertex, uv);
 
     return vertexInputAttributeDescriptions;
 }
