@@ -9,6 +9,7 @@
 
 #include <btBulletCollisionCommon.h>
 #include <btBulletDynamicsCommon.h>
+#include "jojo_physics_node.hpp"
 
 #define PRINTF_FLOAT "%7.3f"
 
@@ -37,8 +38,14 @@ public:
 
     std::map<const btCollisionObject *, std::vector<btManifoldPoint *>> objectsCollisions;
 
-    void theTickCallback(btDynamicsWorld *dynamicsWorld, btScalar timeStep);
 
+
+    JojoPhysicsNode *player;
+    JojoPhysicsNode *winner;
+
+    std::vector<JojoPhysicsNode> dynamicNodes;
+
+    void theTickCallback(btDynamicsWorld *dynamicsWorld, btScalar timeStep);
 
     JojoPhysics();
 
