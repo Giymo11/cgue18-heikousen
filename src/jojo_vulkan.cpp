@@ -534,12 +534,12 @@ VkResult createDescriptorPool(const VkDevice device,
     uniformDescriptorPoolSize.descriptorCount = uniformCount;
 
     VkDescriptorPoolSize dynamicUniformDescriptorPoolSize;
-    uniformDescriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-    uniformDescriptorPoolSize.descriptorCount = dynamicUniformCount;
+    dynamicUniformDescriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    dynamicUniformDescriptorPoolSize.descriptorCount = dynamicUniformCount;
 
     VkDescriptorPoolSize samplerDescriptorPoolSize;
-    uniformDescriptorPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    uniformDescriptorPoolSize.descriptorCount = samplerCount;
+    samplerDescriptorPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerDescriptorPoolSize.descriptorCount = samplerCount;
 
     std::array<VkDescriptorPoolSize, 3> descriptorPoolSizes = {
             uniformDescriptorPoolSize,

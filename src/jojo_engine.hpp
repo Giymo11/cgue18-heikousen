@@ -4,11 +4,14 @@
 
 
 #include <vector>
+#include <memory>
 
 #include <vulkan/vulkan.h>
 
 class JojoWindow;
-
+namespace Rendering {
+class DescriptorSets;
+}
 
 class JojoEngine {
 
@@ -25,6 +28,7 @@ public:
     VkCommandPool commandPool;
     VkDescriptorPool descriptorPool;
 
+    Rendering::DescriptorSets *descriptors = nullptr;
 
     void startVulkan();
 
@@ -32,6 +36,6 @@ public:
 
     void shutdownVulkan();
 
-    void initialieDescriptorPool(uint32_t uniformCount, uint32_t dynamicUniformCount, uint32_t samplerCount);
+    void initializeDescriptorPool(uint32_t uniformCount, uint32_t dynamicUniformCount, uint32_t samplerCount);
 };
 

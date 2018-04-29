@@ -11,6 +11,8 @@
 #include "jojo_vulkan_utils.hpp"
 #include "jojo_vulkan_info.hpp"
 
+#include "Rendering/DescriptorSets.h"
+
 
 void JojoEngine::startVulkan() {
     VkResult result;
@@ -56,18 +58,19 @@ void JojoEngine::startVulkan() {
     ASSERT_VULKAN(result)
 }
 
-void JojoEngine::initialieDescriptorPool(uint32_t uniformCount,
+void JojoEngine::initializeDescriptorPool(uint32_t uniformCount,
                                          uint32_t dynamicUniformCount,
                                          uint32_t samplerCount) {
     VkResult result = createDescriptorPool(device, &descriptorPool, uniformCount, dynamicUniformCount, samplerCount);
-    ASSERT_VULKAN(result)
-}
+    ASSERT_VULKAN (result);
 
-void JojoEngine::destroyDescriptorPool() {
-    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+    descriptors = new Rendering::DescriptorSets (device);
+    descriptors->allocate (descriptorPool);
 }
 
 void JojoEngine::shutdownVulkan() {
+    delete descriptors;
+    descriptors = nullptr;
     vkDestroyCommandPool(device, commandPool, nullptr);
     vkDestroyDevice(device, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);

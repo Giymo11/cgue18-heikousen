@@ -13,6 +13,8 @@
 #include "jojo_engine.hpp"
 #include "jojo_pipeline.hpp"
 
+#include "Rendering/DescriptorSets.h"
+
 class JojoVulkanMesh {
 public:
 
@@ -27,7 +29,7 @@ public:
     VkDeviceMemory indexBufferDeviceMemory;
     VkBuffer uniformBuffer;
     VkDeviceMemory uniformBufferDeviceMemory;
-    VkDescriptorSet uniformDescriptorSet;
+    VkDescriptorSet descriptorSet;
 
     VkDescriptorImageInfo texture;
 
@@ -39,9 +41,7 @@ public:
     static std::vector<VkVertexInputAttributeDescription> getVertexInputAttributeDescriptions();
 
 
-    void initializeBuffers(JojoEngine *engine, JojoPipeline *pipeline);
-
-    void bindBufferToDescriptorSet(VkDevice device, VkBuffer uniformBuffer, VkDescriptorSet descriptorSet);
+    void initializeBuffers(JojoEngine *engine, JojoPipeline *pipeline, Rendering::Set set);
 
     void destroyBuffers(JojoEngine *engine);
 

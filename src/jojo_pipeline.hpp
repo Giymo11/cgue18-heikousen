@@ -22,10 +22,11 @@ public:
 
     void destroyPipeline(JojoEngine *engine);
 
-    void createPipelineHelper(Config &config, JojoEngine *engine, VkRenderPass renderPass);
-
-    void initializeDescriptorSetLayout(JojoEngine *engine);
-
-    void destroyDescriptorSetLayout(JojoEngine *engine);
+    void createPipelineHelper (
+        Config &config,
+        JojoEngine *engine,
+        VkRenderPass renderPass,
+        const std::string &shaderName,
+        VkDescriptorSetLayout descriptorLayout
+    );
 };
-

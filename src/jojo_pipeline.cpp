@@ -14,15 +14,24 @@ void JojoPipeline::destroyPipeline(JojoEngine *engine) {
     vkDestroyShaderModule(engine->device, shaderModuleFrag, nullptr);
 }
 
-void JojoPipeline::createPipelineHelper(Config &config, JojoEngine *engine, VkRenderPass renderPass) {
+void JojoPipeline::createPipelineHelper(
+    Config &config,
+    JojoEngine *engine,
+    VkRenderPass renderPass,
+    const std::string &shaderName,
+    VkDescriptorSetLayout descriptorLayout
+) {
+    descriptorSetLayout = descriptorLayout;
+
     VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert;
-    VkResult result = createShaderStageCreateInfo(engine->device, "../shader/shader.vert.spv",
+    VkResult result = createShaderStageCreateInfo(engine->device, "../shader/" + shaderName + ".vert.spv",
                                                   VK_SHADER_STAGE_VERTEX_BIT,
                                                   &shaderStageCreateInfoVert, &shaderModuleVert);
     ASSERT_VULKAN(result)
 
     VkPipelineShaderStageCreateInfo shaderStageCreateInfoFrag;
-    result = createShaderStageCreateInfo(engine->device, "../shader/shader.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT,
+    result = createShaderStageCreateInfo(engine->device, "../shader/" + shaderName + ".frag.spv",
+                                         VK_SHADER_STAGE_FRAGMENT_BIT,
                                          &shaderStageCreateInfoFrag, &shaderModuleFrag);
     ASSERT_VULKAN(result)
 
@@ -34,13 +43,4 @@ void JojoPipeline::createPipelineHelper(Config &config, JojoEngine *engine, VkRe
     result = createPipeline(engine->device, shaderStages, renderPass, pipelineLayout, &pipeline, config.width,
                             config.height);
     ASSERT_VULKAN(result)
-}
-
-void JojoPipeline::initializeDescriptorSetLayout(JojoEngine *engine) {
-    VkResult result = createDescriptorSetLayout(engine->device, &descriptorSetLayout);
-    ASSERT_VULKAN(result)
-}
-
-void JojoPipeline::destroyDescriptorSetLayout(JojoEngine *engine) {
-    vkDestroyDescriptorSetLayout(engine->device, descriptorSetLayout, nullptr);
 }

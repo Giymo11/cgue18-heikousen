@@ -32,6 +32,7 @@
 #include "jojo_swapchain.hpp"
 #include "jojo_window.hpp"
 #include "jojo_replay.hpp"
+#include "Rendering/DescriptorSets.h"
 
 
 void recordCommandBuffer(Config &config,
@@ -402,6 +403,16 @@ void loadFromGlb(tinygltf::Model *modelDst, std::string relPath) {
     }
 }
 
+void Rendering::DescriptorSets::createLayouts ()
+{
+    std::vector<VkDescriptorSetLayoutBinding> phong;
+    addLayout (phong, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    addLayout (phong, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT);
+    addLayout (phong, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (phong, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (phong, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    layouts.push_back (createLayout (phong));
+}
 
 int main(int argc, char *argv[]) {
     //Scripting::Engine jojoScript;
@@ -486,7 +497,9 @@ int main(int argc, char *argv[]) {
     JojoEngine engine;
     engine.jojoWindow = &window;
     engine.startVulkan();
-    engine.initialieDescriptorPool(0, 1, 0);
+    engine.initializeDescriptorPool(2, 2, 1);
+
+
 
 
     JojoVulkanMesh mesh;
@@ -499,13 +512,15 @@ int main(int argc, char *argv[]) {
 
 
     JojoPipeline pipeline;
-    pipeline.initializeDescriptorSetLayout(&engine);
 
 
-    mesh.initializeBuffers(&engine, &pipeline);
+    mesh.initializeBuffers(&engine, &pipeline, Rendering::Set::Phong);
 
-
-    pipeline.createPipelineHelper(config, &engine, swapchain.swapchainRenderPass);
+    pipeline.createPipelineHelper (
+        config, &engine,
+        swapchain.swapchainRenderPass, "shader",
+        engine.descriptors->layout (Rendering::Set::Phong)
+    );
 
     gameloop(config, &engine, &window, &swapchain, &pipeline, &jojoReplay, physics, &mesh);
 
@@ -513,9 +528,6 @@ int main(int argc, char *argv[]) {
     VkResult result = vkDeviceWaitIdle(engine.device);
     ASSERT_VULKAN(result)
 
-
-    pipeline.destroyDescriptorSetLayout(&engine);
-    engine.destroyDescriptorPool();
 
     mesh.destroyBuffers(&engine);
 

@@ -7,6 +7,8 @@
 #include "jojo_vulkan_utils.hpp"
 #include "jojo_vulkan.hpp"
 
+#include "Rendering/DescriptorSets.h"
+
 
 JojoVulkanMesh::JojoVulkanMesh() {}
 
@@ -40,33 +42,12 @@ std::vector<VkVertexInputAttributeDescription> JojoVulkanMesh::getVertexInputAtt
     return vertexInputAttributeDescriptions;
 }
 
-void JojoVulkanMesh::bindBufferToDescriptorSet(VkDevice device,
-                                               VkBuffer uniformBuffer,
-                                               VkDescriptorSet descriptorSet) {
-
-    VkDescriptorBufferInfo descriptorBufferInfo;
-    descriptorBufferInfo.buffer = uniformBuffer;
-    descriptorBufferInfo.offset = 0;
-    descriptorBufferInfo.range = sizeof(glm::mat4);
-
-    VkWriteDescriptorSet writeDescriptorSet;
-    writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writeDescriptorSet.pNext = nullptr;
-    writeDescriptorSet.dstSet = descriptorSet;
-    writeDescriptorSet.dstBinding = 0;
-    writeDescriptorSet.dstArrayElement = 0;
-    writeDescriptorSet.descriptorCount = 1;
-    writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-    writeDescriptorSet.pImageInfo = nullptr;
-    writeDescriptorSet.pBufferInfo = &descriptorBufferInfo;
-    writeDescriptorSet.pTexelBufferView = nullptr;
-
-    vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
-}
-
-void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipeline) {
+void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipeline, Rendering::Set set) {
 
     assert(scene != null);
+
+    auto descriptors = engine->descriptors;
+    descriptorSet = descriptors->set (set);
 
     createAndUploadBuffer(engine->device, engine->chosenDevice, engine->commandPool, engine->queue, scene->vertices,
                           VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -100,11 +81,10 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                  &(uniformBufferDeviceMemory));
 
-
-    VkResult result = allocateDescriptorSet(engine->device, engine->descriptorPool, pipeline->descriptorSetLayout,
-                                            &(uniformDescriptorSet));
-    ASSERT_VULKAN(result)
-    bindBufferToDescriptorSet(engine->device, uniformBuffer, uniformDescriptorSet);
+    VkDescriptorBufferInfo info = {};
+    info.buffer = uniformBuffer;
+    info.range = sizeof (glm::mat4);
+    descriptors->update (set, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, info);
 
 }
 
@@ -139,7 +119,7 @@ void JojoVulkanMesh::drawNode(VkCommandBuffer &commandBuffer, VkPipelineLayout &
                                 pipelineLayout,
                                 0,
                                 1,
-                                &uniformDescriptorSet,
+                                &descriptorSet,
                                 1,
                                 &dynamicOffset);
 

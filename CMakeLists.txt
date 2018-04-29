@@ -28,7 +28,11 @@ if (MSVC)
 endif ()
 
 
-file(GLOB SOURCE_FILES "src/*.[ch]pp")
+file(GLOB SOURCE_FILES
+    "src/*.[ch]pp"
+    "src/Rendering/*.cpp"
+    "src/Rendering/*.h"
+    "src/Common/*.h")
 file(GLOB SHADER_FILES "shader/*.vert" "shader/*.frag")
 file(GLOB SCRIPT_FILES "scripts/*.js")
 
@@ -112,6 +116,7 @@ target_include_directories(
         ${Vulkan_INCLUDE_DIRS}
         ${BULLET_INCLUDE_DIRS}
         ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
 )
 
 # order matters!
