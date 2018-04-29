@@ -50,9 +50,11 @@ public:
  */
 class JojoPrimitive {
 public:
-    uint32_t firstIndex;
+    uint32_t indexOffset;
     uint32_t indexCount;
+    uint32_t dynamicOffset;
     JojoMaterial *material;
+    // TODO: make the material a offset too
 
     // material info
     // index info
@@ -70,12 +72,12 @@ class JojoNode;
  * Representing the whole scene
  */
 class JojoScene {
-    // TODO: vulkan data
 public:
     std::vector<JojoNode> children;
 
-    std::vector<uint32_t> indexBuffer;
-    std::vector<JojoVertex> vertexBuffer;
+    std::vector<uint32_t> indices;
+    std::vector<JojoVertex> vertices;
+    std::vector<glm::mat4> mvps;
 
     std::vector<JojoMaterial> materials;
 
@@ -85,10 +87,14 @@ public:
  * Representing a transformation
  */
 class JojoNode {
-public:
-    //Node* parent;
 
-    JojoScene *root;
+private:
+    glm::mat4 matrix;
+
+public:
+    JojoNode *parent = nullptr;
+    JojoScene *root = nullptr;
+
     std::vector<JojoNode> children;
     std::string name;
 
@@ -96,10 +102,9 @@ public:
     std::vector<JojoLight> lights;
     // TODO: make sure you pass through twice, the first time to get all the lights
 
-    glm::mat4 matrix;
+
     // position?
     // bullet bounding box info
-
 
 private:
     void loadMatrix(const tinygltf::Node &gltfNode);
@@ -109,11 +114,20 @@ private:
     uint32_t
     loadIndices(const tinygltf::Model &model, const tinygltf::Primitive &primitive, const uint32_t vertexStart);
 
-    void loadNode(const tinygltf::Node &gltfNode, const tinygltf::Model &model, std::vector<JojoMaterial> &materials);
+    void loadNode(const tinygltf::Node &gltfNode,
+                  const tinygltf::Model &model,
+                  std::vector<JojoMaterial> &materials);
 
 public:
+    const glm::mat4 &getRelativeMatrix() const;
+
+    void setRelativeMatrix(const glm::mat4 &newMatrix);
+
+    void setParent(JojoNode *newParent);
+
     void loadFromGltf(const tinygltf::Model &gltfModel, JojoScene *root);
 
+    glm::mat4 calculateAbsoluteMatrix();
 };
 
 

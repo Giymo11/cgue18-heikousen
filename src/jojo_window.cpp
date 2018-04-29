@@ -4,9 +4,6 @@
 
 #include "jojo_window.hpp"
 
-#include <vector>
-
-#include "jojo_utils.hpp"
 #include "jojo_vulkan_utils.hpp"
 
 

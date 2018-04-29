@@ -5,7 +5,6 @@
 #include "jojo_swapchain.hpp"
 
 #include <algorithm>
-#include <iostream>
 
 #include "jojo_vulkan.hpp"
 #include "jojo_vulkan_utils.hpp"

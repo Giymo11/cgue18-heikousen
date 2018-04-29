@@ -5,8 +5,6 @@
 #include "jojo_vulkan.hpp"
 
 #include <array>
-#include <vector>
-#include <vulkan/vulkan.h>
 
 #include "debug_trap.h"
 
@@ -267,7 +265,7 @@ VkResult createRenderpass(const VkDevice device, VkRenderPass *renderPass, const
 VkResult createDescriptorSetLayout(const VkDevice device, VkDescriptorSetLayout *descriptorSetLayout) {
     VkDescriptorSetLayoutBinding descriptorSetLayoutBinding;
     descriptorSetLayoutBinding.binding = 0;
-    descriptorSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
     descriptorSetLayoutBinding.descriptorCount = 1;
     descriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     descriptorSetLayoutBinding.pImmutableSamplers = nullptr;
@@ -525,18 +523,38 @@ VkResult createSemaphore(const VkDevice device, VkSemaphore *semaphore) {
     return vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, semaphore);
 }
 
-VkResult createDescriptorPool(const VkDevice device, VkDescriptorPool *descriptorPool, uint32_t descriptorCount) {
-    VkDescriptorPoolSize descriptorPoolSize;
-    descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptorPoolSize.descriptorCount = descriptorCount;
+VkResult createDescriptorPool(const VkDevice device,
+                              VkDescriptorPool *descriptorPool,
+                              uint32_t uniformCount,
+                              uint32_t dynamicUniformCount,
+                              uint32_t samplerCount) {
+
+    VkDescriptorPoolSize uniformDescriptorPoolSize;
+    uniformDescriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uniformDescriptorPoolSize.descriptorCount = uniformCount;
+
+    VkDescriptorPoolSize dynamicUniformDescriptorPoolSize;
+    uniformDescriptorPoolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    uniformDescriptorPoolSize.descriptorCount = dynamicUniformCount;
+
+    VkDescriptorPoolSize samplerDescriptorPoolSize;
+    uniformDescriptorPoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    uniformDescriptorPoolSize.descriptorCount = samplerCount;
+
+    std::array<VkDescriptorPoolSize, 3> descriptorPoolSizes = {
+            uniformDescriptorPoolSize,
+            dynamicUniformDescriptorPoolSize,
+            samplerDescriptorPoolSize
+    };
+
 
     VkDescriptorPoolCreateInfo descriptorPoolCreateInfo;
     descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     descriptorPoolCreateInfo.pNext = nullptr;
     descriptorPoolCreateInfo.flags = 0;
-    descriptorPoolCreateInfo.maxSets = descriptorCount;
-    descriptorPoolCreateInfo.poolSizeCount = 1;
-    descriptorPoolCreateInfo.pPoolSizes = &descriptorPoolSize;
+    descriptorPoolCreateInfo.maxSets = uniformCount + dynamicUniformCount + samplerCount;
+    descriptorPoolCreateInfo.poolSizeCount = descriptorPoolSizes.size();
+    descriptorPoolCreateInfo.pPoolSizes = descriptorPoolSizes.data();
 
     return vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, nullptr, descriptorPool);
 }

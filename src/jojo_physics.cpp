@@ -4,11 +4,6 @@
 
 #include "jojo_physics.hpp"
 
-#include <vector>
-#include <map>
-
-#include <btBulletDynamicsCommon.h>
-
 
 void myTickCallback(btDynamicsWorld *world, btScalar timeStep) {
     JojoPhysics *w = static_cast<JojoPhysics *>(world->getWorldUserInfo());
