@@ -18,7 +18,7 @@ layout(binding = 0) uniform GlobalTransformations {
 
 layout(binding = 1) uniform ModelTransformations {
 	mat4 model;
-	mat3 normalMatrix;
+	mat4 normalMatrix;
 } modelTrans;
 
 out gl_PerVertex {
@@ -29,7 +29,7 @@ void main() {
 	vec4 viewSpace = globalTrans.view * modelTrans.model * vec4(inPosition, 1.);
 
 	vert.position = viewSpace.xyz;
-	vert.normal = normalize(modelTrans.normalMatrix * inNormal);
+	vert.normal = normalize(mat3(modelTrans.normalMatrix) * inNormal);
 	vert.uv = inUv;
 
 	gl_Position = globalTrans.projection * viewSpace;

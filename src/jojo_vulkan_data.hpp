@@ -24,8 +24,7 @@ public:
 
     struct ModelTransformations {
         glm::mat4 model;
-        glm::mat3 normalMatrix;
-        glm::vec4 padding;
+        glm::mat4 normalMatrix;
     };
 
     JojoScene *scene = nullptr;

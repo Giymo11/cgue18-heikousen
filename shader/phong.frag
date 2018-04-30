@@ -50,7 +50,7 @@ vec3 point(vec3 objColor, LightSource light, vec3 p, vec3 n, vec3 v) {
 }
 
 void main() {
-	// vec4 objColor = texture(diffuseTex, vert.uv);
+	vec4 objColor = texture(diffuseTex, vert.uv);
 
 	/* TEMPORARY START */
 
@@ -58,8 +58,6 @@ void main() {
 	materialInfo.diffuse = 0.9;
 	materialInfo.specular = 0.3;
 	materialInfo.alpha = 10.0;
-
-	vec4 objColor = vec4(0.0, 1.0, 0.0, 1.0);
 
 	lights[0].position = vec3(0.0, 0.0, -5.0);
 	lights[0].color = vec3(1.0, 1.0, 1.0);
