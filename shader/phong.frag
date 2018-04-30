@@ -17,11 +17,16 @@ layout(location = 0) in VertexData {
 
 layout(location = 0) out vec4 outColor;
 
-/* layout(binding = 2) uniform */ struct MaterialInfo {
+layout(binding = 2) uniform MaterialInfo {
 	float ambient;
 	float diffuse;
 	float specular;
 	float alpha;
+
+	float texture;
+	float param1;
+	float param2;
+	float param3;
 } materialInfo;
 
 /* layout(binding = 3) uniform LightBlock {
@@ -53,11 +58,6 @@ void main() {
 	vec4 objColor = texture(diffuseTex, vert.uv);
 
 	/* TEMPORARY START */
-
-	materialInfo.ambient = 0.1;
-	materialInfo.diffuse = 0.9;
-	materialInfo.specular = 0.3;
-	materialInfo.alpha = 10.0;
 
 	lights[0].position = vec3(0.0, 0.0, -5.0);
 	lights[0].color = vec3(1.0, 1.0, 1.0);

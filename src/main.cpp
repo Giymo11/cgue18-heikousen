@@ -223,6 +223,7 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVul
     vkUnmapMemory (engine->device, mesh->globalTransformationMemory);
 
     mesh->updateAlignedUniforms(view);
+
     auto bufferSize = mesh->dynamicAlignment * mesh->scene->mvps.size();
 
     // TODO: copy the model matrices to GPU memory via some kind of flushing / not via coherent memory
@@ -431,8 +432,8 @@ void Rendering::DescriptorSets::createLayouts ()
     std::vector<VkDescriptorSetLayoutBinding> phong;
     addLayout (phong, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
     addLayout (phong, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT);
-    /*addLayout (phong, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addLayout (phong, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);*/
+    addLayout (phong, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT);
+    /*addLayout (phong, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);*/
     addLayout (phong, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (phong));
 }
