@@ -10,6 +10,7 @@
 void onWindowResized(GLFWwindow *window, int newWidth, int newHeight) {
     if (newWidth > 0 && newHeight > 0) {
         //recreateSwapchain();
+        //glfwSetCursorPos(window, newWidth / 2.0f, newHeight / 2.0f);
     }
 }
 
@@ -24,11 +25,23 @@ void JojoWindow::startGlfw(Config &config) {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
+    auto moni = glfwGetPrimaryMonitor();
+    auto mode = glfwGetVideoMode(moni);
+
+    glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+    glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+    glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+    glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+
     window = glfwCreateWindow(config.width, config.height, "heikousen", nullptr, nullptr);
     glfwSetWindowSizeCallback(window, onWindowResized);
-
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     glfwSetCursorPos(window, config.width / 2.0f, config.height / 2.0f);
+
+    if(config.fullscreen) {
+        glfwSetWindowMonitor(window, moni, 0, 0, mode->width, mode->height, mode->refreshRate);
+        std::cout << "am fullscreen" << std::endl;
+    }
 
     glfwSetKeyCallback(window, keyCallback);
 }

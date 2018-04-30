@@ -139,8 +139,10 @@ void JojoSwapchain::recreateSwapchain(Config &config, JojoEngine *engine, JojoWi
     window->getWindowSize(&newWidth, &newHeight);
 
 
-    config.width = (uint32_t) std::min(newWidth, (int) surfaceCapabilitiesKHR.maxImageExtent.width);;
+    config.width = (uint32_t) std::min(newWidth, (int) surfaceCapabilitiesKHR.maxImageExtent.width);
     config.height = (uint32_t) std::min(newHeight, (int) surfaceCapabilitiesKHR.maxImageExtent.height);
+
+    glfwSetCursorPos(window->window, newWidth / 2.0f, newHeight / 2.0f);
 
     destroySwapchainChildren(engine);
 
