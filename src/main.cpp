@@ -401,7 +401,15 @@ void gameloop(Config &config,
 
             for(JojoPhysicsNode* node : physics.player->contacting) {
                 if(node == physics.winner) {
-                    std::cout << "you are WINNING - " << jojoReplay->state() << std::endl;
+                    if(jojoReplay->state() == Replay::RecorderState::Recording) {
+                        std::cout << "You are touching the winner, but you have to do so in the Replay (press spacebar)" << std::endl;
+                    } else if(jojoReplay->state() == Replay::RecorderState::Replaying || jojoReplay->state() == Replay::RecorderState::ReplayFinished) {
+                        std::cout << "You have WON!" << std::endl;
+                    }
+
+                }
+                if(node == physics.loser) {
+                    std::cout << "You have LOST!" << std::endl;
                 }
             }
 
@@ -545,6 +553,10 @@ int main(int argc, char *argv[]) {
     icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
     scene.children.push_back(icosphere);
     physics.dynamicNodes.push_back(makeSphereNode(physics, icosphere));
+
+    JojoPhysicsNode *loserPhysicsNode = makeSphereNode(physics, icosphere);
+    physics.dynamicNodes.push_back(loserPhysicsNode);
+    physics.loser = loserPhysicsNode;
 
 
     Config config = Config::readFromFile("../config.ini");

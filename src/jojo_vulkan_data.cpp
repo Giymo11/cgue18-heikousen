@@ -110,7 +110,13 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
             alignedStruct->specular = 0.3f;
             alignedStruct->alpha = 10.0f;
 
-            alignedStruct->texture = static_cast<float>(i % 3);
+            if(i == 1) {
+                alignedStruct->texture = 1.0f;
+            } else if(i == 4) {
+                alignedStruct->texture = 2.0f;
+            } else {
+                alignedStruct->texture = 0.0f;
+            }
             alignedStruct->param1 = 0.0f;
             alignedStruct->param2 = 0.0f;
             alignedStruct->param3 = 0.0f;

@@ -42,6 +42,7 @@ public:
 
     JojoPhysicsNode *player;
     JojoPhysicsNode *winner;
+    JojoPhysicsNode *loser;
 
     std::vector<JojoPhysicsNode*> dynamicNodes;
 
