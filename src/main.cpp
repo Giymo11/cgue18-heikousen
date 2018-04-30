@@ -176,7 +176,7 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVul
 
     //glm::mat4 view = glm::translate(glm::mat4(), glm::vec3(0.0f, 0.0f, -5.0f));
     //view[1][1] *= -1;
-    glm::mat4 projection = glm::perspective(glm::radians(60.0f), config.width / (float) config.height, 0.001f, 100.0f);
+    glm::mat4 projection = glm::perspective(glm::radians(60.0f), config.width / (float) config.height, 0.001f, 3000.0f);
     // openGL has the z dir flipped
     projection[1][1] *= -1;
 
@@ -609,6 +609,15 @@ int main(int argc, char *argv[]) {
     JojoPhysicsNode *loserPhysicsNode = makeSphereNode(physics, icosphere);
     physics.dynamicNodes.push_back(loserPhysicsNode);
     physics.loser = loserPhysicsNode;
+
+
+    tinygltf::Model gltfModel3;
+    loadFromGlb(&gltfModel3, "models/skybox.glb");
+    JojoNode skybox;
+    skybox.loadFromGltf(gltfModel3, &scene);
+    skybox.setRelativeMatrix(glm::mat4());
+    scene.children.push_back(&skybox);
+
 
 
     Config config = Config::readFromFile("config.ini");
