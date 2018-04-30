@@ -87,7 +87,7 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
         createBuffer (
             engine->device,
             engine->chosenDevice,
-            sizeof (MaterialInfo),
+            materialInfoSize,
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             &materialInfoBuffer,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
