@@ -223,6 +223,19 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVul
     globalTrans->view = view;
     vkUnmapMemory (engine->device, mesh->globalTransformationMemory);
 
+    JojoVulkanMesh::LightBlock *lightInfo;
+    vkMapMemory (
+        engine->device,
+        mesh->lightInfoMemory, 0,
+        sizeof (JojoVulkanMesh::LightBlock), 0,
+        (void **)(&lightInfo)
+    );
+    lightInfo->sources[1].position = glm::vec3 (view * glm::vec4 (-97.0, 0.0, 0.0, 1.0));
+    lightInfo->sources[2].position = glm::vec3 (view * glm::vec4 (97.0, 0.0, 0.0, 1.0));
+    lightInfo->sources[3].position = glm::vec3 (view * glm::vec4 (0.0, 0.0, -97.0, 1.0));
+    lightInfo->sources[4].position = glm::vec3 (view * glm::vec4 (0.0, 0.0, 97.0, 1.0));
+    vkUnmapMemory (engine->device, mesh->lightInfoMemory);
+
     mesh->updateAlignedUniforms(view);
 
     auto bufferSize = mesh->dynamicAlignment * mesh->scene->mvps.size();
@@ -514,6 +527,12 @@ void initializeMaterialsAndLights (
             alignedStruct->texture = 1.0f;
         } else if (i == 4) {
             alignedStruct->texture = 2.0f;
+        } else if (i == scene->mvps.size() - 1) {
+            alignedStruct->texture = 0.0f;
+            alignedStruct->ambient = 0.06f;
+            alignedStruct->diffuse = 0.95f;
+            alignedStruct->specular = 0.2f;
+            alignedStruct->alpha = 2.0f;
         } else {
             alignedStruct->texture = 0.0f;
         }
@@ -537,6 +556,18 @@ void initializeMaterialsAndLights (
     lightInfo->sources[0].position = glm::vec3 (0.0, 0.7, -4.0);
     lightInfo->sources[0].color = glm::vec3 (1.0, 1.0, 1.0);
     lightInfo->sources[0].attenuation = glm::vec3 (0.6f, 0.4f, 0.1f);
+    lightInfo->sources[1].position = glm::vec3 (-97.0, 0.0, 0.0);
+    lightInfo->sources[1].color = glm::vec3 (1.0, 0.0, 0.0);
+    lightInfo->sources[1].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
+    lightInfo->sources[2].position = glm::vec3 (97.0, 0.0, 0.0);
+    lightInfo->sources[2].color = glm::vec3 (0.0, 1.0, 0.0);
+    lightInfo->sources[2].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
+    lightInfo->sources[3].position = glm::vec3 (0.0, 0.0, -97.0f);
+    lightInfo->sources[3].color = glm::vec3 (0.0, 0.0, 1.0);
+    lightInfo->sources[3].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
+    lightInfo->sources[4].position = glm::vec3 (0.0, 0.0, 97.0f);
+    lightInfo->sources[4].color = glm::vec3 (1.0, 1.0, 0.0);
+    lightInfo->sources[4].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
     vkUnmapMemory (engine->device, mesh->lightInfoMemory);
 }
 

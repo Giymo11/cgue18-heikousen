@@ -1,7 +1,7 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-const int LIGHT_COUNT = 1;
+const int LIGHT_COUNT = 5;
 
 struct LightSource {
     vec3 position;
@@ -29,7 +29,7 @@ layout(binding = 2) uniform MaterialInfo {
 	float param3;
 } materialInfo;
 
-layout(binding = 3) uniform LightBlock {
+layout(std140, binding = 3) uniform LightBlock {
 	vec4 parameters;
     LightSource lights[LIGHT_COUNT];
 } lightInfo;
