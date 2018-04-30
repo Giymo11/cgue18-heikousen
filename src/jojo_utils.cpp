@@ -34,7 +34,8 @@ Config Config::readFromFile(std::string filename) {
     uint32_t height = reader.GetInteger("window", "height", 480);
     bool vsync = reader.GetBoolean("window", "vsync", true);
     bool fullscreen = reader.GetBoolean("window", "fullscreen", false);
-    return Config(width, height, 25, 2, vsync, fullscreen);
+    uint32_t refreshrate = reader.GetInteger("window", "refreshrate", 60);
+    return Config(width, height, 25, 2, vsync, fullscreen, refreshrate);
 }
 
 Config::Config(uint32_t width,
@@ -42,12 +43,14 @@ Config::Config(uint32_t width,
                int navigationScreenPercentage,
                int deadzoneScreenPercentage,
                bool vsync,
-               bool fullscreen) : width(width),
-                                  height(height),
-                                  navigationScreenPercentage(navigationScreenPercentage),
-                                  deadzoneScreenPercentage(deadzoneScreenPercentage),
-                                  vsync(vsync),
-                                  fullscreen(fullscreen) {}
+               bool fullscreen,
+               uint32_t refreshrate) : width(width),
+                                       height(height),
+                                       navigationScreenPercentage(navigationScreenPercentage),
+                                       deadzoneScreenPercentage(deadzoneScreenPercentage),
+                                       vsync(vsync),
+                                       fullscreen(fullscreen),
+                                       refreshrate(refreshrate){}
 
 
 void *alignedAlloc(size_t size, size_t alignment) {

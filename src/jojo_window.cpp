@@ -31,14 +31,19 @@ void JojoWindow::startGlfw(Config &config) {
     glfwWindowHint(GLFW_RED_BITS, mode->redBits);
     glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
     glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
-    glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+    // TODO: make the refresh rate parameter actually do sth
+    if (config.refreshrate == 0) {
+        glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+    } else {
+        glfwWindowHint(GLFW_REFRESH_RATE, config.refreshrate);
+    }
 
     window = glfwCreateWindow(config.width, config.height, "heikousen", nullptr, nullptr);
     glfwSetWindowSizeCallback(window, onWindowResized);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     glfwSetCursorPos(window, config.width / 2.0f, config.height / 2.0f);
 
-    if(config.fullscreen) {
+    if (config.fullscreen) {
         glfwSetWindowMonitor(window, moni, 0, 0, mode->width, mode->height, mode->refreshRate);
         std::cout << "am fullscreen" << std::endl;
     }

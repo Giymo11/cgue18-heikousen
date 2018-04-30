@@ -18,11 +18,16 @@ std::vector<char> readFile(const std::string &filename);
 
 class Config {
 private:
-    Config(uint32_t width, uint32_t height, int navigationScreenPercentage, int deadzoneScreenPercentage, bool vsync,
-               bool b);
+    Config(uint32_t width,
+           uint32_t height,
+           int navigationScreenPercentage,
+           int deadzoneScreenPercentage,
+           bool vsync,
+           bool fullscreen,
+           uint32_t refreshrate);
 
 public:
-    uint32_t width, height, navigationScreenPercentage, deadzoneScreenPercentage;
+    uint32_t width, height, navigationScreenPercentage, deadzoneScreenPercentage, refreshrate;
     const bool vsync, fullscreen;
 
     static Config readFromFile(std::string filename);
