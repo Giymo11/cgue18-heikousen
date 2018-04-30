@@ -34,6 +34,7 @@
 #include "jojo_window.hpp"
 #include "jojo_replay.hpp"
 #include "Rendering/DescriptorSets.h"
+#include "jojo_script.hpp"
 
 
 void recordCommandBuffer(Config &config,
@@ -171,7 +172,7 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVul
             std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count() / 1000.0f;
     lastFrameTime = now;
 
-    std::cout << "frame time " << timeSinceLastFrame << std::endl;
+    // std::cout << "frame time " << timeSinceLastFrame << std::endl;
 
     //glm::mat4 view = glm::translate(glm::mat4(), glm::vec3(0.0f, 0.0f, -5.0f));
     //view[1][1] *= -1;
@@ -540,11 +541,11 @@ void initializeMaterialsAndLights (
 }
 
 int main(int argc, char *argv[]) {
-    //Scripting::Engine jojoScript;
+    Scripting::Engine jojoScript;
 
-    //Scripting::GameObject helloObj;
-    //jojoScript.hookScript(helloObj, "../scripts/hello.js");
-    //helloObj.updateLogic();
+    Scripting::GameObject helloObj;
+    jojoScript.hookScript(helloObj, "scripts/hello.js");
+    helloObj.updateLogic();
 
 
     JojoPhysics physics;
@@ -559,7 +560,7 @@ int main(int argc, char *argv[]) {
 */
 
     tinygltf::Model gltfModel;
-    loadFromGlb(&gltfModel, "../models/cobra3_cleaned3_textured.glb");
+    loadFromGlb(&gltfModel, "models/cobra3_cleaned3_textured.glb");
     JojoNode playerNode;
     playerNode.loadFromGltf(gltfModel, &scene);
     playerNode.setRelativeMatrix(glm::mat4());
@@ -574,7 +575,7 @@ int main(int argc, char *argv[]) {
     auto scale = glm::vec3(1, 1, 1);
 
     tinygltf::Model gltfModel2;
-    loadFromGlb(&gltfModel2, "../models/uvcube.glb");
+    loadFromGlb(&gltfModel2, "models/uvcube.glb");
     JojoNode *icosphere = new JojoNode();
     icosphere->loadFromGltf(gltfModel2, &scene);
     icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
@@ -610,7 +611,7 @@ int main(int argc, char *argv[]) {
     physics.loser = loserPhysicsNode;
 
 
-    Config config = Config::readFromFile("../config.ini");
+    Config config = Config::readFromFile("config.ini");
 
     JojoWindow window;
     window.startGlfw(config);

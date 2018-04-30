@@ -22,6 +22,8 @@ counteract linear momentum: X
 
 close game: ESC
 
+start replay: spacebar
+
 ### How to install deps (Arch):
 
 - install "bullet", "glfw-x11", "vulkan-headers", "vulkan-icd-loader", "vulkan-extra-layers", "spirv-tools", "glslang", "glm"

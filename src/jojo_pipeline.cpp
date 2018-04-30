@@ -24,13 +24,13 @@ void JojoPipeline::createPipelineHelper(
     descriptorSetLayout = descriptorLayout;
 
     VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert;
-    VkResult result = createShaderStageCreateInfo(engine->device, "../shader/" + shaderName + ".vert.spv",
+    VkResult result = createShaderStageCreateInfo(engine->device, "shader/" + shaderName + ".vert.spv",
                                                   VK_SHADER_STAGE_VERTEX_BIT,
                                                   &shaderStageCreateInfoVert, &shaderModuleVert);
     ASSERT_VULKAN(result)
 
     VkPipelineShaderStageCreateInfo shaderStageCreateInfoFrag;
-    result = createShaderStageCreateInfo(engine->device, "../shader/" + shaderName + ".frag.spv",
+    result = createShaderStageCreateInfo(engine->device, "shader/" + shaderName + ".frag.spv",
                                          VK_SHADER_STAGE_FRAGMENT_BIT,
                                          &shaderStageCreateInfoFrag, &shaderModuleFrag);
     ASSERT_VULKAN(result)
