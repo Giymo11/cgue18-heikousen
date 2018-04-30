@@ -19,7 +19,7 @@ Recorder::Recorder (GLFWwindow *window) :
     mWindow(window),
     mCurrentTick(0),
     mTicksRecorded(0),
-    mLastMeasurement (std::chrono::high_resolution_clock::now ()),
+    mLastMeasurement (std::chrono::steady_clock::now ()),
     mResetFunc ([]() {}) {}
 
 void Recorder::setResetFunc (const std::function<void ()> &func) {
@@ -120,19 +120,19 @@ void Recorder::getCursorPos (double *x, double *y) {
 void Recorder::startRecording () {
     mCurrentTick = 0;
     mTicksRecorded = 0;
-    mLastMeasurement = std::chrono::high_resolution_clock::now ();
+    mLastMeasurement = std::chrono::steady_clock::now ();
     mState = RecorderState::Recording;
 }
 
 void Recorder::startReplay () {
     mCurrentTick = 0;
-    mLastMeasurement = std::chrono::high_resolution_clock::now ();
+    mLastMeasurement = std::chrono::steady_clock::now ();
     mState = RecorderState::Replaying;
     mResetFunc ();
 }
 
 bool Recorder::nextTickReady () {
-    mLastMeasurement = std::chrono::high_resolution_clock::now ();
+    mLastMeasurement = std::chrono::steady_clock::now ();
     auto delta = std::chrono::duration_cast<std::chrono::milliseconds> (
         mLastMeasurement - mLastTickTime
     ).count ();

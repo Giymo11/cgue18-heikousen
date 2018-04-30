@@ -172,15 +172,8 @@ void transfer (
         image,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         copySize,
-        copy);
-
-    setImageLayout (
-        cmd,
-        image,
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        subresourceRange);
+        copy
+    );
 
     VkImageMemoryBarrier barrier = {};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;

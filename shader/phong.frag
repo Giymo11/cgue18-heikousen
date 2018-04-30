@@ -17,11 +17,16 @@ layout(location = 0) in VertexData {
 
 layout(location = 0) out vec4 outColor;
 
-/* layout(binding = 2) uniform */ struct MaterialInfo {
+layout(binding = 2) uniform MaterialInfo {
 	float ambient;
 	float diffuse;
 	float specular;
 	float alpha;
+
+	float texture;
+	float param1;
+	float param2;
+	float param3;
 } materialInfo;
 
 /* layout(binding = 3) uniform LightBlock {
@@ -30,7 +35,9 @@ layout(location = 0) out vec4 outColor;
 
 LightSource lights[LIGHT_COUNT];
 
-layout(binding = 4) uniform sampler2D diffuseTex;
+layout(binding = 4) uniform sampler2D diffuseTex1;
+layout(binding = 5) uniform sampler2D diffuseTex2;
+layout(binding = 6) uniform sampler2D diffuseTex3;
 
 vec3 phong(vec3 objColor, vec3 intensity, vec3 l, vec3 n, vec3 v) {
     vec3 diffuse = objColor * intensity * max(dot(n,l), 0.0) * materialInfo.diffuse;
@@ -50,14 +57,13 @@ vec3 point(vec3 objColor, LightSource light, vec3 p, vec3 n, vec3 v) {
 }
 
 void main() {
-	vec4 objColor = texture(diffuseTex, vert.uv);
+	vec4 objColor = texture(diffuseTex1, vert.uv);
+	if (materialInfo.texture > 1.5)
+		objColor = texture(diffuseTex3, vert.uv);
+	else if (materialInfo.texture > 0.5)
+		objColor = texture(diffuseTex2, vert.uv);
 
 	/* TEMPORARY START */
-
-	materialInfo.ambient = 0.1;
-	materialInfo.diffuse = 0.9;
-	materialInfo.specular = 0.3;
-	materialInfo.alpha = 10.0;
 
 	lights[0].position = vec3(0.0, 0.0, -5.0);
 	lights[0].color = vec3(1.0, 1.0, 1.0);

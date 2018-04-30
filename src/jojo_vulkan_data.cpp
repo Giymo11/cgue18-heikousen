@@ -46,7 +46,7 @@ std::vector<VkVertexInputAttributeDescription> JojoVulkanMesh::getVertexInputAtt
 
 void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipeline, Rendering::Set set) {
 
-    assert(scene != null);
+    assert(scene != nullptr);
 
     auto descriptors = engine->descriptors;
     descriptorSet = descriptors->set (set);
@@ -76,9 +76,48 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
     alignedTransforms = (ModelTransformations *) alignedAlloc(bufferSize, dynamicAlignment);
     assert(alignedTransforms);
 
-    std::cout << "minUniformBufferOffsetAlignment = " << minUboAlignment << std::endl;
-    std::cout << "dynamicAlignment = " << dynamicAlignment << std::endl;
+    {
+        materialInfoAlignment = sizeof (MaterialInfo);
+        if (minUboAlignment > 0) {
+            materialInfoAlignment = (materialInfoAlignment + minUboAlignment - 1) & ~(minUboAlignment - 1);
+        }
 
+        size_t materialInfoSize = scene->mvps.size () * materialInfoAlignment;
+        
+        createBuffer (
+            engine->device,
+            engine->chosenDevice,
+            materialInfoSize,
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            &materialInfoBuffer,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            &materialInfoMemory
+        );
+
+        MaterialInfo *materialInfo;
+        vkMapMemory (
+            engine->device,
+            materialInfoMemory, 0,
+            sizeof (MaterialInfo), 0,
+            (void **)(&materialInfo)
+        );
+
+        for (int i = 0; i < scene->mvps.size (); ++i) {
+            // cast pointer to number to circumvent the step size of glm::mat4
+            MaterialInfo *alignedStruct = (MaterialInfo *)(((uint64_t)materialInfo + (i * materialInfoAlignment)));
+            alignedStruct->ambient = 0.1f;
+            alignedStruct->diffuse = 0.9f;
+            alignedStruct->specular = 0.3f;
+            alignedStruct->alpha = 10.0f;
+
+            alignedStruct->texture = static_cast<float>(i % 3);
+            alignedStruct->param1 = 0.0f;
+            alignedStruct->param2 = 0.0f;
+            alignedStruct->param3 = 0.0f;
+        }
+
+        vkUnmapMemory (engine->device, materialInfoMemory);
+    }
 
     createBuffer(engine->device, engine->chosenDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                  &(uniformBuffer),
@@ -95,11 +134,25 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
         &globalTransformationMemory
     );
 
-    auto texture = Textures::generateTexture (
+    auto t1 = Textures::generateTexture (
+        engine->device,
+        memoryProperties,
+        engine->commandPool,
+        engine->queue, 0xFFC4C4C4
+    );
+
+    auto t2 = Textures::generateTexture (
         engine->device,
         memoryProperties,
         engine->commandPool,
         engine->queue, 0xFF00FF00
+    );
+
+    auto t3 = Textures::generateTexture (
+        engine->device,
+        memoryProperties,
+        engine->commandPool,
+        engine->queue, 0xFF0000FF
     );
 
     VkDescriptorBufferInfo info = {};
@@ -112,7 +165,14 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
     info.range = sizeof (ModelTransformations);
     descriptors->update (set, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, info);
 
-    descriptors->update (set, 4, texture);
+    info = {};
+    info.buffer = materialInfoBuffer;
+    info.range = sizeof (MaterialInfo);
+    descriptors->update (set, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, info);
+
+    descriptors->update (set, 4, t1);
+    descriptors->update (set, 5, t2);
+    descriptors->update (set, 6, t3);
 }
 
 void JojoVulkanMesh::destroyBuffers(JojoEngine *engine) {
@@ -140,7 +200,10 @@ void JojoVulkanMesh::updateAlignedUniforms(const glm::mat4 &view) {
 
 void JojoVulkanMesh::drawNode(VkCommandBuffer &commandBuffer, VkPipelineLayout &pipelineLayout, const JojoNode *node) {
     for (const JojoPrimitive &primitive : node->primitives) {
-        uint32_t dynamicOffset = primitive.dynamicOffset * static_cast<uint32_t>(dynamicAlignment);
+        uint32_t offsets[] = {
+            primitive.dynamicOffset * static_cast<uint32_t>(dynamicAlignment),
+            primitive.dynamicOffset * static_cast<uint32_t>(materialInfoAlignment)
+        };
 
         vkCmdBindDescriptorSets(commandBuffer,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -148,8 +211,8 @@ void JojoVulkanMesh::drawNode(VkCommandBuffer &commandBuffer, VkPipelineLayout &
                                 0,
                                 1,
                                 &descriptorSet,
-                                1,
-                                &dynamicOffset);
+                                2,
+                                offsets);
 
         vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.indexOffset, 0, 0);
     }

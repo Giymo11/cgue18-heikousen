@@ -27,10 +27,26 @@ public:
         glm::mat4 normalMatrix;
     };
 
+    struct MaterialInfo {
+        float ambient;
+        float diffuse;
+        float specular;
+        float alpha;
+
+        float texture;
+        float param1;
+        float param2;
+        float param3;
+    };
+
     JojoScene *scene = nullptr;
 
     size_t dynamicAlignment;
+    size_t materialInfoAlignment;
     ModelTransformations *alignedTransforms = nullptr;
+
+    VkBuffer materialInfoBuffer;
+    VkDeviceMemory materialInfoMemory;
 
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferDeviceMemory;
