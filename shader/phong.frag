@@ -73,4 +73,6 @@ void main() {
     for (int i = 0; i < LIGHT_COUNT; i++) {
         outColor.xyz += point(objColor.xyz, lights[i], vert.position, vert.normal, v);
     }
+
+	//outColor = vec4(normalize(vert.normal), 1.0);
 }
