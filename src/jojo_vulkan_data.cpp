@@ -127,8 +127,8 @@ void JojoVulkanMesh::updateAlignedUniforms(const glm::mat4 &view) {
 
 }
 
-void JojoVulkanMesh::drawNode(VkCommandBuffer &commandBuffer, VkPipelineLayout &pipelineLayout, const JojoNode &node) {
-    for (const JojoPrimitive &primitive : node.primitives) {
+void JojoVulkanMesh::drawNode(VkCommandBuffer &commandBuffer, VkPipelineLayout &pipelineLayout, const JojoNode *node) {
+    for (const JojoPrimitive &primitive : node->primitives) {
         uint32_t dynamicOffset = primitive.dynamicOffset * static_cast<uint32_t>(dynamicAlignment);
 
         vkCmdBindDescriptorSets(commandBuffer,
@@ -142,7 +142,7 @@ void JojoVulkanMesh::drawNode(VkCommandBuffer &commandBuffer, VkPipelineLayout &
 
         vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.indexOffset, 0, 0);
     }
-    for (const JojoNode &child : node.children) {
+    for (const JojoNode *child : node->children) {
         drawNode(commandBuffer, pipelineLayout, child);
     }
 }
@@ -152,7 +152,7 @@ void JojoVulkanMesh::goDrawYourself(VkCommandBuffer &commandBuffer, VkPipelineLa
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-    for (JojoNode &child : scene->children) {
+    for (JojoNode *child : scene->children) {
         drawNode(commandBuffer, pipelineLayout, child);
     }
 

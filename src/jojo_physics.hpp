@@ -43,7 +43,7 @@ public:
     JojoPhysicsNode *player;
     JojoPhysicsNode *winner;
 
-    std::vector<JojoPhysicsNode> dynamicNodes;
+    std::vector<JojoPhysicsNode*> dynamicNodes;
 
     void theTickCallback(btDynamicsWorld *dynamicsWorld, btScalar timeStep);
 

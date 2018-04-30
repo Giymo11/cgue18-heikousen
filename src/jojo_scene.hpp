@@ -74,7 +74,7 @@ class JojoNode;
  */
 class JojoScene {
 public:
-    std::vector<JojoNode> children;
+    std::vector<JojoNode*> children;
 
     std::vector<uint32_t> indices;
     std::vector<JojoVertex> vertices;
@@ -96,7 +96,7 @@ public:
     JojoNode *parent = nullptr;
     JojoScene *root = nullptr;
 
-    std::vector<JojoNode> children;
+    std::vector<JojoNode*> children;
     std::string name;
 
     std::vector<JojoPrimitive> primitives;

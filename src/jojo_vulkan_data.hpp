@@ -61,7 +61,7 @@ public:
 
     void goDrawYourself(VkCommandBuffer &commandBuffer, VkPipelineLayout &pipelineLayout);
 
-    void drawNode(VkCommandBuffer &commandBuffer, VkPipelineLayout &pipelineLayout, const JojoNode &node);
+    void drawNode(VkCommandBuffer &commandBuffer, VkPipelineLayout &pipelineLayout, const JojoNode *node);
 };
 
 

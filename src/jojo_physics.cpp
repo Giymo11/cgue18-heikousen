@@ -42,12 +42,24 @@ JojoPhysics::~JojoPhysics() {
 void JojoPhysics::theTickCallback(btDynamicsWorld *dynamicsWorld, btScalar timeStep) {
     objectsCollisions.clear();
 
+    for(auto *node : dynamicNodes) {
+        node->contacting.clear();
+    }
+
     int numManifolds = dynamicsWorld->getDispatcher()->getNumManifolds();
     for (int i = 0; i < numManifolds; i++) {
         btPersistentManifold *contactManifold = dynamicsWorld->getDispatcher()->getManifoldByIndexInternal(i);
 
         auto *objA = contactManifold->getBody0();
         auto *objB = contactManifold->getBody1();
+
+        auto *bodyA = btRigidBody::upcast(objA);
+        auto *bodyB = btRigidBody::upcast(objB);
+        auto *nodeA = static_cast<JojoPhysicsNode *>(bodyA->getUserPointer());
+        auto *nodeB = static_cast<JojoPhysicsNode *>(bodyB->getUserPointer());
+
+        nodeA->contacting.push_back(nodeB);
+        nodeB->contacting.push_back(nodeA);
 
         auto &collisionsA = objectsCollisions[objA];
         auto &collisionsB = objectsCollisions[objB];

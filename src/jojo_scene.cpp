@@ -45,15 +45,15 @@ JojoNode::loadNode(const tinygltf::Node &gltfNode,
                    const tinygltf::Model &model,
                    std::vector<JojoMaterial> &materials) {
 
-    JojoNode jojoNode;
-    jojoNode.root = this->root;
-    jojoNode.name = gltfNode.name;
-    jojoNode.loadMatrix(gltfNode);
+    JojoNode *jojoNode = new JojoNode();
+    jojoNode->root = this->root;
+    jojoNode->name = gltfNode.name;
+    jojoNode->loadMatrix(gltfNode);
 
     // Node contains mesh data
     if (gltfNode.mesh > -1) {
         const tinygltf::Mesh mesh = model.meshes[gltfNode.mesh];
-        jojoNode.name += " - " + mesh.name;
+        jojoNode->name += " - " + mesh.name;
 
         // add matrix to the vector
         auto dynOffset = root->mvps.size();
@@ -67,9 +67,9 @@ JojoNode::loadNode(const tinygltf::Node &gltfNode,
             const auto indexStart = static_cast<uint32_t>(this->root->indices.size());
             const auto vertexStart = static_cast<uint32_t>(this->root->vertices.size());
             // Vertices
-            jojoNode.loadVertices(model, primitive);
+            jojoNode->loadVertices(model, primitive);
             // Indices
-            const uint32_t indexCount = jojoNode.loadIndices(model, primitive, vertexStart);
+            const uint32_t indexCount = jojoNode->loadIndices(model, primitive, vertexStart);
             if (indexCount <= 0) {
                 std::cout << "Index count was 0" << std::endl;
                 continue;
@@ -81,18 +81,18 @@ JojoNode::loadNode(const tinygltf::Node &gltfNode,
             jojoPrimitive.dynamicOffset = dynOffset;
             jojoPrimitive.material = nullptr;    // TODO from materials[primitive.material]} build a materialOffset
 
-            jojoNode.primitives.push_back(jojoPrimitive);
+            jojoNode->primitives.push_back(jojoPrimitive);
         }
     }
 
 
     if (!gltfNode.children.empty()) {
         for (auto i = 0; i < gltfNode.children.size(); i++) {
-            jojoNode.loadNode(model.nodes[gltfNode.children[i]], model, materials);
+            jojoNode->loadNode(model.nodes[gltfNode.children[i]], model, materials);
         }
     }
 
-    jojoNode.setParent(this);
+    jojoNode->setParent(this);
     this->children.push_back(jojoNode);
 }
 
@@ -235,8 +235,8 @@ void JojoNode::setRelativeMatrix(const glm::mat4 &newMatrix) {
             root->mvps[dynOffset] = calculateAbsoluteMatrix();
         }
     }
-    for (auto &child : children) {
-        child.setParent(this);
+    for (auto *child : children) {
+        child->setParent(this);
     }
 }
 

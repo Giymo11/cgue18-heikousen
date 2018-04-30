@@ -13,5 +13,6 @@ public:
     int collisionShapeIndex;
     int collisionObjectArrayIndex;
 
+    std::vector<JojoPhysicsNode*> contacting;
 };
 

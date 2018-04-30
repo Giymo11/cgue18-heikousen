@@ -183,11 +183,10 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVul
     physics.dynamicsWorld->stepSimulation(timeSinceLastFrame);
 
 
-    for (JojoPhysicsNode &physicsNode : physics.dynamicNodes) {
+    for (JojoPhysicsNode *physicsNode : physics.dynamicNodes) {
 
-        auto index = physicsNode.collisionObjectArrayIndex;
-        // TODO: have a mapping from physics to node
-        JojoNode *node = physicsNode.node;
+        auto index = physicsNode->collisionObjectArrayIndex;
+        JojoNode *node = physicsNode->node;
 
         // TODO: maybe move this over to the physics class as well
         btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[index];
@@ -201,36 +200,15 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVul
         }
         btVector3 origin = trans.getOrigin();
 
-        auto &manifoldPoints = physics.objectsCollisions[body];
-
         glm::mat4 matrix;
         trans.getOpenGLMatrix(glm::value_ptr(matrix));
         node->setRelativeMatrix(matrix);
     }
-    // TODO: have a mapping from physics to node
-    JojoNode &playerNode = mesh->scene->children[0];
-
-    // TODO: maybe move this over to the physics class as well
-    btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[0];
-    btRigidBody *body = btRigidBody::upcast(obj);
-
-    btTransform trans;
-    if (body && body->getMotionState()) {
-        body->getMotionState()->getWorldTransform(trans);
-    } else {
-        trans = obj->getWorldTransform();
-    }
-    btVector3 origin = trans.getOrigin();
-
-    auto &manifoldPoints = physics.objectsCollisions[body];
-
-    glm::mat4 matrix;
-    trans.getOpenGLMatrix(glm::value_ptr(matrix));
-    playerNode.setRelativeMatrix(matrix);
 
     //int direction = (i % 2 * 2 - 1);
     //mesh.modelMatrix = glm::rotate(mesh.modelMatrix, timeSinceLastFrame * glm::radians(30.0f) * direction, glm::vec3(0, 0, 1));
 
+    auto matrix = physics.player->node->calculateAbsoluteMatrix();
     glm::mat4 view = glm::inverse(matrix);
 
     JojoVulkanMesh::GlobalTransformations *globalTrans;
@@ -419,6 +397,13 @@ void gameloop(Config &config,
                 }
             }
 
+
+            for(JojoPhysicsNode* node : physics.player->contacting) {
+                if(node == physics.winner) {
+                    std::cout << "you are WINNING - " << jojoReplay->state() << std::endl;
+                }
+            }
+
             updateMvp(config, engine, physics, mesh);
         }
 
@@ -486,6 +471,8 @@ JojoPhysicsNode *makeSphereNode(JojoPhysics &physics, JojoNode *node) {
     physicsNode->collisionShapeIndex = collisionShapeIndex;
     physicsNode->node = node;
 
+    body->setUserPointer(physicsNode);
+
     return physicsNode;
 }
 
@@ -513,9 +500,10 @@ int main(int argc, char *argv[]) {
     JojoNode playerNode;
     playerNode.loadFromGltf(gltfModel, &scene);
     playerNode.setRelativeMatrix(glm::mat4());
-    scene.children.push_back(playerNode);
+    scene.children.push_back(&playerNode);
 
     JojoPhysicsNode *playerPhysicsNode = makeSphereNode(physics, &playerNode);
+    physics.dynamicNodes.push_back(playerPhysicsNode);
     physics.player = playerPhysicsNode;
 
 
@@ -527,9 +515,10 @@ int main(int argc, char *argv[]) {
     JojoNode *icosphere = new JojoNode();
     icosphere->loadFromGltf(gltfModel2, &scene);
     icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
-    scene.children.push_back(*icosphere);
+    scene.children.push_back(icosphere);
 
     JojoPhysicsNode *winnerPhysicsNode = makeSphereNode(physics, icosphere);
+    physics.dynamicNodes.push_back(winnerPhysicsNode);
     physics.winner = winnerPhysicsNode;
 
 
@@ -537,22 +526,22 @@ int main(int argc, char *argv[]) {
     icosphere = new JojoNode();
     icosphere->loadFromGltf(gltfModel2, &scene);
     icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
-    scene.children.push_back(*icosphere);
-    physics.dynamicNodes.push_back(*makeSphereNode(physics, icosphere));
+    scene.children.push_back(icosphere);
+    physics.dynamicNodes.push_back(makeSphereNode(physics, icosphere));
 
     translation = glm::vec3(1, 1, -10);
     icosphere = new JojoNode();
     icosphere->loadFromGltf(gltfModel2, &scene);
     icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
-    scene.children.push_back(*icosphere);
-    physics.dynamicNodes.push_back(*makeSphereNode(physics, icosphere));
+    scene.children.push_back(icosphere);
+    physics.dynamicNodes.push_back(makeSphereNode(physics, icosphere));
 
     translation = glm::vec3(-10, 1, 1);
     icosphere = new JojoNode();
     icosphere->loadFromGltf(gltfModel2, &scene);
     icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
-    scene.children.push_back(*icosphere);
-    physics.dynamicNodes.push_back(*makeSphereNode(physics, icosphere));
+    scene.children.push_back(icosphere);
+    physics.dynamicNodes.push_back(makeSphereNode(physics, icosphere));
 
 
     Config config = Config::readFromFile("../config.ini");
@@ -564,6 +553,10 @@ int main(int argc, char *argv[]) {
     jojoReplay.setResetFunc([&physics]() {
         // TODO: Reset state of the world here
         btVector3 zeroVector(0, 0, 0);
+
+        for(JojoPhysicsNode *node : physics.dynamicNodes) {
+            node->contacting.clear();
+        }
 
         auto playerIndex = physics.player->collisionObjectArrayIndex;
         btTransform startTransform;
