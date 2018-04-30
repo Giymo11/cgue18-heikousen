@@ -7,10 +7,10 @@
 #include "jojo_vulkan_data.hpp"
 
 #include "jojo_vulkan_utils.hpp"
+#include "jojo_vulkan_textures.hpp"
 #include "jojo_vulkan.hpp"
 
 #include "Rendering/DescriptorSets.h"
-
 
 JojoVulkanMesh::JojoVulkanMesh() {}
 
@@ -62,6 +62,8 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
     // Calculate required alignment based on minimum device offset alignment
     VkPhysicalDeviceProperties properties;
     vkGetPhysicalDeviceProperties(engine->chosenDevice, &properties);
+    VkPhysicalDeviceMemoryProperties memoryProperties;
+    vkGetPhysicalDeviceMemoryProperties (engine->chosenDevice, &memoryProperties);
 
     size_t minUboAlignment = properties.limits.minUniformBufferOffsetAlignment;
     dynamicAlignment = sizeof(ModelTransformations);
@@ -93,6 +95,13 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
         &globalTransformationMemory
     );
 
+    auto texture = Textures::generateTexture (
+        engine->device,
+        memoryProperties,
+        engine->commandPool,
+        engine->queue, 0xFF00FF00
+    );
+
     VkDescriptorBufferInfo info = {};
     info.buffer = globalTransformationBuffer;
     info.range = sizeof (GlobalTransformations);
@@ -102,6 +111,8 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
     info.buffer = uniformBuffer;
     info.range = sizeof (ModelTransformations);
     descriptors->update (set, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, info);
+
+    descriptors->update (set, 4, texture);
 }
 
 void JojoVulkanMesh::destroyBuffers(JojoEngine *engine) {
