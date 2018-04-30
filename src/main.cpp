@@ -509,10 +509,10 @@ int main(int argc, char *argv[]) {
 */
 
     tinygltf::Model gltfModel;
-    loadFromGlb(&gltfModel, "../models/cobra3_cleaned2_textured.glb");
+    loadFromGlb(&gltfModel, "../models/cobra3_cleaned3_textured.glb");
     JojoNode playerNode;
     playerNode.loadFromGltf(gltfModel, &scene);
-    playerNode.setRelativeMatrix(glm::rotate(glm::mat4(), 3.1415926f, glm::vec3(0, 1, 0)));
+    playerNode.setRelativeMatrix(glm::mat4());
     scene.children.push_back(playerNode);
 
     JojoPhysicsNode *playerPhysicsNode = makeSphereNode(physics, &playerNode);
