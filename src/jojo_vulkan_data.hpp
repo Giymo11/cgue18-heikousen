@@ -17,8 +17,13 @@
 
 class JojoVulkanMesh {
 public:
+    struct GlobalTransformations {
+        glm::mat4 projection;
+        glm::mat4 view;
+    };
+
     struct ModelTransformations {
-        glm::mat4 mvp;
+        glm::mat4 model;
         glm::mat3 normalMatrix;
         glm::vec4 padding;
     };
@@ -34,6 +39,8 @@ public:
     VkDeviceMemory indexBufferDeviceMemory;
     VkBuffer uniformBuffer;
     VkDeviceMemory uniformBufferDeviceMemory;
+    VkBuffer globalTransformationBuffer;
+    VkDeviceMemory globalTransformationMemory;
     VkDescriptorSet descriptorSet;
 
     VkDescriptorImageInfo texture;
@@ -50,7 +57,7 @@ public:
 
     void destroyBuffers(JojoEngine *engine);
 
-    void updateAlignedUniforms(const glm::mat4 &proj_view, const glm::mat4 &view);
+    void updateAlignedUniforms(const glm::mat4 &view);
 
     void goDrawYourself(VkCommandBuffer &commandBuffer, VkPipelineLayout &pipelineLayout);
 

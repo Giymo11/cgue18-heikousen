@@ -232,9 +232,19 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVul
     //mesh.modelMatrix = glm::rotate(mesh.modelMatrix, timeSinceLastFrame * glm::radians(30.0f) * direction, glm::vec3(0, 0, 1));
 
     glm::mat4 view = glm::inverse(matrix);
-    glm::mat4 proj_view = projection * view;
 
-    mesh->updateAlignedUniforms(proj_view, view);
+    JojoVulkanMesh::GlobalTransformations *globalTrans;
+    vkMapMemory (
+        engine->device,
+        mesh->globalTransformationMemory, 0,
+        sizeof (JojoVulkanMesh::GlobalTransformations), 0,
+        (void **)(&globalTrans)
+    );
+    globalTrans->projection = projection;
+    globalTrans->view = view;
+    vkUnmapMemory (engine->device, mesh->globalTransformationMemory);
+
+    mesh->updateAlignedUniforms(view);
     auto bufferSize = mesh->dynamicAlignment * mesh->scene->mvps.size();
 
     // TODO: copy the model matrices to GPU memory via some kind of flushing / not via coherent memory
@@ -434,10 +444,11 @@ void loadFromGlb(tinygltf::Model *modelDst, std::string relPath) {
 void Rendering::DescriptorSets::createLayouts ()
 {
     std::vector<VkDescriptorSetLayoutBinding> phong;
-    addLayout (phong, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT);
-    addLayout (phong, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addLayout (phong, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addLayout (phong, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (phong, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    addLayout (phong, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT);
+    addLayout (phong, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (phong, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (phong, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (phong));
 }
 

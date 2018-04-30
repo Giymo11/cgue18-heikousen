@@ -83,11 +83,25 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                  &(uniformBufferDeviceMemory));
 
+    createBuffer (
+        engine->device,
+        engine->chosenDevice,
+        sizeof(GlobalTransformations),
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        &globalTransformationBuffer,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        &globalTransformationMemory
+    );
 
     VkDescriptorBufferInfo info = {};
+    info.buffer = globalTransformationBuffer;
+    info.range = sizeof (GlobalTransformations);
+    descriptors->update (set, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, info);
+
+    info = {};
     info.buffer = uniformBuffer;
     info.range = sizeof (ModelTransformations);
-    descriptors->update (set, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, info);
+    descriptors->update (set, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, info);
 }
 
 void JojoVulkanMesh::destroyBuffers(JojoEngine *engine) {
@@ -101,14 +115,14 @@ void JojoVulkanMesh::destroyBuffers(JojoEngine *engine) {
     vkDestroyBuffer(engine->device, vertexBuffer, nullptr);
 }
 
-void JojoVulkanMesh::updateAlignedUniforms(const glm::mat4 &proj_view, const glm::mat4 &view) {
+void JojoVulkanMesh::updateAlignedUniforms(const glm::mat4 &view) {
     assert(scene != nullptr);
 
     for (int i = 0; i < scene->mvps.size(); ++i) {
         // cast pointer to number to circumvent the step size of glm::mat4
         ModelTransformations *alignedMatrix = (ModelTransformations *) (((uint64_t) alignedTransforms + (i * dynamicAlignment)));
         alignedMatrix->normalMatrix = glm::inverseTranspose (glm::mat3 (view * scene->mvps[i]));
-        alignedMatrix->mvp = proj_view * scene->mvps[i];
+        alignedMatrix->model = scene->mvps[i];
     }
 
 }

@@ -1,7 +1,7 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-const int LIGHT_COUNT = 2;
+const int LIGHT_COUNT = 1;
 
 struct LightSource {
     vec3 position;
@@ -9,26 +9,28 @@ struct LightSource {
     vec3 attenuation;
 };
 
-layout(location = 0) in vec4 inPosition;
-layout(location = 1) in vec3 inNormal;
-layout(location = 2) in vec2 inUv;
+layout(location = 0) in VertexData {
+	vec3 position;
+	vec3 normal;
+	vec2 uv;
+} vert;
 
 layout(location = 0) out vec4 outColor;
 
-/* layout(binding = 1) uniform */ struct MaterialInfo {
+/* layout(binding = 2) uniform */ struct MaterialInfo {
 	float ambient;
 	float diffuse;
 	float specular;
 	float alpha;
 } materialInfo;
 
-/* layout(binding = 2) uniform LightBlock {
+/* layout(binding = 3) uniform LightBlock {
     LightSource lights[LIGHT_COUNT];
 };*/
 
 LightSource lights[LIGHT_COUNT];
 
-layout(binding = 3) uniform sampler2D diffuseTex;
+layout(binding = 4) uniform sampler2D diffuseTex;
 
 vec3 phong(vec3 objColor, vec3 intensity, vec3 l, vec3 n, vec3 v) {
     vec3 diffuse = objColor * intensity * max(dot(n,l), 0.0) * materialInfo.diffuse;
@@ -48,7 +50,7 @@ vec3 point(vec3 objColor, LightSource light, vec3 p, vec3 n, vec3 v) {
 }
 
 void main() {
-	// vec4 objColor = texture(diffuseTex, inUv);
+	// vec4 objColor = texture(diffuseTex, vert.uv);
 
 	/* TEMPORARY START */
 
@@ -59,17 +61,16 @@ void main() {
 
 	vec4 objColor = vec4(0.0, 1.0, 0.0, 1.0);
 
-	lights[0].position = vec3(0.0, 0.0, 0.0);
+	lights[0].position = vec3(0.0, 0.0, -5.0);
 	lights[0].color = vec3(1.0, 1.0, 1.0);
 	lights[0].attenuation = vec3(1.0f, 0.4f, 0.1f);
 
 	/* TEMPORARY END */
 
-    vec3 n = normalize(inNormal);
-    vec3 v = normalize(-inPosition.xyz);
+	vec3 v = normalize(-vert.position);
 
     outColor = vec4(objColor.xyz * materialInfo.ambient, objColor.w);
     for (int i = 0; i < LIGHT_COUNT; i++) {
-        outColor.xyz += point(objColor.xyz, lights[i], inPosition.xyz, n, v);
+        outColor.xyz += point(objColor.xyz, lights[i], vert.position, vert.normal, v);
     }
 }
