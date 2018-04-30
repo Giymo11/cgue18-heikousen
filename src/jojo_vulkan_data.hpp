@@ -17,6 +17,20 @@
 
 class JojoVulkanMesh {
 public:
+    struct LightSource {
+        glm::vec3 position;
+        float pad1;
+        glm::vec3 color;
+        float pad2;
+        glm::vec3 attenuation;
+        float pad3;
+    };
+
+    struct LightBlock {
+        glm::vec4 parameters;
+        LightSource sources[8];
+    };
+
     struct GlobalTransformations {
         glm::mat4 projection;
         glm::mat4 view;
@@ -47,6 +61,9 @@ public:
 
     VkBuffer materialInfoBuffer;
     VkDeviceMemory materialInfoMemory;
+
+    VkBuffer lightInfoBuffer;
+    VkDeviceMemory lightInfoMemory;
 
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferDeviceMemory;

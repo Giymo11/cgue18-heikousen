@@ -125,6 +125,36 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
         vkUnmapMemory (engine->device, materialInfoMemory);
     }
 
+    {
+        createBuffer (
+            engine->device,
+            engine->chosenDevice,
+            sizeof (LightBlock),
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            &lightInfoBuffer,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            &lightInfoMemory
+        );
+
+        JojoVulkanMesh::LightBlock *lightInfo;
+        vkMapMemory (
+            engine->device,
+            lightInfoMemory, 0,
+            sizeof (JojoVulkanMesh::LightBlock), 0,
+            (void **)(&lightInfo)
+        );
+
+        lightInfo->parameters.x = 1.22f; // Gamma
+        lightInfo->parameters.y = 0.0f;
+        lightInfo->parameters.z = 0.0f;
+        lightInfo->parameters.w = 0.0f;
+        lightInfo->sources[0].position = glm::vec3 (0.0, 0.7, -4.0);
+        lightInfo->sources[0].color = glm::vec3 (1.0, 1.0, 1.0);
+        lightInfo->sources[0].attenuation = glm::vec3 (0.6f, 0.4f, 0.1f);
+
+        vkUnmapMemory (engine->device, lightInfoMemory);
+    }
+
     createBuffer(engine->device, engine->chosenDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                  &(uniformBuffer),
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -175,6 +205,11 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
     info.buffer = materialInfoBuffer;
     info.range = sizeof (MaterialInfo);
     descriptors->update (set, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, info);
+
+    info = {};
+    info.buffer = lightInfoBuffer;
+    info.range = sizeof (LightBlock);
+    descriptors->update (set, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, info);
 
     descriptors->update (set, 4, t1);
     descriptors->update (set, 5, t2);

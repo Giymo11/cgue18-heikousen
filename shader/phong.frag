@@ -29,11 +29,10 @@ layout(binding = 2) uniform MaterialInfo {
 	float param3;
 } materialInfo;
 
-/* layout(binding = 3) uniform LightBlock {
+layout(binding = 3) uniform LightBlock {
+	vec4 parameters;
     LightSource lights[LIGHT_COUNT];
-};*/
-
-LightSource lights[LIGHT_COUNT];
+} lightInfo;
 
 layout(binding = 4) uniform sampler2D diffuseTex1;
 layout(binding = 5) uniform sampler2D diffuseTex2;
@@ -63,20 +62,13 @@ void main() {
 	else if (materialInfo.texture > 0.5)
 		objColor = texture(diffuseTex2, vert.uv);
 
-	/* TEMPORARY START */
-
-	lights[0].position = vec3(0.0, 0.0, -5.0);
-	lights[0].color = vec3(1.0, 1.0, 1.0);
-	lights[0].attenuation = vec3(1.0f, 0.4f, 0.1f);
-
-	/* TEMPORARY END */
-
 	vec3 v = normalize(-vert.position);
 
     outColor = vec4(objColor.xyz * materialInfo.ambient, objColor.w);
     for (int i = 0; i < LIGHT_COUNT; i++) {
-        outColor.xyz += point(objColor.xyz, lights[i], vert.position, vert.normal, v);
+        outColor.xyz += point(objColor.xyz, lightInfo.lights[i], vert.position, vert.normal, v);
     }
 
-	//outColor = vec4(normalize(vert.normal), 1.0);
+	// Gamma correction
+	outColor.xyz = pow(outColor.xyz, vec3(1.0 / lightInfo.parameters.x));
 }
