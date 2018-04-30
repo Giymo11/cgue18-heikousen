@@ -552,7 +552,6 @@ int main(int argc, char *argv[]) {
     icosphere->loadFromGltf(gltfModel2, &scene);
     icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
     scene.children.push_back(icosphere);
-    physics.dynamicNodes.push_back(makeSphereNode(physics, icosphere));
 
     JojoPhysicsNode *loserPhysicsNode = makeSphereNode(physics, icosphere);
     physics.dynamicNodes.push_back(loserPhysicsNode);
