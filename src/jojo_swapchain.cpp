@@ -16,7 +16,7 @@ void JojoSwapchain::createSwapchainAndChildren(Config &config, JojoEngine *engin
     auto chosenImageFormat = VK_FORMAT_B8G8R8A8_UNORM;   // TODO: check if valid via surfaceFormats[i].format
 
     result = createSwapchain(engine->device, engine->surface, swapchain, &swapchain, chosenImageFormat, config.width,
-                             config.height);
+                             config.height, config.vsync);
     ASSERT_VULKAN(result)
 
 

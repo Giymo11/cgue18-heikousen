@@ -117,9 +117,14 @@ VkResult checkSurfaceSupport(const VkPhysicalDevice chosenDevice, const VkSurfac
 }
 
 
-VkResult createSwapchain(const VkDevice device, const VkSurfaceKHR surface, const VkSwapchainKHR oldSwapchain,
+VkResult createSwapchain(const VkDevice device,
+                         const VkSurfaceKHR surface,
+                         const VkSwapchainKHR oldSwapchain,
                          VkSwapchainKHR *swapchain,
-                         const VkFormat chosenImageFormat, uint32_t width, uint32_t height) {
+                         const VkFormat chosenImageFormat,
+                         uint32_t width,
+                         uint32_t height,
+                         bool vsync) {
     VkSwapchainCreateInfoKHR swapchainCreateInfo;
     swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     swapchainCreateInfo.pNext = nullptr;
@@ -136,7 +141,12 @@ VkResult createSwapchain(const VkDevice device, const VkSurfaceKHR surface, cons
     swapchainCreateInfo.pQueueFamilyIndices = nullptr;
     swapchainCreateInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
     swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    swapchainCreateInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR; // TODO: maybe mailbox?
+    if(vsync) {
+        swapchainCreateInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR; // TODO: maybe mailbox?
+    } else {
+        swapchainCreateInfo.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR; // TODO: maybe mailbox?
+    }
+
     swapchainCreateInfo.clipped = VK_TRUE;
     swapchainCreateInfo.oldSwapchain = oldSwapchain;
 

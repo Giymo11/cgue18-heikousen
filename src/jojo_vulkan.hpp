@@ -24,9 +24,14 @@ VkResult checkSurfaceSupport(const VkPhysicalDevice chosenDevice, const VkSurfac
                              const uint32_t chosenQueueFamilyIndex);
 
 
-VkResult createSwapchain(const VkDevice device, const VkSurfaceKHR surface, const VkSwapchainKHR oldSwapchain,
+VkResult createSwapchain(const VkDevice device,
+                         const VkSurfaceKHR surface,
+                         const VkSwapchainKHR oldSwapchain,
                          VkSwapchainKHR *swapchain,
-                         const VkFormat chosenImageFormat, uint32_t width, uint32_t height);
+                         const VkFormat chosenImageFormat,
+                         uint32_t width,
+                         uint32_t height,
+                         bool vsync);
 
 
 VkResult createImageView(const VkDevice device, const VkImage swapchainImage,
