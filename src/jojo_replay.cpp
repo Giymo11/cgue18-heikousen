@@ -68,6 +68,7 @@ int Recorder::getKey (int key) {
         }
         return static_cast<int>(keyState);
     case RecorderState::Replaying:
+    case RecorderState::ReplayFinished:
         switch (key) {
         case GLFW_KEY_W:
             return GET_BIT (buttonState, 0);
@@ -107,6 +108,7 @@ void Recorder::getCursorPos (double *x, double *y) {
         buttonState.mouseY = static_cast<float>(*y);
         break;
     case RecorderState::Replaying:
+    case RecorderState::ReplayFinished:
         *x = buttonState.mouseX;
         *y = buttonState.mouseY;
         break;
@@ -151,9 +153,13 @@ void Recorder::nextTick () {
         mState = RecorderState::Passthrough;
         return;
     case RecorderState::Replaying:
-        mCurrentTick = (mCurrentTick + 1) % std::min (MAX_SLICES, mTicksRecorded);
-        if (mCurrentTick == 0)
-            mResetFunc ();
+        if (mCurrentTick + 1 == std::min (MAX_SLICES, mTicksRecorded))
+            mState = RecorderState::ReplayFinished;
+        else
+            mCurrentTick += 1;
+        return;
+    case RecorderState::ReplayFinished:
+        mState = RecorderState::ReplayFinished;
         return;
     default:
         mState = RecorderState::Passthrough;

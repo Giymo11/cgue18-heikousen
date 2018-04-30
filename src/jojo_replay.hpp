@@ -17,6 +17,7 @@ struct State {
 enum RecorderState : uint8_t {
     Recording,
     Replaying,
+    ReplayFinished,
     Passthrough
 };
 
