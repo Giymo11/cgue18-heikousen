@@ -110,7 +110,7 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
             alignedStruct->specular = 0.3f;
             alignedStruct->alpha = 10.0f;
 
-            alignedStruct->texture = 1.5f;
+            alignedStruct->texture = static_cast<float>(i % 3);
             alignedStruct->param1 = 0.0f;
             alignedStruct->param2 = 0.0f;
             alignedStruct->param3 = 0.0f;
@@ -134,11 +134,25 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
         &globalTransformationMemory
     );
 
-    auto texture = Textures::generateTexture (
+    auto t1 = Textures::generateTexture (
+        engine->device,
+        memoryProperties,
+        engine->commandPool,
+        engine->queue, 0xFFC4C4C4
+    );
+
+    auto t2 = Textures::generateTexture (
         engine->device,
         memoryProperties,
         engine->commandPool,
         engine->queue, 0xFF00FF00
+    );
+
+    auto t3 = Textures::generateTexture (
+        engine->device,
+        memoryProperties,
+        engine->commandPool,
+        engine->queue, 0xFF0000FF
     );
 
     VkDescriptorBufferInfo info = {};
@@ -156,7 +170,9 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
     info.range = sizeof (MaterialInfo);
     descriptors->update (set, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, info);
 
-    descriptors->update (set, 4, texture);
+    descriptors->update (set, 4, t1);
+    descriptors->update (set, 5, t2);
+    descriptors->update (set, 6, t3);
 }
 
 void JojoVulkanMesh::destroyBuffers(JojoEngine *engine) {

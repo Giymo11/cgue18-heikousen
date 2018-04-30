@@ -35,7 +35,9 @@ layout(binding = 2) uniform MaterialInfo {
 
 LightSource lights[LIGHT_COUNT];
 
-layout(binding = 4) uniform sampler2D diffuseTex;
+layout(binding = 4) uniform sampler2D diffuseTex1;
+layout(binding = 5) uniform sampler2D diffuseTex2;
+layout(binding = 6) uniform sampler2D diffuseTex3;
 
 vec3 phong(vec3 objColor, vec3 intensity, vec3 l, vec3 n, vec3 v) {
     vec3 diffuse = objColor * intensity * max(dot(n,l), 0.0) * materialInfo.diffuse;
@@ -55,7 +57,11 @@ vec3 point(vec3 objColor, LightSource light, vec3 p, vec3 n, vec3 v) {
 }
 
 void main() {
-	vec4 objColor = texture(diffuseTex, vert.uv);
+	vec4 objColor = texture(diffuseTex1, vert.uv);
+	if (materialInfo.texture > 1.5)
+		objColor = texture(diffuseTex3, vert.uv);
+	else if (materialInfo.texture > 0.5)
+		objColor = texture(diffuseTex2, vert.uv);
 
 	/* TEMPORARY START */
 

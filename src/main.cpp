@@ -435,6 +435,8 @@ void Rendering::DescriptorSets::createLayouts ()
     addLayout (phong, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT);
     /*addLayout (phong, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);*/
     addLayout (phong, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (phong, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (phong, 6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (phong));
 }
 
@@ -576,7 +578,7 @@ int main(int argc, char *argv[]) {
     JojoEngine engine;
     engine.jojoWindow = &window;
     engine.startVulkan();
-    engine.initializeDescriptorPool(2, 2, 1);
+    engine.initializeDescriptorPool(2, 2, 3);
 
 
 
