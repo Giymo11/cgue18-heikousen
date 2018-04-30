@@ -121,7 +121,7 @@ void JojoVulkanMesh::updateAlignedUniforms(const glm::mat4 &view) {
     for (int i = 0; i < scene->mvps.size(); ++i) {
         // cast pointer to number to circumvent the step size of glm::mat4
         ModelTransformations *alignedMatrix = (ModelTransformations *) (((uint64_t) alignedTransforms + (i * dynamicAlignment)));
-        alignedMatrix->normalMatrix = glm::inverseTranspose (glm::mat3 (view * scene->mvps[i]));
+        alignedMatrix->normalMatrix = glm::mat4(glm::inverseTranspose (glm::mat3 (view * scene->mvps[i])));
         alignedMatrix->model = scene->mvps[i];
     }
 
@@ -155,7 +155,6 @@ void JojoVulkanMesh::goDrawYourself(VkCommandBuffer &commandBuffer, VkPipelineLa
     for (JojoNode &child : scene->children) {
         drawNode(commandBuffer, pipelineLayout, child);
     }
-
 }
 
 
