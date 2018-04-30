@@ -8,8 +8,8 @@
 
 namespace Replay {
 
-static const float PHYSICS_FRAMETIME = 16.0f;
-static const size_t PHYSICS_FPS = 60;
+static const float PHYSICS_FRAMETIME = 6.7f;
+static const size_t PHYSICS_FPS = 150;
 static const size_t MAX_RECORD_TIME = 600;
 static const size_t MAX_SLICES = PHYSICS_FPS * MAX_RECORD_TIME;
 
