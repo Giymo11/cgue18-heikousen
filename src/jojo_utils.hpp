@@ -24,11 +24,13 @@ private:
            int deadzoneScreenPercentage,
            bool vsync,
            bool fullscreen,
-           uint32_t refreshrate);
+           uint32_t refreshrate,
+           float gamma);
 
 public:
     uint32_t width, height, navigationScreenPercentage, deadzoneScreenPercentage, refreshrate;
     const bool vsync, fullscreen;
+    float gamma;
 
     static Config readFromFile(std::string filename);
 };

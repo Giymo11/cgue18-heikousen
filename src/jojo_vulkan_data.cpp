@@ -93,36 +93,6 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             &materialInfoMemory
         );
-
-        MaterialInfo *materialInfo;
-        vkMapMemory (
-            engine->device,
-            materialInfoMemory, 0,
-            sizeof (MaterialInfo), 0,
-            (void **)(&materialInfo)
-        );
-
-        for (int i = 0; i < scene->mvps.size (); ++i) {
-            // cast pointer to number to circumvent the step size of glm::mat4
-            MaterialInfo *alignedStruct = (MaterialInfo *)(((uint64_t)materialInfo + (i * materialInfoAlignment)));
-            alignedStruct->ambient = 0.1f;
-            alignedStruct->diffuse = 0.9f;
-            alignedStruct->specular = 0.3f;
-            alignedStruct->alpha = 10.0f;
-
-            if(i == 1) {
-                alignedStruct->texture = 1.0f;
-            } else if(i == 4) {
-                alignedStruct->texture = 2.0f;
-            } else {
-                alignedStruct->texture = 0.0f;
-            }
-            alignedStruct->param1 = 0.0f;
-            alignedStruct->param2 = 0.0f;
-            alignedStruct->param3 = 0.0f;
-        }
-
-        vkUnmapMemory (engine->device, materialInfoMemory);
     }
 
     {
@@ -135,24 +105,6 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipelin
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             &lightInfoMemory
         );
-
-        JojoVulkanMesh::LightBlock *lightInfo;
-        vkMapMemory (
-            engine->device,
-            lightInfoMemory, 0,
-            sizeof (JojoVulkanMesh::LightBlock), 0,
-            (void **)(&lightInfo)
-        );
-
-        lightInfo->parameters.x = 1.22f; // Gamma
-        lightInfo->parameters.y = 0.0f;
-        lightInfo->parameters.z = 0.0f;
-        lightInfo->parameters.w = 0.0f;
-        lightInfo->sources[0].position = glm::vec3 (0.0, 0.7, -4.0);
-        lightInfo->sources[0].color = glm::vec3 (1.0, 1.0, 1.0);
-        lightInfo->sources[0].attenuation = glm::vec3 (0.6f, 0.4f, 0.1f);
-
-        vkUnmapMemory (engine->device, lightInfoMemory);
     }
 
     createBuffer(engine->device, engine->chosenDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
