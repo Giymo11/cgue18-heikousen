@@ -30,7 +30,7 @@ void main() {
         grad_dist.x * Jdx.y + grad_dist.y * Jdy.y
     );
 
-    float afwidth = 0.7071 * length(grad);
+    float afwidth = 0.7071 * max(length(grad), 0.0001);
     float opacity = smoothstep(afwidth, -afwidth, dist);
 
     outColor = mix(bgColor, fgColor, opacity);
