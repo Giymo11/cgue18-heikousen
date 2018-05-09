@@ -40,6 +40,7 @@
 
 void recordCommandBuffer(
     Config &config,
+    JojoEngine *engine,
     JojoPipeline *pipeline,
     VkCommandBuffer commandBuffer,
     VkFramebuffer framebuffer,
@@ -84,7 +85,16 @@ void recordCommandBuffer(
 
     mesh->goDrawYourself(commandBuffer, pipeline->pipelineLayout);
 
+    auto textDescriptor = engine->descriptors->set(Rendering::Set::Text);
     vkCmdBindPipeline (commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, textPipeline->pipeline);
+    vkCmdBindDescriptorSets (
+        commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        textPipeline->pipelineLayout,
+        0,
+        1, &textDescriptor,
+        0, nullptr
+    );
     vkCmdDraw (commandBuffer, 6, 1, 0, 0);
 
     vkCmdEndRenderPass(commandBuffer);
@@ -140,6 +150,7 @@ void drawFrame(Config &config,
 
     recordCommandBuffer(
         config,
+        engine,
         pipeline,
         swapchain->commandBuffers[imageIndex],
         swapchain->framebuffers[imageIndex],
@@ -588,11 +599,11 @@ void initializeMaterialsAndLights (
 }
 
 int main(int argc, char *argv[]) {
-    Scripting::Engine jojoScript;
+    /* Scripting::Engine jojoScript;
 
     Scripting::GameObject helloObj;
     jojoScript.hookScript(helloObj, "scripts/hello.js");
-    helloObj.updateLogic();
+    helloObj.updateLogic(); */
 
 
     JojoPhysics physics;
