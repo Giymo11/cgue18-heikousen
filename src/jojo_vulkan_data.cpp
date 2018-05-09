@@ -44,12 +44,11 @@ std::vector<VkVertexInputAttributeDescription> JojoVulkanMesh::getVertexInputAtt
     return vertexInputAttributeDescriptions;
 }
 
-void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, JojoPipeline *pipeline, Rendering::Set set) {
+void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, Rendering::Set set) {
 
     assert(scene != nullptr);
 
     auto descriptors = engine->descriptors;
-    descriptorSet = descriptors->set (set);
 
     createAndUploadBuffer(engine->device, engine->chosenDevice, engine->commandPool, engine->queue, scene->vertices,
                           VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,

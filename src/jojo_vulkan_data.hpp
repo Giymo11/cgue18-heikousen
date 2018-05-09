@@ -85,7 +85,7 @@ public:
     static std::vector<VkVertexInputAttributeDescription> getVertexInputAttributeDescriptions();
 
 
-    void initializeBuffers(JojoEngine *engine, JojoPipeline *pipeline, Rendering::Set set);
+    void initializeBuffers(JojoEngine *engine, Rendering::Set set);
 
     void destroyBuffers(JojoEngine *engine);
 

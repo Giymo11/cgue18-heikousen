@@ -145,3 +145,9 @@ add_custom_command(TARGET heikousen PRE_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/models ${CMAKE_CURRENT_BINARY_DIR}/models
         )
+
+# Copy font files on build
+add_custom_command(TARGET heikousen PRE_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/fonts ${CMAKE_CURRENT_BINARY_DIR}/fonts
+        )

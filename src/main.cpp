@@ -35,14 +35,18 @@
 #include "jojo_replay.hpp"
 #include "Rendering/DescriptorSets.h"
 #include "jojo_script.hpp"
+#include "jojo_vulkan_textures.hpp"
 
 
-void recordCommandBuffer(Config &config,
-                         JojoPipeline *pipeline,
-                         VkCommandBuffer commandBuffer,
-                         VkFramebuffer framebuffer,
-                         VkRenderPass renderPass,
-                         JojoVulkanMesh *mesh) {
+void recordCommandBuffer(
+    Config &config,
+    JojoPipeline *pipeline,
+    VkCommandBuffer commandBuffer,
+    VkFramebuffer framebuffer,
+    VkRenderPass renderPass,
+    JojoVulkanMesh *mesh,
+    JojoPipeline *textPipeline
+) {
 
     std::array<VkClearValue, 2> clearValues = {};
     clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -80,6 +84,9 @@ void recordCommandBuffer(Config &config,
 
     mesh->goDrawYourself(commandBuffer, pipeline->pipelineLayout);
 
+    vkCmdBindPipeline (commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, textPipeline->pipeline);
+    vkCmdDraw (commandBuffer, 6, 1, 0, 0);
+
     vkCmdEndRenderPass(commandBuffer);
 }
 
@@ -89,7 +96,8 @@ void drawFrame(Config &config,
                JojoWindow *window,
                JojoSwapchain *swapchain,
                JojoPipeline *pipeline,
-               JojoVulkanMesh *mesh) {
+               JojoVulkanMesh *mesh,
+               JojoPipeline *textPipeline) {
 
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(engine->device,
@@ -130,12 +138,15 @@ void drawFrame(Config &config,
     result = beginCommandBuffer(swapchain->commandBuffers[imageIndex]);
     ASSERT_VULKAN(result)
 
-    recordCommandBuffer(config,
-                        pipeline,
-                        swapchain->commandBuffers[imageIndex],
-                        swapchain->framebuffers[imageIndex],
-                        swapchain->swapchainRenderPass,
-                        mesh);
+    recordCommandBuffer(
+        config,
+        pipeline,
+        swapchain->commandBuffers[imageIndex],
+        swapchain->framebuffers[imageIndex],
+        swapchain->swapchainRenderPass,
+        mesh,
+        textPipeline
+    );
 
     result = vkEndCommandBuffer(swapchain->commandBuffers[imageIndex]);
     ASSERT_VULKAN(result)
@@ -262,7 +273,8 @@ void gameloop(Config &config,
               JojoPipeline *pipeline,
               Replay::Recorder *jojoReplay,
               JojoPhysics &physics,
-              JojoVulkanMesh *mesh) {
+              JojoVulkanMesh *mesh,
+              JojoPipeline *textPipeline) {
     // TODO: extract a bunch of this to JojoWindow
 
     auto window = jojoWindow->window;
@@ -430,7 +442,7 @@ void gameloop(Config &config,
             updateMvp(config, engine, physics, mesh);
         }
 
-        drawFrame(config, engine, jojoWindow, swapchain, pipeline, mesh);
+        drawFrame(config, engine, jojoWindow, swapchain, pipeline, mesh, textPipeline);
     }
 }
 
@@ -460,6 +472,10 @@ void Rendering::DescriptorSets::createLayouts ()
     addLayout (phong, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addLayout (phong, 6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (phong));
+
+    std::vector<VkDescriptorSetLayoutBinding> text;
+    addLayout (text, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    layouts.push_back (createLayout (text));
 }
 
 JojoPhysicsNode *makeSphereNode(JojoPhysics &physics, JojoNode *node) {
@@ -682,7 +698,7 @@ int main(int argc, char *argv[]) {
     JojoEngine engine;
     engine.jojoWindow = &window;
     engine.startVulkan();
-    engine.initializeDescriptorPool(2, 2, 3);
+    engine.initializeDescriptorPool(2, 2, 4);
 
 
 
@@ -696,20 +712,43 @@ int main(int argc, char *argv[]) {
     swapchain.createSwapchainAndChildren(config, &engine);
 
 
-    JojoPipeline pipeline;
+    JojoPipeline pipeline, textPipeline;
 
 
-    mesh.initializeBuffers(&engine, &pipeline, Rendering::Set::Phong);
+    mesh.initializeBuffers(&engine, Rendering::Set::Phong);
 
     initializeMaterialsAndLights (config, &engine, &scene, &mesh);
 
     pipeline.createPipelineHelper (
         config, &engine,
         swapchain.swapchainRenderPass, "phong",
-        engine.descriptors->layout (Rendering::Set::Phong)
+        engine.descriptors->layout (Rendering::Set::Phong),
+        { mesh.getVertexInputBindingDescription () },
+        mesh.getVertexInputAttributeDescriptions()
     );
 
-    gameloop(config, &engine, &window, &swapchain, &pipeline, &jojoReplay, physics, &mesh);
+    {
+        VkPhysicalDeviceMemoryProperties memoryProperties;
+        vkGetPhysicalDeviceMemoryProperties (engine.chosenDevice, &memoryProperties);
+
+        auto font = Textures::fontTexture (
+            engine.device,
+            memoryProperties,
+            engine.commandPool,
+            engine.queue
+        );
+
+        auto descriptors = engine.descriptors;
+        descriptors->update (Rendering::Set::Text, 0, font);
+    }
+
+    textPipeline.createPipelineHelper (
+        config, &engine,
+        swapchain.swapchainRenderPass, "text",
+        engine.descriptors->layout (Rendering::Set::Text)
+    );
+
+    gameloop(config, &engine, &window, &swapchain, &pipeline, &jojoReplay, physics, &mesh, &textPipeline);
 
 
     VkResult result = vkDeviceWaitIdle(engine.device);

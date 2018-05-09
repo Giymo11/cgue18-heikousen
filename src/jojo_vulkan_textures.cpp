@@ -1,4 +1,5 @@
 #include <array>
+#include <stb_image.h>
 #include "jojo_vulkan_utils.hpp"
 #include "jojo_vulkan_textures.hpp"
 
@@ -266,8 +267,6 @@ VkSampler sampler (
     s.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     /*
     TODO:
-    * Texture filtering
-    * Mipmaps
     * Anisotropic filtering
     */
     s.magFilter = VK_FILTER_LINEAR;
@@ -280,7 +279,7 @@ VkSampler sampler (
     s.compareEnable = VK_FALSE;
     s.compareOp = VK_COMPARE_OP_NEVER;
     s.minLod = 0.0f;
-    s.maxLod = static_cast<float>(mipLevels);
+    s.maxLod = mipLevels > 1 ? static_cast<float>(mipLevels) : 0.0f;
     s.maxAnisotropy = 1.0;
     s.anisotropyEnable = VK_FALSE;
     s.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
@@ -398,5 +397,99 @@ VkDescriptorImageInfo generateTexture (
     texture.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     return texture;
 }
+
+VkDescriptorImageInfo fontTexture (
+    VkDevice device,
+    const VkPhysicalDeviceMemoryProperties &memoryProperties,
+    VkCommandPool commandPool,
+    VkQueue queue
+) {
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingMem;
+    VkImage image;
+    VkDeviceMemory imageMem;
+    VkDescriptorImageInfo texture;
+
+    const uint32_t mipLevels = 1;
+    stbi_uc *texData = nullptr;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    VkDeviceSize size = 0;
+
+    {
+        int texWidth, texHeight, texChannels;
+        texData = stbi_load ("fonts/font.png", &texWidth, &texHeight, &texChannels, STBI_rgb);
+
+        width = (uint32_t)texWidth;
+        height = (uint32_t)texHeight;
+        size = width * height * 3;
+    }
+
+    create (
+        device,
+        memoryProperties,
+        size,
+        VK_FORMAT_R8G8B8_UNORM,
+        mipLevels,
+        width,
+        height,
+        &stagingBuffer,
+        &stagingMem,
+        &image,
+        &imageMem
+    );
+
+    stage (
+        device,
+        stagingMem,
+        (uint8_t *)texData,
+        size
+    );
+
+    stbi_image_free (texData);
+
+    VkBufferImageCopy copy = {};
+    copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy.imageSubresource.mipLevel = 0;
+    copy.imageSubresource.baseArrayLayer = 0;
+    copy.imageSubresource.layerCount = 1;
+    copy.imageExtent.width = width;
+    copy.imageExtent.height = height;
+    copy.imageExtent.depth = 1;
+    copy.bufferOffset = 0;
+    copy.bufferRowLength = 0;
+    copy.bufferImageHeight = 0;
+
+    VkCommandBuffer commandBuffer;
+    allocateAndBeginSingleUseBuffer (device, commandPool, &commandBuffer);
+    transfer (
+        commandBuffer,
+        stagingBuffer,
+        image,
+        &copy,
+        1,
+        width, height,
+        mipLevels
+    );
+    endAndSubmitCommandBuffer (device, commandPool, queue, commandBuffer);
+
+    auto s = sampler (
+        device,
+        mipLevels
+    );
+
+    auto v = view (
+        device,
+        image,
+        VK_FORMAT_R8G8B8_UNORM,
+        mipLevels
+    );
+
+    texture.sampler = s;
+    texture.imageView = v;
+    texture.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    return texture;
+}
+
 
 }

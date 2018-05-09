@@ -14,12 +14,14 @@ void JojoPipeline::destroyPipeline(JojoEngine *engine) {
     vkDestroyShaderModule(engine->device, shaderModuleFrag, nullptr);
 }
 
-void JojoPipeline::createPipelineHelper(
+void JojoPipeline::createPipelineHelper (
     Config &config,
     JojoEngine *engine,
     VkRenderPass renderPass,
     const std::string &shaderName,
-    VkDescriptorSetLayout descriptorLayout
+    VkDescriptorSetLayout descriptorLayout,
+    const std::vector<VkVertexInputBindingDescription> &vertexBindingDescriptions,
+    const std::vector<VkVertexInputAttributeDescription> &vertexAttributeDescriptions
 ) {
     descriptorSetLayout = descriptorLayout;
 
@@ -40,7 +42,17 @@ void JojoPipeline::createPipelineHelper(
     result = createPipelineLayout(engine->device, &descriptorSetLayout, &pipelineLayout);
     ASSERT_VULKAN(result)
 
-    result = createPipeline(engine->device, shaderStages, renderPass, pipelineLayout, &pipeline, config.width,
-                            config.height);
+    result = createPipeline (
+        engine->device,
+        shaderStages,
+        renderPass, 
+        pipelineLayout, 
+        &pipeline, 
+        config.width,
+        config.height,
+        vertexBindingDescriptions,
+        vertexAttributeDescriptions
+    );
+
     ASSERT_VULKAN(result)
 }

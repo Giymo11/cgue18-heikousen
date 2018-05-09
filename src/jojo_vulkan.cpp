@@ -305,22 +305,25 @@ VkResult createPipelineLayout(const VkDevice device, const VkDescriptorSetLayout
     return vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, pipelineLayout);
 }
 
-VkResult createPipeline(const VkDevice device, const VkPipelineShaderStageCreateInfo *shaderStages,
-                        const VkRenderPass renderPass, const VkPipelineLayout pipelineLayout,
-                        VkPipeline *pipeline,
-                        const int width, const int height) {
-
-    auto vertexBindingDescription = JojoVulkanMesh::getVertexInputBindingDescription();
-    auto vertexAttributeDesciptions = JojoVulkanMesh::getVertexInputAttributeDescriptions();
-
+VkResult createPipeline (
+    const VkDevice device,
+    const VkPipelineShaderStageCreateInfo *shaderStages,
+    const VkRenderPass renderPass,
+    const VkPipelineLayout pipelineLayout,
+    VkPipeline *pipeline,
+    const int width,
+    const int height,
+    const std::vector<VkVertexInputBindingDescription> &vertexBindingDescriptions,
+    const std::vector<VkVertexInputAttributeDescription> &vertexAttributeDescriptions
+) {
     VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo;
     vertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInputStateCreateInfo.pNext = nullptr;
     vertexInputStateCreateInfo.flags = 0;
-    vertexInputStateCreateInfo.vertexBindingDescriptionCount = 1;
-    vertexInputStateCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
-    vertexInputStateCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexAttributeDesciptions.size());
-    vertexInputStateCreateInfo.pVertexAttributeDescriptions = vertexAttributeDesciptions.data();
+    vertexInputStateCreateInfo.vertexBindingDescriptionCount = (uint32_t)vertexBindingDescriptions.size();
+    vertexInputStateCreateInfo.pVertexBindingDescriptions = vertexBindingDescriptions.data();
+    vertexInputStateCreateInfo.vertexAttributeDescriptionCount = (uint32_t)vertexAttributeDescriptions.size();
+    vertexInputStateCreateInfo.pVertexAttributeDescriptions = vertexAttributeDescriptions.data();
 
 
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo;

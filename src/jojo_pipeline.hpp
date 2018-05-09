@@ -27,6 +27,8 @@ public:
         JojoEngine *engine,
         VkRenderPass renderPass,
         const std::string &shaderName,
-        VkDescriptorSetLayout descriptorLayout
+        VkDescriptorSetLayout descriptorLayout,
+        const std::vector<VkVertexInputBindingDescription> &vertexBindingDescriptions = {},
+        const std::vector<VkVertexInputAttributeDescription> &vertexAttributeDescriptions = {}
     );
 };
