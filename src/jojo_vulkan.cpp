@@ -10,7 +10,7 @@
 
 #include "jojo_utils.hpp"
 #include "jojo_vulkan_data.hpp"
-
+#include "jojo_vulkan_debug.h"
 
 #define BREAK_BREAK_BREAK\
 psnip_trap();\
@@ -41,13 +41,14 @@ VkResult createInstance(VkInstance *instance, std::vector<const char *> &usedExt
     applicationInfo.apiVersion = VK_API_VERSION_1_0;
 
     const std::vector<const char *> usedLayers = {
+#ifdef ENABLE_VALIDATION
             "VK_LAYER_LUNARG_standard_validation"
+#endif
     };
 
-
-    // TODO: add validation layer callback extension -
-    // TODO: https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Validation_layers#page_Message_callback
-
+#ifdef ENABLE_VALIDATION
+    usedExtensions.push_back ("VK_EXT_debug_report");
+#endif
 
     VkInstanceCreateInfo instanceCreateInfo = {};
     instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;

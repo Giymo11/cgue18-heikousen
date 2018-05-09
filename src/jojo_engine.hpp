@@ -7,6 +7,7 @@
 #include <memory>
 
 #include <vulkan/vulkan.h>
+#include "jojo_vulkan_debug.h"
 
 class JojoWindow;
 namespace Rendering {
@@ -29,6 +30,13 @@ public:
     VkDescriptorPool descriptorPool;
 
     Rendering::DescriptorSets *descriptors = nullptr;
+
+#ifdef ENABLE_VALIDATION
+    PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT;
+    PFN_vkDebugReportMessageEXT vkDebugReportMessageEXT;
+    PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT;
+    VkDebugReportCallbackEXT mCallback;
+#endif
 
     void startVulkan();
 

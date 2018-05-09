@@ -20,7 +20,33 @@ void JojoEngine::startVulkan() {
     auto usedExtensions = jojoWindow->getUsedExtensions();
 
     result = createInstance(&instance, usedExtensions);
-    ASSERT_VULKAN(result)
+    ASSERT_VULKAN (result);
+
+#ifdef ENABLE_VALIDATION
+    vkCreateDebugReportCallbackEXT =
+        reinterpret_cast<PFN_vkCreateDebugReportCallbackEXT>
+        (vkGetInstanceProcAddr (instance, "vkCreateDebugReportCallbackEXT"));
+    vkDebugReportMessageEXT =
+        reinterpret_cast<PFN_vkDebugReportMessageEXT>
+        (vkGetInstanceProcAddr (instance, "vkDebugReportMessageEXT"));
+    vkDestroyDebugReportCallbackEXT =
+        reinterpret_cast<PFN_vkDestroyDebugReportCallbackEXT>
+        (vkGetInstanceProcAddr (instance, "vkDestroyDebugReportCallbackEXT"));
+
+    VkDebugReportCallbackCreateInfoEXT callbackCreateInfo;
+    callbackCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
+    callbackCreateInfo.pNext = nullptr;
+    callbackCreateInfo.flags =
+        VK_DEBUG_REPORT_ERROR_BIT_EXT |
+        VK_DEBUG_REPORT_WARNING_BIT_EXT |
+        VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
+        VK_DEBUG_REPORT_INFORMATION_BIT_EXT;
+    callbackCreateInfo.pfnCallback = &debugCallback;
+    callbackCreateInfo.pUserData = nullptr;
+
+    result = vkCreateDebugReportCallbackEXT (instance, &callbackCreateInfo, nullptr, &mCallback);
+    ASSERT_VULKAN (result);
+#endif
 
     //printInstanceLayers();
     //printInstanceExtensions();
@@ -74,6 +100,7 @@ void JojoEngine::shutdownVulkan() {
     vkDestroyCommandPool(device, commandPool, nullptr);
     vkDestroyDevice(device, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
+    vkDestroyDebugReportCallbackEXT (instance, mCallback, nullptr);
     vkDestroyInstance(instance, nullptr);
 }
 

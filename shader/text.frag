@@ -21,9 +21,13 @@ void main() {
     vec2 msdfUnit = 4.0 / vec2(64.0);
 
     vec3 samp = texture(msdf, vert.uv).rgb;
-    float sigDist = median(samp.r, samp.g, samp.b) - 0.5;
-    sigDist *= dot(msdfUnit, 0.5 / fwidth(vert.pos));
-    float opacity = clamp(sigDist + 0.5, 0.0, 1.0);
+    // float sigDist = median(samp.r, samp.g, samp.b) - 0.5;
+    // sigDist *= dot(msdfUnit, 0.5 / fwidth(vert.pos));
+    // float opacity = clamp(sigDist + 0.5, 0.0, 1.0);
+
+    float sigDist = median( samp.r, samp.g, samp.b );
+    float w = fwidth( sigDist );
+    float opacity = smoothstep( 0.5 - w, 0.5 + w, sigDist );
 
     outColor = mix(bgColor, fgColor, opacity);
 }
