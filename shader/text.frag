@@ -4,30 +4,38 @@
 layout(location = 0) in VertexData {
     vec2 pos;
 	vec2 uv;
+    vec2 st;
 } vert;
 
 layout(location = 0) out vec4 outColor;
 
 layout(binding = 0) uniform sampler2D msdf;
 
-float median(float r, float g, float b) {
-    return max(min(r, g), min(max(r, g), b));
+float sdf(vec2 uv) {
+    vec3 s = texture(msdf, uv).rgb;
+    return 0.5 - max(min(s.r, s.g), min(max(s.r, s.g), s.b));
 }
 
 void main() {
     vec4 fgColor = vec4(1.);
     vec4 bgColor = vec4(0.);
 
-    vec2 msdfUnit = 4.0 / vec2(64.0);
+    float dist = sdf(vert.st);
+    vec2 grad_dist = normalize(vec2(dFdx(dist), dFdy(dist)));
 
-    vec3 samp = texture(msdf, vert.uv).rgb;
-    // float sigDist = median(samp.r, samp.g, samp.b) - 0.5;
-    // sigDist *= dot(msdfUnit, 0.5 / fwidth(vert.pos));
-    // float opacity = clamp(sigDist + 0.5, 0.0, 1.0);
+    vec2 Jdx = dFdx(vert.uv);
+    vec2 Jdy = dFdy(vert.uv);
+    vec2 grad = vec2 (
+        grad_dist.x * Jdx.x + grad_dist.y * Jdy.y,
+        grad_dist.x * Jdx.y + grad_dist.y * Jdy.y
+    );
 
-    float sigDist = median( samp.r, samp.g, samp.b );
-    float w = fwidth( sigDist );
-    float opacity = smoothstep( 0.5 - w, 0.5 + w, sigDist );
+    float afwidth = 0.7071 * length(grad);
+    float opacity = smoothstep(afwidth, -afwidth, dist);
+
+    // float dist = sdf(vert.st);
+    // float w = fwidth(dist);
+    // float opacity = smoothstep(w, -w, dist);
 
     outColor = mix(bgColor, fgColor, opacity);
 }

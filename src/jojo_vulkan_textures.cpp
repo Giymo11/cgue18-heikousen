@@ -418,18 +418,18 @@ VkDescriptorImageInfo fontTexture (
 
     {
         int texWidth, texHeight, texChannels;
-        texData = stbi_load ("fonts/font.png", &texWidth, &texHeight, &texChannels, STBI_rgb);
+        texData = stbi_load ("fonts/font.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
         width = (uint32_t)texWidth;
         height = (uint32_t)texHeight;
-        size = width * height * 3;
+        size = width * height * 4;
     }
 
     create (
         device,
         memoryProperties,
         size,
-        VK_FORMAT_R8G8B8_UNORM,
+        VK_FORMAT_R8G8B8A8_UNORM,
         mipLevels,
         width,
         height,
@@ -481,7 +481,7 @@ VkDescriptorImageInfo fontTexture (
     auto v = view (
         device,
         image,
-        VK_FORMAT_R8G8B8_UNORM,
+        VK_FORMAT_R8G8B8A8_UNORM,
         mipLevels
     );
 

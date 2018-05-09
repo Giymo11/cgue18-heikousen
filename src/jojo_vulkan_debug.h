@@ -1,7 +1,7 @@
 #pragma once
 #define ENABLE_VALIDATION
 #ifdef ENABLE_VALIDATION
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan.h>
 
 VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback (
     VkDebugReportFlagsEXT       flags,
