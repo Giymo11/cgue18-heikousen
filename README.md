@@ -188,4 +188,7 @@ json parsing (for configs)
 - "json for modern c++" @github
 
 
+### Used references
 
+* https://www.essentialmath.com/blog/?p=151
+* https://github.com/Chlumsky/msdfgen
