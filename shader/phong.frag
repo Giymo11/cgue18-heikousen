@@ -45,7 +45,7 @@ vec3 phong(vec3 objColor, vec3 intensity, vec3 l, vec3 n, vec3 v) {
     float rv = max(dot(reflection, v), 0.0);
     vec3 specular = intensity * materialInfo.specular * pow(rv, materialInfo.alpha);
 
-    return clamp(diffuse + specular, 0.0, 1.0);
+    return diffuse + specular;
 }
 
 vec3 point(vec3 objColor, LightSource light, vec3 p, vec3 n, vec3 v) {
