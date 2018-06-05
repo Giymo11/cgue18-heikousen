@@ -577,14 +577,14 @@ void initializeMaterialsAndLights (
         (void **)(&lightInfo)
     );
     lightInfo->parameters.x = config.gamma; // Gamma
-    lightInfo->parameters.y = 0.0f;
-    lightInfo->parameters.z = 0.0f;
+    lightInfo->parameters.y = 2.0f; // HDR enable
+    lightInfo->parameters.z = 1.0f; // HDR exposure
     lightInfo->parameters.w = 0.0f;
     lightInfo->sources[0].position = glm::vec3 (0.0, 0.7, -4.0);
     lightInfo->sources[0].color = glm::vec3 (1.0, 1.0, 1.0);
     lightInfo->sources[0].attenuation = glm::vec3 (0.6f, 0.4f, 0.1f);
     lightInfo->sources[1].position = glm::vec3 (-97.0, 0.0, 0.0);
-    lightInfo->sources[1].color = glm::vec3 (1.0, 0.0, 0.0);
+    lightInfo->sources[1].color = glm::vec3 (5.0, 0.0, 0.0);
     lightInfo->sources[1].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
     lightInfo->sources[2].position = glm::vec3 (97.0, 0.0, 0.0);
     lightInfo->sources[2].color = glm::vec3 (0.0, 1.0, 0.0);

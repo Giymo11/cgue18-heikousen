@@ -26,7 +26,14 @@ public:
         float pad3;
     };
 
+
+
     struct LightBlock {
+        /**
+         * x = gamma
+         * y = HDR enable (0.0 = false default, 1.0 = true)
+         * z = HDR exposure (1.0 default)
+         */
         glm::vec4 parameters;
         LightSource sources[8];
     };

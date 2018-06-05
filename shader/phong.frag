@@ -55,6 +55,20 @@ vec3 point(vec3 objColor, LightSource light, vec3 p, vec3 n, vec3 v) {
     return phong(objColor, light.color, normalize(light.position - p), n, v) * (1 / attenuation);
 }
 
+
+vec3 tonemaping_exposure(vec3 hdrColor, float hdrExposure) {
+    return vec3(1.0) - exp(-hdrColor * hdrExposure);
+}
+
+vec3 tonemaping_reinhard(vec3 hdrColor) {
+    return hdrColor / (hdrColor + vec3(1.0));
+}
+
+vec3 gamma_adjust(vec3 color, float gamma) {
+    return pow(color, vec3(1.0 / gamma));
+}
+
+
 void main() {
 	vec4 objColor = texture(diffuseTex1, vert.uv);
 	if (materialInfo.texture > 1.5)
@@ -69,6 +83,16 @@ void main() {
         outColor.xyz += point(objColor.xyz, lightInfo.lights[i], vert.position, vert.normal, v);
     }
 
+    float gamma = lightInfo.parameters.x;
+    float hdrMode = lightInfo.parameters.y;
+    float hdrExposure = lightInfo.parameters.z;
+
+    if(hdrMode > 1.5) {
+        outColor.xyz = tonemaping_exposure(outColor.xyz, hdrExposure);
+    } else if(hdrMode > 0.5) {
+        outColor.xyz = tonemaping_reinhard(outColor.xyz);
+    }
+
 	// Gamma correction
-	outColor.xyz = pow(outColor.xyz, vec3(1.0 / lightInfo.parameters.x));
+	outColor.xyz = gamma_adjust(outColor.xyz, gamma);
 }
