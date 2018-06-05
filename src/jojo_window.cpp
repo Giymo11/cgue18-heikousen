@@ -2,6 +2,8 @@
 // Created by benja on 4/28/2018.
 //
 
+#include <iostream>
+
 #include "jojo_window.hpp"
 
 #include "jojo_vulkan_utils.hpp"
@@ -17,6 +19,31 @@ void onWindowResized(GLFWwindow *window, int newWidth, int newHeight) {
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, true);
+    }
+
+    /*
+     *
+     *     F1 - Help (if available)
+     *     F2 - Frame Time on/off
+     *     F3 - Wire Frame on/off
+     *     F4-F7 - Enable/Disable effect (if necessary, see Effects)
+     *     F8 - View-frustum Culling on/off
+     */
+
+    Config *config = static_cast<Config *>(glfwGetWindowUserPointer(window));
+
+    // toggle HDR
+    if(key == GLFW_KEY_F4 && action == GLFW_PRESS) {
+        if(config->hdrMode > 1.5) {
+            config->hdrMode = 0.0;
+            std::cout << "HDR mode set to SDR" << std::endl;;
+        } else if(config->hdrMode > 0.5) {
+            config->hdrMode = 2.0;
+            std::cout << "HDR mode set to Exposure Mapping" << std::endl;
+        } else {
+            config->hdrMode = 1.0;
+            std::cout << "HDR mode set to Reinhard Mapping" << std::endl;;
+        }
     }
 
 }
@@ -48,6 +75,7 @@ void JojoWindow::startGlfw(Config &config) {
         std::cout << "am fullscreen" << std::endl;
     }
 
+    glfwSetWindowUserPointer(window, &config);
     glfwSetKeyCallback(window, keyCallback);
 }
 

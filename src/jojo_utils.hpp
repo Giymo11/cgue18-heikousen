@@ -25,12 +25,13 @@ private:
            bool vsync,
            bool fullscreen,
            uint32_t refreshrate,
-           float gamma);
+           float gamma,
+           float hdrMode);
 
 public:
     uint32_t width, height, navigationScreenPercentage, deadzoneScreenPercentage, refreshrate;
     const bool vsync, fullscreen;
-    float gamma;
+    float gamma, hdrMode;
 
     static Config readFromFile(std::string filename);
 };

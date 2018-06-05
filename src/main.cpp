@@ -252,6 +252,10 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVul
         sizeof (JojoVulkanMesh::LightBlock), 0,
         (void **)(&lightInfo)
     );
+    lightInfo->parameters.x = config.gamma; // Gamma
+    lightInfo->parameters.y = config.hdrMode; // HDR enable
+    lightInfo->parameters.z = 1.0f; // HDR exposure
+    lightInfo->parameters.w = 0.0f;
     lightInfo->sources[1].position = glm::vec3 (view * glm::vec4 (-97.0, 0.0, 0.0, 1.0));
     lightInfo->sources[2].position = glm::vec3 (view * glm::vec4 (97.0, 0.0, 0.0, 1.0));
     lightInfo->sources[3].position = glm::vec3 (view * glm::vec4 (0.0, 0.0, -97.0, 1.0));
@@ -577,7 +581,7 @@ void initializeMaterialsAndLights (
         (void **)(&lightInfo)
     );
     lightInfo->parameters.x = config.gamma; // Gamma
-    lightInfo->parameters.y = 1.0f; // HDR enable
+    lightInfo->parameters.y = config.hdrMode; // HDR enable
     lightInfo->parameters.z = 1.0f; // HDR exposure
     lightInfo->parameters.w = 0.0f;
     lightInfo->sources[0].position = glm::vec3 (0.0, 0.7, -4.0);

@@ -36,7 +36,7 @@ Config Config::readFromFile(std::string filename) {
     bool fullscreen = reader.GetBoolean("window", "fullscreen", false);
     uint32_t refreshrate = reader.GetInteger("window", "refreshrate", 60);
     float gamma = static_cast<float>(reader.GetReal ("window", "gamma", 1.22));
-    return Config(width, height, 25, 2, vsync, fullscreen, refreshrate, gamma);
+    return Config(width, height, 25, 2, vsync, fullscreen, refreshrate, gamma, 1.0);
 }
 
 Config::Config(uint32_t width,
@@ -46,14 +46,16 @@ Config::Config(uint32_t width,
                bool vsync,
                bool fullscreen,
                uint32_t refreshrate,
-               float gamma) : width(width),
+               float gamma,
+               float hdrMode) : width(width),
                               height(height),
                               navigationScreenPercentage(navigationScreenPercentage),
                               deadzoneScreenPercentage(deadzoneScreenPercentage),
                               vsync(vsync),
                               fullscreen(fullscreen),
                               refreshrate(refreshrate),
-                              gamma(gamma) {}
+                              gamma(gamma),
+                              hdrMode(hdrMode) {}
 
 
 void *alignedAlloc(size_t size, size_t alignment) {
