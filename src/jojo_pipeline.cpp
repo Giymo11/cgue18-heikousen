@@ -51,8 +51,13 @@ void JojoPipeline::createPipelineHelper (
         config.width,
         config.height,
         vertexBindingDescriptions,
-        vertexAttributeDescriptions
+        vertexAttributeDescriptions,
+        config.isWireframeEnabled
     );
 
     ASSERT_VULKAN(result)
+}
+
+void JojoPipeline::rebuild(Config &config) {
+
 }

@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <iostream>
+#include <functional>
 
 
 // Wrapper functions for aligned memory allocation
@@ -26,12 +27,18 @@ private:
            bool fullscreen,
            uint32_t refreshrate,
            float gamma,
-           float hdrMode);
+           float hdrMode,
+           bool isFrametimeOutputEnabled = false,
+           bool isWireframeEnabled = false);
 
 public:
     uint32_t width, height, navigationScreenPercentage, deadzoneScreenPercentage, refreshrate;
     const bool vsync, fullscreen;
     float gamma, hdrMode;
+    bool isFrametimeOutputEnabled, isWireframeEnabled;
+    std::function<void()> rebuildPipelines;
 
     static Config readFromFile(std::string filename);
+
+
 };

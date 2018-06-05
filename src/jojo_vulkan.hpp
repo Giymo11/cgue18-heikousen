@@ -62,7 +62,8 @@ VkResult createPipeline(
     const int width,
     const int height,
     const std::vector<VkVertexInputBindingDescription> &vertexBindingDescriptions,
-    const std::vector<VkVertexInputAttributeDescription> &vertexAttributeDescriptions
+    const std::vector<VkVertexInputAttributeDescription> &vertexAttributeDescriptions,
+    bool isWireframeEnabled
 );
 
 

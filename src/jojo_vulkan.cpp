@@ -315,7 +315,8 @@ VkResult createPipeline (
     const int width,
     const int height,
     const std::vector<VkVertexInputBindingDescription> &vertexBindingDescriptions,
-    const std::vector<VkVertexInputAttributeDescription> &vertexAttributeDescriptions
+    const std::vector<VkVertexInputAttributeDescription> &vertexAttributeDescriptions,
+    bool isWireframeEnabled
 ) {
     VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo;
     vertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -365,7 +366,7 @@ VkResult createPipeline (
     rasterizationStateCreateInfo.flags = 0;
     rasterizationStateCreateInfo.depthClampEnable = VK_FALSE;
     rasterizationStateCreateInfo.rasterizerDiscardEnable = VK_FALSE;
-    rasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizationStateCreateInfo.polygonMode = isWireframeEnabled ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL;
     rasterizationStateCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;  // backface culling!
     rasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
     rasterizationStateCreateInfo.depthBiasEnable = VK_FALSE;

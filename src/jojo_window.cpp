@@ -32,17 +32,28 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
 
     Config *config = static_cast<Config *>(glfwGetWindowUserPointer(window));
 
+    if(key == GLFW_KEY_F2 && action == GLFW_PRESS) {
+        config->isFrametimeOutputEnabled = !config->isFrametimeOutputEnabled;
+        std::cout << "frametime is " << config->isFrametimeOutputEnabled << std::endl;
+    }
+
+    if(key == GLFW_KEY_F3 && action == GLFW_PRESS) {
+        config->isWireframeEnabled = !config->isWireframeEnabled;
+        config->rebuildPipelines();
+        std::cout << "wireframe is " << config->isWireframeEnabled << std::endl;
+    }
+
     // toggle HDR
     if(key == GLFW_KEY_F4 && action == GLFW_PRESS) {
         if(config->hdrMode > 1.5) {
             config->hdrMode = 0.0;
-            std::cout << "HDR mode set to SDR" << std::endl;;
+            std::cout << "HDR mode set to SDR" << std::endl;
         } else if(config->hdrMode > 0.5) {
             config->hdrMode = 2.0;
             std::cout << "HDR mode set to Exposure Mapping" << std::endl;
         } else {
             config->hdrMode = 1.0;
-            std::cout << "HDR mode set to Reinhard Mapping" << std::endl;;
+            std::cout << "HDR mode set to Reinhard Mapping" << std::endl;
         }
     }
 

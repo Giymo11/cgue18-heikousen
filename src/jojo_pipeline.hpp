@@ -19,6 +19,7 @@ public:
 
     VkDescriptorSetLayout descriptorSetLayout;
 
+    void rebuild(Config &config);
 
     void destroyPipeline(JojoEngine *engine);
 

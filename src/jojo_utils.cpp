@@ -47,7 +47,9 @@ Config::Config(uint32_t width,
                bool fullscreen,
                uint32_t refreshrate,
                float gamma,
-               float hdrMode) : width(width),
+               float hdrMode,
+               bool isFrametimeOutputEnabled,
+               bool isWireframeEnabled) : width(width),
                               height(height),
                               navigationScreenPercentage(navigationScreenPercentage),
                               deadzoneScreenPercentage(deadzoneScreenPercentage),
@@ -55,7 +57,9 @@ Config::Config(uint32_t width,
                               fullscreen(fullscreen),
                               refreshrate(refreshrate),
                               gamma(gamma),
-                              hdrMode(hdrMode) {}
+                              hdrMode(hdrMode),
+                              isFrametimeOutputEnabled(isFrametimeOutputEnabled),
+                              isWireframeEnabled(isWireframeEnabled){}
 
 
 void *alignedAlloc(size_t size, size_t alignment) {

@@ -194,7 +194,8 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVul
             std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count() / 1000.0f;
     lastFrameTime = now;
 
-    // std::cout << "frame time " << timeSinceLastFrame << std::endl;
+    if(config.isFrametimeOutputEnabled)
+        std::cout << "frame time " << timeSinceLastFrame << std::endl;
 
     //glm::mat4 view = glm::translate(glm::mat4(), glm::vec3(0.0f, 0.0f, -5.0f));
     //view[1][1] *= -1;
@@ -762,6 +763,19 @@ int main(int argc, char *argv[]) {
         swapchain.swapchainRenderPass, "text",
         engine.descriptors->layout (Rendering::Set::Text)
     );
+
+    config.rebuildPipelines = ([&]() {
+        vkDeviceWaitIdle(engine.device);
+        std::cout << "Pipeline rebuilt" << std::endl;
+        pipeline.destroyPipeline(&engine);
+        pipeline.createPipelineHelper (
+                config, &engine,
+                swapchain.swapchainRenderPass, "phong",
+                engine.descriptors->layout (Rendering::Set::Phong),
+                { mesh.getVertexInputBindingDescription () },
+                mesh.getVertexInputAttributeDescriptions()
+        );
+    });
 
     gameloop(config, &engine, &window, &swapchain, &pipeline, &jojoReplay, physics, &mesh, &textPipeline);
 
