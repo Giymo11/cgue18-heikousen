@@ -77,6 +77,7 @@ void create (
     VkPhysicalDeviceMemoryProperties memoryProperties,
     VkDeviceSize size,
     VkFormat format,
+    uint32_t layers,
     uint32_t mipLevels,
     uint32_t width,
     uint32_t height,
@@ -90,7 +91,7 @@ void create (
 
     VkBufferCreateInfo bufferCreateInfo = {};
     bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferCreateInfo.size = size;
+    bufferCreateInfo.size = size * layers;
     bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     ASSERT_VULKAN (vkCreateBuffer (device, &bufferCreateInfo, nullptr, stagingBuffer));
@@ -111,7 +112,7 @@ void create (
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
     imageInfo.format = format;
     imageInfo.mipLevels = mipLevels;
-    imageInfo.arrayLayers = 1;
+    imageInfo.arrayLayers = layers;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -148,7 +149,7 @@ void transfer (
     VkBuffer staging,
     VkImage image,
     const VkBufferImageCopy *copy,
-    uint32_t copySize,
+    uint32_t layers,
     uint32_t textureWidth,
     uint32_t textureHeight,
     uint32_t mipLevels
@@ -157,7 +158,7 @@ void transfer (
     subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     subresourceRange.baseMipLevel = 0;
     subresourceRange.levelCount = mipLevels;
-    subresourceRange.layerCount = 1;
+    subresourceRange.layerCount = layers;
 
     setImageLayout (
         cmd,
@@ -172,7 +173,7 @@ void transfer (
         staging,
         image,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        copySize,
+        layers,
         copy
     );
 
@@ -183,7 +184,7 @@ void transfer (
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.layerCount = layers;
     barrier.subresourceRange.levelCount = 1;
 
     int32_t mipWidth = static_cast<int32_t>(textureWidth);
@@ -210,13 +211,13 @@ void transfer (
         blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         blit.srcSubresource.mipLevel = i - 1;
         blit.srcSubresource.baseArrayLayer = 0;
-        blit.srcSubresource.layerCount = 1;
+        blit.srcSubresource.layerCount = layers;
         blit.dstOffsets[0] = { 0, 0, 0 };
         blit.dstOffsets[1] = { mipWidth / 2, mipHeight / 2, 1 };
         blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         blit.dstSubresource.mipLevel = i;
         blit.dstSubresource.baseArrayLayer = 0;
-        blit.dstSubresource.layerCount = 1;
+        blit.dstSubresource.layerCount = layers;
 
         vkCmdBlitImage (
             cmd,
@@ -292,30 +293,30 @@ VkImageView view (
     VkDevice device,
     VkImage image,
     VkFormat format,
+    uint32_t layers,
     uint32_t mipLevels
 ) {
     VkImageView view;
     VkImageViewCreateInfo v = {};
     v.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     v.image = image;
-    v.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    v.viewType = layers > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
     v.format = format;
     v.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
     v.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     v.subresourceRange.baseMipLevel = 0;
     v.subresourceRange.baseArrayLayer = 0;
-    v.subresourceRange.layerCount = 1;
+    v.subresourceRange.layerCount = layers;
     v.subresourceRange.levelCount = mipLevels;
     ASSERT_VULKAN (vkCreateImageView (device, &v, nullptr, &view));
     return view;
 }
 
-VkDescriptorImageInfo generateTexture (
+VkDescriptorImageInfo generateTextureArray (
     VkDevice device,
     const VkPhysicalDeviceMemoryProperties &memoryProperties,
     VkCommandPool commandPool,
-    VkQueue queue,
-    uint32_t color
+    VkQueue queue
 ) {
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingMem;
@@ -324,24 +325,45 @@ VkDescriptorImageInfo generateTexture (
     VkDescriptorImageInfo texture;
 
     const uint32_t mipLevels = 9;
+    const uint32_t layers = 3;
+    const uint32_t width = 256;
+    const uint32_t height = 256;
+    const uint32_t channels = 4;
 
-    // Generate texture
-    std::array<uint32_t, 256 * 256> texData;
+    std::array<uint32_t, width * height * layers> texData;
+    std::array<VkBufferImageCopy, layers> copy;
+
+    // First color
     auto tex_ptr = texData.data ();
     for (int i = 0; i < 256; i++, tex_ptr += 256) {
         for (int j = 0; j < 256; j++) {
-            tex_ptr[j] = -((i ^ j) >> 5 & 1) | color;
+            tex_ptr[j] = -((i ^ j) >> 5 & 1) | 0xFFC4C4C4;
+        }
+    }
+
+    // Second color
+    for (int i = 0; i < 256; i++, tex_ptr += 256) {
+        for (int j = 0; j < 256; j++) {
+            tex_ptr[j] = -((i ^ j) >> 5 & 1) | 0xFF00FF00;
+        }
+    }
+
+    // Third color
+    for (int i = 0; i < 256; i++, tex_ptr += 256) {
+        for (int j = 0; j < 256; j++) {
+            tex_ptr[j] = -((i ^ j) >> 5 & 1) | 0xFF0000FF;
         }
     }
 
     create (
         device,
         memoryProperties,
-        256 * 256 * 4,
+        width * height * channels,
         VK_FORMAT_R8G8B8A8_SRGB,
+        layers,
         mipLevels,
-        256,
-        256,
+        width,
+        height,
         &stagingBuffer,
         &stagingMem,
         &image,
@@ -352,20 +374,24 @@ VkDescriptorImageInfo generateTexture (
         device,
         stagingMem,
         (uint8_t *)texData.data (),
-        256 * 256 * 4
+        width * height * channels * layers
     );
 
-    VkBufferImageCopy copy = {};
-    copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    copy.imageSubresource.mipLevel = 0;
-    copy.imageSubresource.baseArrayLayer = 0;
-    copy.imageSubresource.layerCount = 1;
-    copy.imageExtent.width = 256;
-    copy.imageExtent.height = 256;
-    copy.imageExtent.depth = 1;
-    copy.bufferOffset = 0;
-    copy.bufferRowLength = 0;
-    copy.bufferImageHeight = 0;
+    for (uint32_t layer = 0, offset = 0; layer < layers; layer++) {
+        auto &region = copy[layer];
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.baseArrayLayer = layer;
+        region.imageSubresource.layerCount = 1;
+        region.imageExtent.width = width;
+        region.imageExtent.height = height;
+        region.imageExtent.depth = 1;
+        region.bufferOffset = offset;
+        region.bufferRowLength = 0;
+        region.bufferImageHeight = 0;
+
+        offset += width * height * channels;
+    }
 
     VkCommandBuffer commandBuffer;
     allocateAndBeginSingleUseBuffer (device, commandPool, &commandBuffer);
@@ -373,9 +399,9 @@ VkDescriptorImageInfo generateTexture (
         commandBuffer,
         stagingBuffer,
         image,
-        &copy,
-        1,
-        256, 256, 
+        copy.data(),
+        layers,
+        256, 256,
         mipLevels
     );
     endAndSubmitCommandBuffer (device, commandPool, queue, commandBuffer);
@@ -389,7 +415,8 @@ VkDescriptorImageInfo generateTexture (
         device,
         image,
         VK_FORMAT_R8G8B8A8_SRGB,
-        mipLevels
+        mipLevels,
+        1
     );
 
     texture.sampler = s;
@@ -430,6 +457,7 @@ VkDescriptorImageInfo fontTexture (
         memoryProperties,
         size,
         VK_FORMAT_R8G8B8A8_UNORM,
+        1,
         mipLevels,
         width,
         height,
@@ -482,6 +510,7 @@ VkDescriptorImageInfo fontTexture (
         device,
         image,
         VK_FORMAT_R8G8B8A8_UNORM,
+        1,
         mipLevels
     );
 

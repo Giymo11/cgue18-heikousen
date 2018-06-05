@@ -34,9 +34,7 @@ layout(std140, binding = 3) uniform LightBlock {
     LightSource lights[LIGHT_COUNT];
 } lightInfo;
 
-layout(binding = 4) uniform sampler2D diffuseTex1;
-layout(binding = 5) uniform sampler2D diffuseTex2;
-layout(binding = 6) uniform sampler2D diffuseTex3;
+layout(binding = 4) uniform sampler2DArray diffuseTex1;
 
 vec3 phong(vec3 objColor, vec3 intensity, vec3 l, vec3 n, vec3 v) {
     vec3 diffuse = objColor * intensity * max(dot(n,l), 0.0) * materialInfo.diffuse;
@@ -70,11 +68,11 @@ vec3 gamma_adjust(vec3 color, float gamma) {
 
 
 void main() {
-	vec4 objColor = texture(diffuseTex1, vert.uv);
+	vec4 objColor = texture(diffuseTex1, vec3(vert.uv, 0.0));
 	if (materialInfo.texture > 1.5)
-		objColor = texture(diffuseTex3, vert.uv);
+		objColor = texture(diffuseTex1, vec3(vert.uv, 2.0));
 	else if (materialInfo.texture > 0.5)
-		objColor = texture(diffuseTex2, vert.uv);
+		objColor = texture(diffuseTex1, vec3(vert.uv, 1.0));
 
 	vec3 v = normalize(-vert.position);
 

@@ -485,8 +485,6 @@ void Rendering::DescriptorSets::createLayouts ()
     addLayout (phong, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT);
     addLayout (phong, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addLayout (phong, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addLayout (phong, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addLayout (phong, 6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (phong));
 
     std::vector<VkDescriptorSetLayoutBinding> text;
@@ -586,7 +584,7 @@ void initializeMaterialsAndLights (
     lightInfo->parameters.z = 1.0f; // HDR exposure
     lightInfo->parameters.w = 0.0f;
     lightInfo->sources[0].position = glm::vec3 (0.0, 0.7, -4.0);
-    lightInfo->sources[0].color = glm::vec3 (1.0, 1.0, 1.0);
+    lightInfo->sources[0].color = glm::vec3(200.0, 1.0, 1.0);
     lightInfo->sources[0].attenuation = glm::vec3 (0.6f, 0.4f, 0.1f);
     lightInfo->sources[1].position = glm::vec3 (-97.0, 0.0, 0.0);
     lightInfo->sources[1].color = glm::vec3 (100.0, 2.0, 2.0);
