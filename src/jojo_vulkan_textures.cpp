@@ -324,42 +324,36 @@ VkDescriptorImageInfo generateTextureArray (
     VkDeviceMemory imageMem;
     VkDescriptorImageInfo texture;
 
-    const uint32_t mipLevels = 9;
-    const uint32_t layers = 3;
-    const uint32_t width = 256;
-    const uint32_t height = 256;
+    const uint32_t mipLevels = 10;
+    const uint32_t layers = 2;
+    const uint32_t width = 512;
+    const uint32_t height = 512;
     const uint32_t channels = 4;
+    const uint32_t dataOffset = width * height * channels;
 
-    std::array<uint32_t, width * height * layers> texData;
     std::array<VkBufferImageCopy, layers> copy;
+    std::vector<uint8_t> texData (dataOffset * layers);
 
-    // First color
-    auto tex_ptr = texData.data ();
-    for (int i = 0; i < 256; i++, tex_ptr += 256) {
-        for (int j = 0; j < 256; j++) {
-            tex_ptr[j] = -((i ^ j) >> 5 & 1) | 0xFFC4C4C4;
-        }
+
+    {
+        int dummy;
+        auto tex = stbi_load ("textures/cube_tex.jpg", &dummy, &dummy, &dummy, STBI_rgb_alpha);
+        std::copy ((uint8_t *)tex, (uint8_t *)tex + dataOffset, texData.data ());
+        stbi_image_free (tex);
     }
 
-    // Second color
-    for (int i = 0; i < 256; i++, tex_ptr += 256) {
-        for (int j = 0; j < 256; j++) {
-            tex_ptr[j] = -((i ^ j) >> 5 & 1) | 0xFF00FF00;
-        }
-    }
-
-    // Third color
-    for (int i = 0; i < 256; i++, tex_ptr += 256) {
-        for (int j = 0; j < 256; j++) {
-            tex_ptr[j] = -((i ^ j) >> 5 & 1) | 0xFF0000FF;
-        }
+    {
+        int dummy;
+        auto tex = stbi_load ("textures/wall_tex.jpg", &dummy, &dummy, &dummy, STBI_rgb_alpha);
+        std::copy ((uint8_t *)tex, (uint8_t *)tex + dataOffset, texData.data () + dataOffset);
+        stbi_image_free (tex);
     }
 
     create (
         device,
         memoryProperties,
-        width * height * channels,
-        VK_FORMAT_R8G8B8A8_SRGB,
+        dataOffset,
+        VK_FORMAT_R8G8B8A8_UNORM,
         layers,
         mipLevels,
         width,
@@ -373,12 +367,13 @@ VkDescriptorImageInfo generateTextureArray (
     stage (
         device,
         stagingMem,
-        (uint8_t *)texData.data (),
-        width * height * channels * layers
+        texData.data (),
+        dataOffset * layers
     );
 
     for (uint32_t layer = 0, offset = 0; layer < layers; layer++) {
         auto &region = copy[layer];
+        region = {};
         region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         region.imageSubresource.mipLevel = 0;
         region.imageSubresource.baseArrayLayer = layer;
@@ -390,7 +385,7 @@ VkDescriptorImageInfo generateTextureArray (
         region.bufferRowLength = 0;
         region.bufferImageHeight = 0;
 
-        offset += width * height * channels;
+        offset += dataOffset;
     }
 
     VkCommandBuffer commandBuffer;
@@ -401,7 +396,7 @@ VkDescriptorImageInfo generateTextureArray (
         image,
         copy.data(),
         layers,
-        256, 256,
+        width, height,
         mipLevels
     );
     endAndSubmitCommandBuffer (device, commandPool, queue, commandBuffer);
@@ -415,8 +410,8 @@ VkDescriptorImageInfo generateTextureArray (
         device,
         image,
         VK_FORMAT_R8G8B8A8_SRGB,
-        mipLevels,
-        1
+        layers,
+        mipLevels
     );
 
     texture.sampler = s;

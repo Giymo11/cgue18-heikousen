@@ -553,12 +553,8 @@ void initializeMaterialsAndLights (
         alignedStruct->specular = 0.3f;
         alignedStruct->alpha = 10.0f;
 
-        if (i == 1) {
+        if (i == scene->mvps.size() - 1) {
             alignedStruct->texture = 1.0f;
-        } else if (i == 4) {
-            alignedStruct->texture = 2.0f;
-        } else if (i == scene->mvps.size() - 1) {
-            alignedStruct->texture = 0.0f;
             alignedStruct->ambient = 0.06f;
             alignedStruct->diffuse = 0.95f;
             alignedStruct->specular = 0.2f;

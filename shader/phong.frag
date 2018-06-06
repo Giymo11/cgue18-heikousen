@@ -68,11 +68,7 @@ vec3 gamma_adjust(vec3 color, float gamma) {
 
 
 void main() {
-	vec4 objColor = texture(diffuseTex1, vec3(vert.uv, 0.0));
-	if (materialInfo.texture > 1.5)
-		objColor = texture(diffuseTex1, vec3(vert.uv, 2.0));
-	else if (materialInfo.texture > 0.5)
-		objColor = texture(diffuseTex1, vec3(vert.uv, 1.0));
+	vec4 objColor = texture(diffuseTex1, vec3(vert.uv, materialInfo.texture));
 
 	vec3 v = normalize(-vert.position);
 
