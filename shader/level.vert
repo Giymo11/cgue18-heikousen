@@ -26,7 +26,7 @@ void main() {
 	vec4 viewSpace = globalTrans.view * vec4(inPosition, 1.);
 
 	vert.position = viewSpace.xyz;
-	vert.normal   = normalize(inNormal);
+	vert.normal   = normalize(transpose(inverse(mat3(globalTrans.view))) * inNormal);
 	vert.uv       = inUv;
     vert.lightUv  = inLightUv;
 

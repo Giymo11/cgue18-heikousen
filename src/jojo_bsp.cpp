@@ -156,11 +156,29 @@ std::unique_ptr<BSPData> loadBSP (
     file.read ((char *)buffer.data (), size);
     file.close ();
 
-    auto header    = (const Header *)   (buffer.data () + 0);
-    auto leafs     = (const Leaf *)     (buffer.data () + header->direntries[Leafs].offset);
-    auto leafFaces = (const LeafFace *) (buffer.data () + header->direntries[Leaffaces].offset);
-    auto faces     = (const Face *)     (buffer.data () + header->direntries[Faces].offset);
+    auto header    = (Header *)   (buffer.data () + 0);
+    auto leafs     = (Leaf *)     (buffer.data () + header->direntries[Leafs].offset);
+    auto leafFaces = (LeafFace *) (buffer.data () + header->direntries[Leaffaces].offset);
+    auto faces     = (Face *)     (buffer.data () + header->direntries[Faces].offset);
+    auto vertices  = (Vertex *)   (buffer.data () + header->direntries[Vertices].offset);
     auto indexNum  = indexCount (header, leafs, leafFaces, faces);
+
+    const auto vertexBytes = (uint8_t *)vertices + header->direntries[Vertices].length;
+    const auto endVertex = (Vertex *)vertexBytes;
+    const auto scale = 0.03f;
+    for (auto v = &vertices[0]; v != endVertex; ++v) {
+        float tmp = v->position[1];
+        v->position[1] = v->position[2];
+        v->position[2] = -tmp;
+
+        tmp = v->normal[1];
+        v->normal[1] = v->normal[2];
+        v->normal[2] = -tmp;
+
+        v->position[0] *= scale;
+        v->position[1] *= scale;
+        v->position[2] *= scale;
+    }
 
     return std::make_unique<BSPData>(std::move(buffer), indexNum);
 }

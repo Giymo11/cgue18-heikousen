@@ -17,7 +17,7 @@ layout(location = 0) in VertexData {
 
 layout(location = 0) out vec4 outColor;
 
-const float ambient  = 0.2;
+const float ambient  = 0.5;
 const float diffuse  = 0.95;
 const float specular = 0.2;
 const float alpha    = 2.0;

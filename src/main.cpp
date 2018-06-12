@@ -87,7 +87,7 @@ void recordCommandBuffer(
     // LEVEL DRAWING BEGIN
     // --------------------------------------------------------------
 
-    /*{
+    {
         auto descriptor = engine->descriptors->set (Rendering::Set::Level);
 
         vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, levelPipeline->pipeline);
@@ -101,14 +101,14 @@ void recordCommandBuffer(
         vkCmdBindVertexBuffers (cmd, 0, 1, vertexBuffers, offsets);
         vkCmdBindIndexBuffer (cmd, level->index, 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed (cmd, level->bsp->indexCount, 1, 0, 0, 0);
-    }*/
+    }
     
     // --------------------------------------------------------------
     // LEVEL DRAWING END
     // --------------------------------------------------------------
 
-    vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
-    mesh->goDrawYourself(cmd, pipeline->pipelineLayout);
+    /*vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+    mesh->goDrawYourself(cmd, pipeline->pipelineLayout);*/
 
     vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, textPipeline->pipeline);
     auto textDescriptor = engine->descriptors->set (Rendering::Set::Text);
@@ -450,13 +450,14 @@ void gameloop (
         double absXpos = glm::abs(relXpos);
         double absYpos = glm::abs(relYpos);
 
+        /* TODO: DEBUGGING
         if (absXpos > minX) {
             if (absXpos > maxX) {
                 absXpos = maxX;
             }
             double torque = (absXpos - minX) / (maxX - minX) * glm::sign(relXpos) * -1;
             relativeTorque = relativeTorque + btVector3(0, 0, static_cast<float>(torque));
-        }
+        } */
 
         if (absYpos > minY) {
             if (absYpos > maxY) {
@@ -669,12 +670,13 @@ void initializeMaterialsAndLights (
         sizeof (JojoVulkanMesh::LightBlock), 0,
         (void **)(&lightInfo)
     );
+    // TODO: DEBUGGING
     lightInfo->parameters.x = config.gamma; // Gamma
     lightInfo->parameters.y = config.hdrMode; // HDR enable
     lightInfo->parameters.z = 1.0f; // HDR exposure
     lightInfo->parameters.w = 0.0f;
     lightInfo->sources[0].position = glm::vec3 (0.0, 0.7, -4.0);
-    lightInfo->sources[0].color = glm::vec3(200.0, 1.0, 1.0);
+    lightInfo->sources[0].color = glm::vec3 (20.0, 1.0, 1.0);
     lightInfo->sources[0].attenuation = glm::vec3 (0.6f, 0.4f, 0.1f);
     lightInfo->sources[1].position = glm::vec3 (-97.0, 0.0, 0.0);
     lightInfo->sources[1].color = glm::vec3 (100.0, 2.0, 2.0);
