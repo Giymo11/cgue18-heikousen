@@ -86,7 +86,8 @@ void recordCommandBuffer(
     // --------------------------------------------------------------
     // LEVEL DRAWING BEGIN
     // --------------------------------------------------------------
-    {
+
+    /*{
         auto descriptor = engine->descriptors->set (Rendering::Set::Level);
 
         vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, levelPipeline->pipeline);
@@ -100,14 +101,14 @@ void recordCommandBuffer(
         vkCmdBindVertexBuffers (cmd, 0, 1, vertexBuffers, offsets);
         vkCmdBindIndexBuffer (cmd, level->index, 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed (cmd, level->bsp->indexCount, 1, 0, 0, 0);
-    }
+    }*/
     
     // --------------------------------------------------------------
     // LEVEL DRAWING END
     // --------------------------------------------------------------
 
-    /*vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
-    mesh->goDrawYourself(cmd, pipeline->pipelineLayout);*/
+    vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+    mesh->goDrawYourself(cmd, pipeline->pipelineLayout);
 
     vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, textPipeline->pipeline);
     auto textDescriptor = engine->descriptors->set (Rendering::Set::Text);
