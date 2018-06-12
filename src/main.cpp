@@ -164,30 +164,30 @@ void drawFrame (
     // DATA STAGING BEGIN
     // --------------------------------------------------------------
 
-    {
-        result = beginCommandBuffer (transferCmd);
-        ASSERT_VULKAN (result);
+    // {
+    //     result = beginCommandBuffer (transferCmd);
+    //     ASSERT_VULKAN (result);
 
-        // Perform data staging
-        Level::cmdBuildAndStageIndicesNaively (device, transferQueue, level, transferCmd);
+    //     // Perform data staging
+    //     Level::cmdBuildAndStageIndicesNaively (device, transferQueue, level, transferCmd);
 
-        result = vkEndCommandBuffer (transferCmd);
-        ASSERT_VULKAN (result);
+    //     result = vkEndCommandBuffer (transferCmd);
+    //     ASSERT_VULKAN (result);
 
-        // Wait for previous drawing to finish
-        result = VK_TIMEOUT;
-        while (result == VK_TIMEOUT)
-            result = vkWaitForFences (device, 1, &fence, VK_TRUE, 100000000);
-        ASSERT_VULKAN (result);
-        result = vkResetFences (device, 1, &fence);
-        ASSERT_VULKAN (result);
+    //     // Wait for previous drawing to finish
+    //     result = VK_TIMEOUT;
+    //     while (result == VK_TIMEOUT)
+    //         result = vkWaitForFences (device, 1, &fence, VK_TRUE, 100000000);
+    //     ASSERT_VULKAN (result);
+    //     result = vkResetFences (device, 1, &fence);
+    //     ASSERT_VULKAN (result);
 
-        VkSubmitInfo submitInfo = {};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &transferCmd;
-        vkQueueSubmit (transferQueue, 1, &submitInfo, fence);
-    }
+    //     VkSubmitInfo submitInfo = {};
+    //     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    //     submitInfo.commandBufferCount = 1;
+    //     submitInfo.pCommandBuffers = &transferCmd;
+    //     vkQueueSubmit (transferQueue, 1, &submitInfo, fence);
+    // }
 
     // --------------------------------------------------------------
     // DATA STAGING END
