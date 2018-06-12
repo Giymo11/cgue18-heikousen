@@ -43,11 +43,13 @@ void recordCommandBuffer(
     Config &config,
     JojoEngine *engine,
     JojoPipeline *pipeline,
-    VkCommandBuffer commandBuffer,
+    VkCommandBuffer cmd,
     VkFramebuffer framebuffer,
     VkRenderPass renderPass,
     JojoVulkanMesh *mesh,
-    JojoPipeline *textPipeline
+    JojoPipeline *textPipeline,
+    const JojoPipeline *levelPipeline,
+    const Level::JojoLevel *level
 ) {
 
     std::array<VkClearValue, 2> clearValues = {};
@@ -65,9 +67,7 @@ void recordCommandBuffer(
     renderPassBeginInfo.pClearValues = clearValues.data();
 
     // _INLINE means to only use primary command buffers
-    vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+    vkCmdBeginRenderPass(cmd, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     VkViewport viewport;
     viewport.x = 0.0f;
@@ -76,29 +76,52 @@ void recordCommandBuffer(
     viewport.height = static_cast<float>(config.height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
 
     VkRect2D scissor;
     scissor.offset = {0, 0};
     scissor.extent = {config.width, config.height};
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
 
+    // --------------------------------------------------------------
+    // LEVEL DRAWING BEGIN
+    // --------------------------------------------------------------
+    {
+        auto descriptor = engine->descriptors->set (Rendering::Set::Level);
 
-    mesh->goDrawYourself(commandBuffer, pipeline->pipelineLayout);
+        vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, levelPipeline->pipeline);
+        vkCmdBindDescriptorSets (
+            cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, levelPipeline->pipelineLayout,
+            0, 1, &descriptor, 0, nullptr
+        );
 
-    auto textDescriptor = engine->descriptors->set(Rendering::Set::Text);
-    vkCmdBindPipeline (commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, textPipeline->pipeline);
+        VkBuffer vertexBuffers[] = { level->vertex };
+        VkDeviceSize offsets[] = { 0 };
+        vkCmdBindVertexBuffers (cmd, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer (cmd, level->index, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed (cmd, level->bsp->indexCount, 1, 0, 0, 0);
+    }
+    
+    // --------------------------------------------------------------
+    // LEVEL DRAWING END
+    // --------------------------------------------------------------
+
+    /*vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+    mesh->goDrawYourself(cmd, pipeline->pipelineLayout);*/
+
+    vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, textPipeline->pipeline);
+    auto textDescriptor = engine->descriptors->set (Rendering::Set::Text);
     vkCmdBindDescriptorSets (
-        commandBuffer,
+        cmd,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         textPipeline->pipelineLayout,
         0,
         1, &textDescriptor,
         0, nullptr
     );
-    vkCmdDraw (commandBuffer, 6, 1, 0, 0);
+    vkCmdDraw (cmd, 6, 1, 0, 0);
 
-    vkCmdEndRenderPass(commandBuffer);
+    vkCmdEndRenderPass(cmd);
 }
 
 
@@ -110,6 +133,7 @@ void drawFrame (
     JojoPipeline *pipeline,
     JojoVulkanMesh *mesh,
     JojoPipeline *textPipeline,
+    const JojoPipeline *levelPipeline,
     const Level::JojoLevel *level
 ) {
     const auto device = engine->device;
@@ -184,7 +208,8 @@ void drawFrame (
             swapchain->framebuffers[imageIndex],
             swapchain->swapchainRenderPass,
             mesh,
-            textPipeline
+            textPipeline,
+            levelPipeline, level
         );
 
         result = vkEndCommandBuffer (drawCmd);
@@ -347,6 +372,7 @@ void gameloop (
     JojoPhysics &physics,
     JojoVulkanMesh *mesh,
     JojoPipeline *textPipeline,
+    const JojoPipeline *levelPipeline,
     const Level::JojoLevel *level
 ) {
     // TODO: extract a bunch of this to JojoWindow
@@ -518,7 +544,7 @@ void gameloop (
 
         drawFrame (
             config, engine, jojoWindow, swapchain,
-            pipeline, mesh, textPipeline, level
+            pipeline, mesh, textPipeline, levelPipeline, level
         );
     }
 }
@@ -551,6 +577,12 @@ void Rendering::DescriptorSets::createLayouts ()
     std::vector<VkDescriptorSetLayoutBinding> text;
     addLayout (text, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (text));
+
+    std::vector<VkDescriptorSetLayoutBinding> level;
+    addLayout (level, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    addLayout (level, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (level, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    layouts.push_back (createLayout (level));
 }
 
 JojoPhysicsNode *makeSphereNode(JojoPhysics &physics, JojoNode *node) {
@@ -769,7 +801,7 @@ int main(int argc, char *argv[]) {
     JojoEngine engine;
     engine.jojoWindow = &window;
     engine.startVulkan();
-    engine.initializeDescriptorPool(2, 2, 4);
+    engine.initializeDescriptorPool(100, 100, 100);
 
 
 
@@ -783,7 +815,9 @@ int main(int argc, char *argv[]) {
     swapchain.createSwapchainAndChildren(config, &engine);
 
 
-    JojoPipeline pipeline, textPipeline;
+    JojoPipeline pipeline;
+    JojoPipeline levelPipeline;
+    JojoPipeline textPipeline;
 
     // --------------------------------------------------------------
     // LEVEL LOADING START
@@ -797,23 +831,49 @@ int main(int argc, char *argv[]) {
 
         level = Level::alloc (&engine, "maps/heikousen.bsp");
         Level::stageVertexData (&engine, level, cmd);
+
+        
     }
 
     // --------------------------------------------------------------
     // LEVEL LOADING END
     // --------------------------------------------------------------
 
+    // --------------------------------------------------------------
+    // PIPELINE CREATION START
+    // --------------------------------------------------------------
+
+    {
+        pipeline.createPipelineHelper (
+            config, &engine,
+            swapchain.swapchainRenderPass, "phong",
+            engine.descriptors->layout (Rendering::Set::Phong),
+            { mesh.getVertexInputBindingDescription () },
+            mesh.getVertexInputAttributeDescriptions ()
+        );
+
+        levelPipeline.createPipelineHelper (
+            config, &engine,
+            swapchain.swapchainRenderPass, "level",
+            engine.descriptors->layout (Rendering::Set::Level),
+            { Level::vertexInputBinding () },
+            Level::vertexAttributes ()
+        );
+
+        textPipeline.createPipelineHelper (
+            config, &engine,
+            swapchain.swapchainRenderPass, "text",
+            engine.descriptors->layout (Rendering::Set::Text)
+        );
+    }
+
+    // --------------------------------------------------------------
+    // PIPELINE CREATION START
+    // --------------------------------------------------------------
+
     mesh.initializeBuffers(&engine, Rendering::Set::Phong);
 
     initializeMaterialsAndLights (config, &engine, &scene, &mesh);
-
-    pipeline.createPipelineHelper (
-        config, &engine,
-        swapchain.swapchainRenderPass, "phong",
-        engine.descriptors->layout (Rendering::Set::Phong),
-        { mesh.getVertexInputBindingDescription () },
-        mesh.getVertexInputAttributeDescriptions()
-    );
 
     {
         VkPhysicalDeviceMemoryProperties memoryProperties;
@@ -829,13 +889,7 @@ int main(int argc, char *argv[]) {
         auto descriptors = engine.descriptors;
         descriptors->update (Rendering::Set::Text, 0, font);
     }
-
-    textPipeline.createPipelineHelper (
-        config, &engine,
-        swapchain.swapchainRenderPass, "text",
-        engine.descriptors->layout (Rendering::Set::Text)
-    );
-
+    
     config.rebuildPipelines = ([&]() {
         vkDeviceWaitIdle(engine.device);
         std::cout << "Pipeline rebuilt" << std::endl;
@@ -847,11 +901,21 @@ int main(int argc, char *argv[]) {
                 { mesh.getVertexInputBindingDescription () },
                 mesh.getVertexInputAttributeDescriptions()
         );
+
+        levelPipeline.destroyPipeline (&engine);
+        levelPipeline.createPipelineHelper (
+            config, &engine,
+            swapchain.swapchainRenderPass, "level",
+            engine.descriptors->layout (Rendering::Set::Level),
+            { Level::vertexInputBinding () },
+            Level::vertexAttributes ()
+        );
     });
 
     gameloop (
         config, &engine, &window, &swapchain, &pipeline,
-        &jojoReplay, physics, &mesh, &textPipeline, level
+        &jojoReplay, physics, &mesh, &textPipeline,
+        &levelPipeline, level
     );
 
 

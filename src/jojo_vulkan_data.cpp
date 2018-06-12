@@ -133,6 +133,7 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, Rendering::Set set) {
     info.buffer = globalTransformationBuffer;
     info.range = sizeof (GlobalTransformations);
     descriptors->update (set, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, info);
+    descriptors->update (Rendering::Set::Level, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, info);
 
     info = {};
     info.buffer = uniformBuffer;
@@ -148,8 +149,10 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, Rendering::Set set) {
     info.buffer = lightInfoBuffer;
     info.range = sizeof (LightBlock);
     descriptors->update (set, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, info);
+    descriptors->update (Rendering::Set::Level, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, info);
 
     descriptors->update (set, 4, texArray256);
+    descriptors->update (Rendering::Set::Level, 2, texArray256);
 }
 
 void JojoVulkanMesh::destroyBuffers(JojoEngine *engine) {

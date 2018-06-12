@@ -33,6 +33,9 @@ JojoLevel *alloc (
     const std::string     &bsp
 );
 
+VkVertexInputBindingDescription                vertexInputBinding ();
+std::vector<VkVertexInputAttributeDescription> vertexAttributes   ();
+
 void free (
     const JojoEngine      *engine,
     JojoLevel             *level

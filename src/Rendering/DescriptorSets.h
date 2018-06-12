@@ -8,6 +8,7 @@ namespace Rendering {
 enum class Set : uint8_t {
   Phong,
   Text,
+  Level,
   Count
 };
 

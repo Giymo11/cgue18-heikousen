@@ -12,13 +12,13 @@ size_t vertexCount (
     return bspHeader->direntries[Vertices].length / sizeof (Vertex);
 }
 
-static size_t indexCount (
+static uint32_t indexCount (
     const Header   *bspHeader,
     const Leaf     *leafs,
     const LeafFace *leafFaces,
     const Face     *faces
 ) {
-    size_t indexCount = 0;
+    uint32_t indexCount = 0;
 
     const auto leafBytes = (const uint8_t *)leafs + bspHeader->direntries[Leafs].length;
     const auto leafEnd = (const Leaf *)leafBytes;
@@ -125,7 +125,7 @@ void buildIndicesNaive (
 
 BSPData::BSPData (
     std::vector<uint8_t> &&data,
-    size_t                 indexCount
+    uint32_t               indexCount
 ) :
     raw          (std::move (data)),
     header       ((const Header *)     (raw.data () + 0)),

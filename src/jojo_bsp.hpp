@@ -105,7 +105,7 @@ struct MeshVertex {
 };
 
 struct BSPData {
-    BSPData (std::vector<uint8_t> &&raw, size_t indexCount);
+    BSPData (std::vector<uint8_t> &&raw, uint32_t indexCount);
 
     const std::vector<uint8_t>  raw;
     const Header     *header;
@@ -115,7 +115,7 @@ struct BSPData {
     const Face       *faces;
     const MeshVertex *meshVertices;
     const Vertex     *vertices;
-    const size_t      indexCount;
+    const uint32_t    indexCount;
 };
 
 std::unique_ptr<BSPData> loadBSP (

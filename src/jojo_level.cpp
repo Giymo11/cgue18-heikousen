@@ -4,6 +4,41 @@
 
 namespace Level {
 
+VkVertexInputBindingDescription vertexInputBinding () {
+    VkVertexInputBindingDescription binding;
+
+    binding.binding = 0;
+    binding.stride = sizeof (Vertex);
+    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    return binding;
+}
+
+std::vector<VkVertexInputAttributeDescription> vertexAttributes () {
+    std::vector<VkVertexInputAttributeDescription> attrib (4);
+    attrib[0].location = 0;
+    attrib[0].binding = 0;
+    attrib[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attrib[0].offset = offsetof (Vertex, pos);
+
+    attrib[1].location = 1;
+    attrib[1].binding = 0;
+    attrib[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attrib[1].offset = offsetof (Vertex, normal);
+
+    attrib[2].location = 2;
+    attrib[2].binding = 0;
+    attrib[2].format = VK_FORMAT_R32G32_SFLOAT;
+    attrib[2].offset = offsetof (Vertex, uv);
+
+    attrib[3].location = 3;
+    attrib[3].binding = 0;
+    attrib[3].format = VK_FORMAT_R32G32_SFLOAT;
+    attrib[3].offset = offsetof (Vertex, light_uv);
+
+    return attrib;
+}
+
 JojoLevel *alloc (
     const JojoEngine  *engine,
     const std::string &bspName
