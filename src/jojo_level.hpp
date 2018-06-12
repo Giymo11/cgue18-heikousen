@@ -45,7 +45,8 @@ void stageVertexData (
 );
 
 void cmdBuildAndStageIndicesNaively (
-    const JojoEngine      *engine,
+    const VkDevice         device,
+    const VkQueue          transferQueue,
     const JojoLevel       *level,
     const VkCommandBuffer  transferCmd
 );

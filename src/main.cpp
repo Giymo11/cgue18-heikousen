@@ -36,6 +36,7 @@
 #include "Rendering/DescriptorSets.h"
 #include "jojo_script.hpp"
 #include "jojo_vulkan_textures.hpp"
+#include "jojo_level.hpp"
 
 
 void recordCommandBuffer(
@@ -101,16 +102,22 @@ void recordCommandBuffer(
 }
 
 
-void drawFrame(Config &config,
-               JojoEngine *engine,
-               JojoWindow *window,
-               JojoSwapchain *swapchain,
-               JojoPipeline *pipeline,
-               JojoVulkanMesh *mesh,
-               JojoPipeline *textPipeline) {
+void drawFrame (
+    Config &config,
+    JojoEngine *engine,
+    JojoWindow *window,
+    JojoSwapchain *swapchain,
+    JojoPipeline *pipeline,
+    JojoVulkanMesh *mesh,
+    JojoPipeline *textPipeline,
+    const Level::JojoLevel *level
+) {
+    const auto device = engine->device;
+    const auto drawQueue = engine->queue;
+    const auto transferQueue = engine->queue;
 
     uint32_t imageIndex;
-    VkResult result = vkAcquireNextImageKHR(engine->device,
+    VkResult result = vkAcquireNextImageKHR(device,
                                             swapchain->swapchain,
                                             std::numeric_limits<uint64_t>::max(),
                                             swapchain->semaphoreImageAvailable,
@@ -122,66 +129,114 @@ void drawFrame(Config &config,
         // throw away this frame, because after recreating the swapchain, the vkAcquireNexImageKHR is
         // not signaling the semaphoreImageAvailable anymore
     }
-    ASSERT_VULKAN(result)
+    ASSERT_VULKAN (result);
 
+    const auto drawCmd = swapchain->commandBuffers[imageIndex];
+    const auto transferCmd = drawCmd;
+    const auto fence = swapchain->commandBufferFences[imageIndex];
 
-    VkPipelineStageFlags waitStageMask[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    // --------------------------------------------------------------
+    // DATA STAGING BEGIN
+    // --------------------------------------------------------------
 
+    {
+        result = beginCommandBuffer (transferCmd);
+        ASSERT_VULKAN (result);
 
-    VkSubmitInfo submitInfo;
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.pNext = nullptr;
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = &swapchain->semaphoreImageAvailable;
-    submitInfo.pWaitDstStageMask = waitStageMask;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &(swapchain->commandBuffers[imageIndex]);
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = &swapchain->semaphoreRenderingDone;
+        // Perform data staging
+        Level::cmdBuildAndStageIndicesNaively (device, transferQueue, level, transferCmd);
 
-    result = vkWaitForFences(engine->device, 1, &swapchain->commandBufferFences[imageIndex], VK_TRUE, UINT64_MAX);
-    ASSERT_VULKAN(result)
-    result = vkResetFences(engine->device, 1, &swapchain->commandBufferFences[imageIndex]);
-    ASSERT_VULKAN(result)
+        result = vkEndCommandBuffer (transferCmd);
+        ASSERT_VULKAN (result);
 
+        // Wait for previous drawing to finish
+        result = VK_TIMEOUT;
+        while (result == VK_TIMEOUT)
+            result = vkWaitForFences (device, 1, &fence, VK_TRUE, 100000000);
+        ASSERT_VULKAN (result);
+        result = vkResetFences (device, 1, &fence);
+        ASSERT_VULKAN (result);
 
-    result = beginCommandBuffer(swapchain->commandBuffers[imageIndex]);
-    ASSERT_VULKAN(result)
-
-    recordCommandBuffer(
-        config,
-        engine,
-        pipeline,
-        swapchain->commandBuffers[imageIndex],
-        swapchain->framebuffers[imageIndex],
-        swapchain->swapchainRenderPass,
-        mesh,
-        textPipeline
-    );
-
-    result = vkEndCommandBuffer(swapchain->commandBuffers[imageIndex]);
-    ASSERT_VULKAN(result)
-
-    result = vkQueueSubmit(engine->queue, 1, &submitInfo, swapchain->commandBufferFences[imageIndex]);
-    ASSERT_VULKAN(result)
-
-    VkPresentInfoKHR presentInfo;
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.pNext = nullptr;
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = &swapchain->semaphoreRenderingDone;
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = &swapchain->swapchain;
-    presentInfo.pImageIndices = &imageIndex;
-    presentInfo.pResults = nullptr;
-
-    result = vkQueuePresentKHR(engine->queue, &presentInfo);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-        swapchain->recreateSwapchain(config, engine, window);
-        return;
-        // same as with vkAcquireNextImageKHR
+        VkSubmitInfo submitInfo = {};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &transferCmd;
+        vkQueueSubmit (transferQueue, 1, &submitInfo, fence);
     }
-    ASSERT_VULKAN(result)
+
+    // --------------------------------------------------------------
+    // DATA STAGING END
+    // --------------------------------------------------------------
+
+    // --------------------------------------------------------------
+    // DRAWING BEGIN
+    // --------------------------------------------------------------
+
+    {
+        result = beginCommandBuffer (drawCmd);
+        ASSERT_VULKAN (result);
+
+        recordCommandBuffer (
+            config,
+            engine,
+            pipeline,
+            swapchain->commandBuffers[imageIndex],
+            swapchain->framebuffers[imageIndex],
+            swapchain->swapchainRenderPass,
+            mesh,
+            textPipeline
+        );
+
+        result = vkEndCommandBuffer (drawCmd);
+        ASSERT_VULKAN (result);
+
+        // Wait for data staging to be finished
+        result = VK_TIMEOUT;
+        while (result == VK_TIMEOUT)
+            result = vkWaitForFences (device, 1, &fence, VK_TRUE, 100000000);
+        ASSERT_VULKAN (result);
+        result = vkResetFences (device, 1, &fence);
+        ASSERT_VULKAN (result);
+
+
+        VkPipelineStageFlags waitStageMask[] = {
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+        };
+        VkSubmitInfo submitInfo = {};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.waitSemaphoreCount = 1;
+        submitInfo.pWaitSemaphores = &swapchain->semaphoreImageAvailable;
+        submitInfo.pWaitDstStageMask = waitStageMask;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &drawCmd;
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = &swapchain->semaphoreRenderingDone;
+
+        result = vkQueueSubmit (drawQueue, 1, &submitInfo, fence);
+        ASSERT_VULKAN (result);
+
+        VkPresentInfoKHR presentInfo;
+        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        presentInfo.pNext = nullptr;
+        presentInfo.waitSemaphoreCount = 1;
+        presentInfo.pWaitSemaphores = &swapchain->semaphoreRenderingDone;
+        presentInfo.swapchainCount = 1;
+        presentInfo.pSwapchains = &swapchain->swapchain;
+        presentInfo.pImageIndices = &imageIndex;
+        presentInfo.pResults = nullptr;
+
+        result = vkQueuePresentKHR (drawQueue, &presentInfo);
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+            swapchain->recreateSwapchain (config, engine, window);
+            return;
+            // same as with vkAcquireNextImageKHR
+        }
+        ASSERT_VULKAN (result);
+    }
+
+    // --------------------------------------------------------------
+    // DRAWING END
+    // --------------------------------------------------------------
 }
 
 
@@ -458,7 +513,10 @@ void gameloop(Config &config,
             updateMvp(config, engine, physics, mesh);
         }
 
-        drawFrame(config, engine, jojoWindow, swapchain, pipeline, mesh, textPipeline);
+        drawFrame (
+            config, engine, jojoWindow, swapchain,
+            pipeline, mesh, textPipeline, nullptr
+        );
     }
 }
 

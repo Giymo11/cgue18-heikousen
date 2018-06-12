@@ -121,17 +121,14 @@ void stageVertexData (
 }
 
 void cmdBuildAndStageIndicesNaively (
-    const JojoEngine      *engine,
+    const VkDevice         device,
+    const VkQueue          transferQueue,
     const JojoLevel       *level,
     const VkCommandBuffer  transferCmd
 ) {
-    const auto device = engine->device;
     const auto bsp = level->bsp.get ();
     const auto indexCount = BSP::indexCount (bsp->header);
     const auto indexDataSize = (uint32_t)(sizeof (uint32_t) * indexCount);
-
-    // TODO: actually use a transfer queue
-    const auto transferQueue = engine->queue;
 
     uint32_t *indexData = nullptr;
     VkResult result = vkMapMemory (
@@ -150,18 +147,6 @@ void cmdBuildAndStageIndicesNaively (
     VkBufferCopy bufferCopy = {};
     bufferCopy.size = indexDataSize;
     vkCmdCopyBuffer (transferCmd, level->indexStaging, level->index, 1, &bufferCopy);
-
-    //// TODO: Submit outside!
-    //VkSubmitInfo submitInfo = {};
-    //submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    //submitInfo.commandBufferCount = 1;
-    //submitInfo.pCommandBuffers = &transferCmd;
-
-    //// TODO: Maybe batch all of this together
-    //result = vkQueueSubmit (transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    //ASSERT_VULKAN (result)
-    //    result = vkQueueWaitIdle (transferQueue);
-    //ASSERT_VULKAN (result)
 }
 
 }
