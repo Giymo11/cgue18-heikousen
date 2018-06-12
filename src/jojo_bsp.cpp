@@ -1,4 +1,5 @@
 #include <fstream>
+#include <iostream>
 
 #include "jojo_bsp.hpp"
 #include "jojo_level.hpp"
@@ -11,10 +12,26 @@ size_t vertexCount (
     return bspHeader->direntries[Vertices].length / sizeof (Vertex);
 }
 
-size_t indexCount (
-    const Header *bspHeader
+static size_t indexCount (
+    const Header   *bspHeader,
+    const Leaf     *leafs,
+    const LeafFace *leafFaces,
+    const Face     *faces
 ) {
-    return bspHeader->direntries[Meshverts].length / sizeof (MeshVertex);
+    size_t indexCount = 0;
+
+    const auto leafBytes = (const uint8_t *)leafs + bspHeader->direntries[Leafs].length;
+    const auto leafEnd = (const Leaf *)leafBytes;
+
+    for (auto leaf = &leafs[0]; leaf != leafEnd; ++leaf) {
+        const auto leafFaceBegin = leafFaces + leaf->leafface;
+        const auto leafFaceEnd = leafFaceBegin + leaf->n_leaffaces;
+
+        for (auto lface = leafFaceBegin; lface != leafFaceEnd; ++lface)
+            indexCount += faces[lface->face].n_meshverts;
+    }
+
+    return indexCount;
 }
 
 void fillVertexBuffer (
@@ -107,16 +124,18 @@ void buildIndicesNaive (
 }
 
 BSPData::BSPData (
-    const std::vector<uint8_t> raw
+    std::vector<uint8_t> &&data,
+    size_t                 indexCount
 ) :
-    raw          (std::move (raw)),
-    header       ((const Header *)     (raw.data() + 0)),
-    nodes        ((const Node *)       (raw.data() + header->direntries[Nodes].offset)),
+    raw          (std::move (data)),
+    header       ((const Header *)     (raw.data () + 0)),
+    nodes        ((const Node *)       (raw.data () + header->direntries[Nodes].offset)),
     leafs        ((const Leaf *)       (raw.data () + header->direntries[Leafs].offset)),
     leafFaces    ((const LeafFace *)   (raw.data () + header->direntries[Leaffaces].offset)),
     faces        ((const Face *)       (raw.data () + header->direntries[Faces].offset)),
     meshVertices ((const MeshVertex *) (raw.data () + header->direntries[Meshverts].offset)),
-    vertices     ((const Vertex *)     (raw.data () + header->direntries[Vertices].offset))
+    vertices     ((const Vertex *)     (raw.data () + header->direntries[Vertices].offset)),
+    indexCount   (indexCount)
 {
 }
 
@@ -137,7 +156,13 @@ std::unique_ptr<BSPData> loadBSP (
     file.read ((char *)buffer.data (), size);
     file.close ();
 
-    return std::make_unique<BSPData>(buffer);
+    auto header    = (const Header *)   (buffer.data () + 0);
+    auto leafs     = (const Leaf *)     (buffer.data () + header->direntries[Leafs].offset);
+    auto leafFaces = (const LeafFace *) (buffer.data () + header->direntries[Leaffaces].offset);
+    auto faces     = (const Face *)     (buffer.data () + header->direntries[Faces].offset);
+    auto indexNum  = indexCount (header, leafs, leafFaces, faces);
+
+    return std::make_unique<BSPData>(std::move(buffer), indexNum);
 }
 
 }

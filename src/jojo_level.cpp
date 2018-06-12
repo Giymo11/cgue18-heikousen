@@ -16,7 +16,7 @@ JojoLevel *alloc (
     level->bsp = BSP::loadBSP (bspName);
     const auto bsp = level->bsp.get ();
     const auto vertexCount = BSP::vertexCount (bsp->header);
-    const auto indexCount = BSP::indexCount (bsp->header);
+    const auto indexCount = bsp->indexCount;
     const auto vertexDataSize = (uint32_t)(sizeof (Vertex) * vertexCount);
     const auto indexDataSize = (uint32_t)(sizeof (uint32_t) * indexCount);
 
@@ -127,7 +127,7 @@ void cmdBuildAndStageIndicesNaively (
     const VkCommandBuffer  transferCmd
 ) {
     const auto bsp = level->bsp.get ();
-    const auto indexCount = BSP::indexCount (bsp->header);
+    const auto indexCount = bsp->indexCount;
     const auto indexDataSize = (uint32_t)(sizeof (uint32_t) * indexCount);
 
     uint32_t *indexData = nullptr;

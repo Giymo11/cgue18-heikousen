@@ -337,15 +337,18 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVul
 }
 
 
-void gameloop(Config &config,
-              JojoEngine *engine,
-              JojoWindow *jojoWindow,
-              JojoSwapchain *swapchain,
-              JojoPipeline *pipeline,
-              Replay::Recorder *jojoReplay,
-              JojoPhysics &physics,
-              JojoVulkanMesh *mesh,
-              JojoPipeline *textPipeline) {
+void gameloop (
+    Config &config,
+    JojoEngine *engine,
+    JojoWindow *jojoWindow,
+    JojoSwapchain *swapchain,
+    JojoPipeline *pipeline,
+    Replay::Recorder *jojoReplay,
+    JojoPhysics &physics,
+    JojoVulkanMesh *mesh,
+    JojoPipeline *textPipeline,
+    const Level::JojoLevel *level
+) {
     // TODO: extract a bunch of this to JojoWindow
 
     auto window = jojoWindow->window;
@@ -515,7 +518,7 @@ void gameloop(Config &config,
 
         drawFrame (
             config, engine, jojoWindow, swapchain,
-            pipeline, mesh, textPipeline, nullptr
+            pipeline, mesh, textPipeline, level
         );
     }
 }
@@ -782,6 +785,23 @@ int main(int argc, char *argv[]) {
 
     JojoPipeline pipeline, textPipeline;
 
+    // --------------------------------------------------------------
+    // LEVEL LOADING START
+    // --------------------------------------------------------------
+
+    Level::JojoLevel *level = nullptr;
+
+    {
+        // TODO: use custom command buffer
+        const auto cmd = swapchain.commandBuffers[0];
+
+        level = Level::alloc (&engine, "maps/heikousen.bsp");
+        Level::stageVertexData (&engine, level, cmd);
+    }
+
+    // --------------------------------------------------------------
+    // LEVEL LOADING END
+    // --------------------------------------------------------------
 
     mesh.initializeBuffers(&engine, Rendering::Set::Phong);
 
@@ -829,7 +849,10 @@ int main(int argc, char *argv[]) {
         );
     });
 
-    gameloop(config, &engine, &window, &swapchain, &pipeline, &jojoReplay, physics, &mesh, &textPipeline);
+    gameloop (
+        config, &engine, &window, &swapchain, &pipeline,
+        &jojoReplay, physics, &mesh, &textPipeline, level
+    );
 
 
     VkResult result = vkDeviceWaitIdle(engine.device);
@@ -837,6 +860,8 @@ int main(int argc, char *argv[]) {
 
 
     mesh.destroyBuffers(&engine);
+
+    Level::free (&engine, level);
 
     swapchain.destroyCommandBuffers(&engine);
 
