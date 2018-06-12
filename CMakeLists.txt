@@ -152,8 +152,14 @@ add_custom_command(TARGET heikousen PRE_BUILD
         ${CMAKE_SOURCE_DIR}/fonts ${CMAKE_CURRENT_BINARY_DIR}/fonts
         )
 
-# Copy font files on build
+# Copy texture files on build
 add_custom_command(TARGET heikousen PRE_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/textures ${CMAKE_CURRENT_BINARY_DIR}/textures
+        )
+
+# Copy map files on build
+add_custom_command(TARGET heikousen PRE_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/maps ${CMAKE_CURRENT_BINARY_DIR}/maps
         )
