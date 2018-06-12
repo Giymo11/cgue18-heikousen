@@ -102,7 +102,7 @@ void recordCommandBuffer(
         vkCmdBindIndexBuffer (cmd, level->index, 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed (cmd, level->bsp->indexCount, 1, 0, 0, 0);
     }*/
-    
+
     // --------------------------------------------------------------
     // LEVEL DRAWING END
     // --------------------------------------------------------------
@@ -164,30 +164,31 @@ void drawFrame (
     // DATA STAGING BEGIN
     // --------------------------------------------------------------
 
-    // {
-    //     result = beginCommandBuffer (transferCmd);
-    //     ASSERT_VULKAN (result);
+     {
+         // Wait for previous drawing to finish
+         result = VK_TIMEOUT;
+         while (result == VK_TIMEOUT)
+             result = vkWaitForFences (device, 1, &fence, VK_TRUE, 100000000);
+         ASSERT_VULKAN (result);
+         result = vkResetFences (device, 1, &fence);
+         ASSERT_VULKAN (result);
 
-    //     // Perform data staging
-    //     Level::cmdBuildAndStageIndicesNaively (device, transferQueue, level, transferCmd);
 
-    //     result = vkEndCommandBuffer (transferCmd);
-    //     ASSERT_VULKAN (result);
+         result = beginCommandBuffer (transferCmd);
+         ASSERT_VULKAN (result);
 
-    //     // Wait for previous drawing to finish
-    //     result = VK_TIMEOUT;
-    //     while (result == VK_TIMEOUT)
-    //         result = vkWaitForFences (device, 1, &fence, VK_TRUE, 100000000);
-    //     ASSERT_VULKAN (result);
-    //     result = vkResetFences (device, 1, &fence);
-    //     ASSERT_VULKAN (result);
+         // Perform data staging
+         Level::cmdBuildAndStageIndicesNaively (device, transferQueue, level, transferCmd);
 
-    //     VkSubmitInfo submitInfo = {};
-    //     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    //     submitInfo.commandBufferCount = 1;
-    //     submitInfo.pCommandBuffers = &transferCmd;
-    //     vkQueueSubmit (transferQueue, 1, &submitInfo, fence);
-    // }
+         result = vkEndCommandBuffer (transferCmd);
+         ASSERT_VULKAN (result);
+
+         VkSubmitInfo submitInfo = {};
+         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+         submitInfo.commandBufferCount = 1;
+         submitInfo.pCommandBuffers = &transferCmd;
+         vkQueueSubmit (transferQueue, 1, &submitInfo, fence);
+     }
 
     // --------------------------------------------------------------
     // DATA STAGING END
@@ -198,6 +199,14 @@ void drawFrame (
     // --------------------------------------------------------------
 
     {
+        // Wait for data staging to be finished
+        result = VK_TIMEOUT;
+        while (result == VK_TIMEOUT)
+            result = vkWaitForFences (device, 1, &fence, VK_TRUE, 100000000);
+        ASSERT_VULKAN (result);
+        result = vkResetFences (device, 1, &fence);
+        ASSERT_VULKAN (result);
+
         result = beginCommandBuffer (drawCmd);
         ASSERT_VULKAN (result);
 
@@ -215,15 +224,6 @@ void drawFrame (
 
         result = vkEndCommandBuffer (drawCmd);
         ASSERT_VULKAN (result);
-
-        // Wait for data staging to be finished
-        result = VK_TIMEOUT;
-        while (result == VK_TIMEOUT)
-            result = vkWaitForFences (device, 1, &fence, VK_TRUE, 100000000);
-        ASSERT_VULKAN (result);
-        result = vkResetFences (device, 1, &fence);
-        ASSERT_VULKAN (result);
-
 
         VkPipelineStageFlags waitStageMask[] = {
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
@@ -833,7 +833,7 @@ int main(int argc, char *argv[]) {
         level = Level::alloc (&engine, "maps/heikousen.bsp");
         Level::stageVertexData (&engine, level, cmd);
 
-        
+
     }
 
     // --------------------------------------------------------------
@@ -890,7 +890,7 @@ int main(int argc, char *argv[]) {
         auto descriptors = engine.descriptors;
         descriptors->update (Rendering::Set::Text, 0, font);
     }
-    
+
     config.rebuildPipelines = ([&]() {
         vkDeviceWaitIdle(engine.device);
         std::cout << "Pipeline rebuilt" << std::endl;
