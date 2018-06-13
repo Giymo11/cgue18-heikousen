@@ -409,7 +409,7 @@ VkDescriptorImageInfo generateTextureArray (
     auto v = view (
         device,
         image,
-        VK_FORMAT_R8G8B8A8_SRGB,
+        VK_FORMAT_R8G8B8A8_UNORM,
         layers,
         mipLevels
     );
