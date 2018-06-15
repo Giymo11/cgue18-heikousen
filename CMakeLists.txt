@@ -92,6 +92,7 @@ target_include_directories(
     ${BULLET_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/extern/VulkanMemoryAllocator/src
 )
 
 # case sensitive!

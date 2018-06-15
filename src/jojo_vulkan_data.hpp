@@ -12,6 +12,7 @@
 #include "jojo_scene.hpp"
 #include "jojo_engine.hpp"
 #include "jojo_pipeline.hpp"
+#include "jojo_vulkan_textures.hpp"
 
 #include "Rendering/DescriptorSets.h"
 
@@ -82,7 +83,7 @@ public:
     VkDeviceMemory globalTransformationMemory;
     VkDescriptorSet descriptorSet;
 
-    VkDescriptorImageInfo texture;
+    Textures::Texture diffuse256;
 
     JojoVulkanMesh();
 

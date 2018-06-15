@@ -245,21 +245,21 @@ std::unique_ptr<BSPData> loadBSP (
         std::string lightmap;
         std::string normal;
 
-        while (tex >> hash >> texture >> lightmap >> normal) {
+        while (tex >> hash >> texture >> normal >> lightmap) {
             const auto it = nameLookup.find (hash);
             if (it == nameLookup.end ())
                 continue;
 
-            const auto index = it->second;
-            textures[index] = std::move(texture);
-            normals[index] = std::move (normal);
+            const auto index = it->second - 1;
+            textures[index] = texture;
+            normals[index] = normal;
 
             auto lm = lightmapNames.find (lightmap);
             if (lm == lightmapNames.end ()) {
                 lightmapCount += 1;
                 lightmapLookup[index] = lightmapCount;
                 lightmapNames.emplace (lightmap, lightmapCount);
-                lightmaps.emplace_back (std::move(lightmap));
+                lightmaps.emplace_back (lightmap);
             } else {
                 lightmapLookup[index] = lm->second;
             }

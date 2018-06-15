@@ -59,7 +59,7 @@ void cmdBuildAndStageIndicesNaively (
     const VkCommandBuffer  transferCmd
 );
 
-void loadAndStageTextures (
+void cmdloadAndStageTextures (
     const JojoLevel       *level
 );
 

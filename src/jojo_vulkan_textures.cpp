@@ -1,7 +1,9 @@
 #include <array>
 #include <stb_image.h>
+
 #include "jojo_vulkan_utils.hpp"
 #include "jojo_vulkan_textures.hpp"
+#include "jojo_engine.hpp"
 
 /*
     TODO: Resources to deal with:
@@ -72,19 +74,18 @@ static void setImageLayout (
 
 namespace Textures {
 
-void create (
-    VkDevice device,
-    VkPhysicalDeviceMemoryProperties memoryProperties,
-    VkDeviceSize size,
-    VkFormat format,
-    uint32_t layers,
-    uint32_t mipLevels,
-    uint32_t width,
-    uint32_t height,
-    VkBuffer *stagingBuffer,
-    VkDeviceMemory *stagingMem,
-    VkImage *image,
-    VkDeviceMemory *imageMemory
+static void create (
+    const VmaAllocator  allocator,
+    const VkDeviceSize  size,
+    const VkFormat      format,
+    const uint32_t      layers,
+    const uint32_t      mipLevels,
+    const uint32_t      width,
+    const uint32_t      height,
+    VkBuffer           *stagingBuffer,
+    VmaAllocation      *stagingMem,
+    VkImage            *image,
+    VmaAllocation      *imageMemory
 ) {
     VkMemoryAllocateInfo memAllocInfo = {};
     VkMemoryRequirements memReqs = {};
@@ -94,18 +95,15 @@ void create (
     bufferCreateInfo.size = size * layers;
     bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    ASSERT_VULKAN (vkCreateBuffer (device, &bufferCreateInfo, nullptr, stagingBuffer));
 
-    vkGetBufferMemoryRequirements (device, *stagingBuffer, &memReqs);
-    memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    memAllocInfo.allocationSize = memReqs.size;
-    memAllocInfo.memoryTypeIndex = findMemoryTypeIndex (
-        memoryProperties,
-        memReqs.memoryTypeBits,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-    );
-    ASSERT_VULKAN (vkAllocateMemory (device, &memAllocInfo, nullptr, stagingMem));
-    ASSERT_VULKAN (vkBindBufferMemory (device, *stagingBuffer, *stagingMem, 0));
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    allocInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    ASSERT_VULKAN (vmaCreateBuffer (
+        allocator, &bufferCreateInfo, &allocInfo,
+        stagingBuffer, stagingMem, nullptr
+    ));
 
     VkImageCreateInfo imageInfo = {};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -119,32 +117,29 @@ void create (
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.extent = { width, height, 1 };
     imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    ASSERT_VULKAN (vkCreateImage (device, &imageInfo, nullptr, image));
 
-    vkGetImageMemoryRequirements (device, *image, &memReqs);
-    memAllocInfo.allocationSize = memReqs.size;
-    memAllocInfo.memoryTypeIndex = findMemoryTypeIndex (
-        memoryProperties,
-        memReqs.memoryTypeBits,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-    );
-    ASSERT_VULKAN (vkAllocateMemory (device, &memAllocInfo, nullptr, imageMemory));
-    ASSERT_VULKAN (vkBindImageMemory (device, *image, *imageMemory, 0));
+    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    ASSERT_VULKAN (vmaCreateImage (
+        allocator, &imageInfo, &allocInfo,
+        image, imageMemory, nullptr
+    ));
 }
 
-void stage (
-    VkDevice device,
-    VkDeviceMemory stagingMem,
-    const uint8_t *imageData,
-    VkDeviceSize imageDataSize
+static void stage (
+    const VmaAllocator   allocator,
+    const VmaAllocation  stagingMem,
+    const uint8_t       *imageData,
+    const VkDeviceSize   imageDataSize
 ) {
     uint8_t *data;
-    ASSERT_VULKAN (vkMapMemory (device, stagingMem, 0, imageDataSize, 0, (void **)&data));
+
+    ASSERT_VULKAN (vmaMapMemory (allocator, stagingMem, (void **)&data));
     std::copy (imageData, imageData + imageDataSize, data);
-    vkUnmapMemory (device, stagingMem);
+    vmaUnmapMemory (allocator, stagingMem);
 }
 
-void transfer (
+static void transfer (
     VkCommandBuffer cmd,
     VkBuffer staging,
     VkImage image,
@@ -259,7 +254,7 @@ void transfer (
     );
 }
 
-VkSampler sampler (
+static VkSampler sampler (
     VkDevice device,
     uint32_t mipLevels
 ) {
@@ -289,7 +284,7 @@ VkSampler sampler (
     return sampler;
 }
 
-VkImageView view (
+static VkImageView view (
     VkDevice device,
     VkImage image,
     VkFormat format,
@@ -312,24 +307,22 @@ VkImageView view (
     return view;
 }
 
-VkDescriptorImageInfo generateTextureArray (
-    VkDevice device,
-    const VkPhysicalDeviceMemoryProperties &memoryProperties,
-    VkCommandPool commandPool,
-    VkQueue queue
+void generateTextureArray (
+    const VmaAllocator  allocator,
+    const VkDevice      device,
+    const VkCommandPool commandPool,
+    const VkQueue       queue,
+    Texture            *outTexture
 ) {
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingMem;
-    VkImage image;
-    VkDeviceMemory imageMem;
-    VkDescriptorImageInfo texture;
+    VkBuffer            stagingBuffer;
+    VmaAllocation       stagingMem;
 
-    const uint32_t mipLevels = 10;
-    const uint32_t layers = 2;
-    const uint32_t width = 512;
-    const uint32_t height = 512;
-    const uint32_t channels = 4;
-    const uint32_t dataOffset = width * height * channels;
+    const uint32_t      mipLevels  = 10;
+    const uint32_t      layers     = 2;
+    const uint32_t      width      = 512;
+    const uint32_t      height     = 512;
+    const uint32_t      channels   = 4;
+    const uint32_t      dataOffset = width * height * channels;
 
     std::array<VkBufferImageCopy, layers> copy;
     std::vector<uint8_t> texData (dataOffset * layers);
@@ -350,8 +343,7 @@ VkDescriptorImageInfo generateTextureArray (
     }
 
     create (
-        device,
-        memoryProperties,
+        allocator,
         dataOffset,
         VK_FORMAT_R8G8B8A8_UNORM,
         layers,
@@ -360,12 +352,12 @@ VkDescriptorImageInfo generateTextureArray (
         height,
         &stagingBuffer,
         &stagingMem,
-        &image,
-        &imageMem
+        &outTexture->image,
+        &outTexture->memory
     );
 
     stage (
-        device,
+        allocator,
         stagingMem,
         texData.data (),
         dataOffset * layers
@@ -393,7 +385,7 @@ VkDescriptorImageInfo generateTextureArray (
     transfer (
         commandBuffer,
         stagingBuffer,
-        image,
+        outTexture->image,
         copy.data(),
         layers,
         width, height,
@@ -401,42 +393,37 @@ VkDescriptorImageInfo generateTextureArray (
     );
     endAndSubmitCommandBuffer (device, commandPool, queue, commandBuffer);
 
-    auto s = sampler (
+    outTexture->sampler = sampler (
         device,
         mipLevels
     );
 
-    auto v = view (
+    outTexture->view = view (
         device,
-        image,
+        outTexture->image,
         VK_FORMAT_R8G8B8A8_UNORM,
         layers,
         mipLevels
     );
 
-    texture.sampler = s;
-    texture.imageView = v;
-    texture.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    return texture;
+    vmaDestroyBuffer (allocator, stagingBuffer, stagingMem);
 }
 
-VkDescriptorImageInfo fontTexture (
-    VkDevice device,
-    const VkPhysicalDeviceMemoryProperties &memoryProperties,
-    VkCommandPool commandPool,
-    VkQueue queue
+void fontTexture (
+    const VmaAllocator  allocator,
+    const VkDevice      device,
+    const VkCommandPool commandPool,
+    const VkQueue       queue,
+    Texture            *outTexture
 ) {
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingMem;
-    VkImage image;
-    VkDeviceMemory imageMem;
-    VkDescriptorImageInfo texture;
+    VkBuffer              stagingBuffer;
+    VmaAllocation         stagingMem;
 
-    const uint32_t mipLevels = 1;
-    stbi_uc *texData = nullptr;
-    uint32_t width = 0;
-    uint32_t height = 0;
-    VkDeviceSize size = 0;
+    const uint32_t        mipLevels = 1;
+    stbi_uc              *texData   = nullptr;
+    uint32_t              width     = 0;
+    uint32_t              height    = 0;
+    VkDeviceSize          size      = 0;
 
     {
         int texWidth, texHeight, texChannels;
@@ -448,8 +435,7 @@ VkDescriptorImageInfo fontTexture (
     }
 
     create (
-        device,
-        memoryProperties,
+        allocator,
         size,
         VK_FORMAT_R8G8B8A8_UNORM,
         1,
@@ -458,12 +444,12 @@ VkDescriptorImageInfo fontTexture (
         height,
         &stagingBuffer,
         &stagingMem,
-        &image,
-        &imageMem
+        &outTexture->image,
+        &outTexture->memory
     );
 
     stage (
-        device,
+        allocator,
         stagingMem,
         (uint8_t *)texData,
         size
@@ -488,7 +474,7 @@ VkDescriptorImageInfo fontTexture (
     transfer (
         commandBuffer,
         stagingBuffer,
-        image,
+        outTexture->image,
         &copy,
         1,
         width, height,
@@ -496,24 +482,150 @@ VkDescriptorImageInfo fontTexture (
     );
     endAndSubmitCommandBuffer (device, commandPool, queue, commandBuffer);
 
-    auto s = sampler (
+    outTexture->sampler = sampler (
         device,
         mipLevels
     );
 
-    auto v = view (
+    outTexture->view = view (
         device,
-        image,
+        outTexture->image,
         VK_FORMAT_R8G8B8A8_UNORM,
         1,
         mipLevels
     );
 
-    texture.sampler = s;
-    texture.imageView = v;
-    texture.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    return texture;
+    vmaDestroyBuffer (allocator, stagingBuffer, stagingMem);
 }
 
+void cmdTextureArrayFromList (
+    const VmaAllocator              allocator,
+    const VkDevice                  device,
+    const VkCommandBuffer           transferCmd,
+    const std::vector<std::string> &textureList,
+    const uint32_t                  width,
+    const uint32_t                  height,
+    const bool                      generateDummyTexture,
+    Texture                        *outTexture,
+    VkBuffer                       *stagingBuffer,
+    VmaAllocation                  *stagingMemory
+) {
+    const uint32_t mipLevels  = 10;
+    const uint32_t channels   = 4;
+    const uint32_t dataOffset = width * height * channels;
+    const uint32_t layers     = (uint32_t)textureList.size () + 1;
+
+    std::vector<VkBufferImageCopy> copy(layers);
+    std::vector<uint8_t> texData (dataOffset * layers);
+    uint32_t counter = 1;
+
+    // Use dummy texture as zero-th texture
+    auto tex_ptr = (uint32_t *)texData.data ();
+    if (generateDummyTexture) {
+        for (int i = 0; i < (int)height; i++, tex_ptr += width) {
+            for (int j = 0; j < (int)width; j++) {
+                tex_ptr[j] = -((i ^ j) >> 5 & 1) | 0xFFFF00FF;
+            }
+        }
+    } else {
+        for (int i = 0; i < (int)height; i++, tex_ptr += width) {
+            for (int j = 0; j < (int)height; j++) {
+                tex_ptr[j] = 0xFF000000;
+            }
+        }
+    }
+
+    for (const auto &name : textureList) {
+        int dummy;
+
+        auto full_name = std::string ("textures/") + name;
+        auto tex = stbi_load (full_name.c_str (), &dummy, &dummy, &dummy, STBI_rgb_alpha);
+        std::copy ((uint8_t *)tex, (uint8_t *)tex + dataOffset, texData.data () + dataOffset * counter);
+        stbi_image_free (tex);
+
+        counter += 1;
+    }
+
+    create (
+        allocator,
+        dataOffset,
+        VK_FORMAT_R8G8B8A8_UNORM,
+        layers,
+        mipLevels,
+        width,
+        height,
+        stagingBuffer,
+        stagingMemory,
+        &outTexture->image,
+        &outTexture->memory
+    );
+
+    stage (
+        allocator,
+        *stagingMemory,
+        texData.data (),
+        dataOffset * layers
+    );
+
+    for (uint32_t layer = 0, offset = 0; layer < layers; layer++) {
+        auto &region = copy[layer];
+        region = {};
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.baseArrayLayer = layer;
+        region.imageSubresource.layerCount = 1;
+        region.imageExtent.width = width;
+        region.imageExtent.height = height;
+        region.imageExtent.depth = 1;
+        region.bufferOffset = offset;
+        region.bufferRowLength = 0;
+        region.bufferImageHeight = 0;
+
+        offset += dataOffset;
+    }
+
+    transfer (
+        transferCmd,
+        *stagingBuffer,
+        outTexture->image,
+        copy.data (),
+        layers,
+        width, height,
+        mipLevels
+    );
+
+    outTexture->sampler = sampler (
+        device,
+        mipLevels
+    );
+
+    outTexture->view = view (
+        device,
+        outTexture->image,
+        VK_FORMAT_R8G8B8A8_UNORM,
+        layers,
+        mipLevels
+    );
+}
+
+VkDescriptorImageInfo descriptor (
+    const Texture                  *texture
+) {
+    VkDescriptorImageInfo info;
+    info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    info.imageView   = texture->view;
+    info.sampler     = texture->sampler;
+    return info;
+}
+
+void freeTexture (
+    const VmaAllocator              allocator,
+    const VkDevice                  device,
+    const Texture                  *texture
+) {
+    vkDestroySampler (device, texture->sampler, nullptr);
+    vkDestroyImageView (device, texture->view, nullptr);
+    vmaDestroyImage (allocator, texture->image, texture->memory);
+}
 
 }

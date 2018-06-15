@@ -2,10 +2,11 @@
 // Created by benja on 4/28/2018.
 //
 
-#include "jojo_engine.hpp"
-
 #include <iostream>
+#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
 
+#include "jojo_engine.hpp"
 #include "jojo_window.hpp"
 #include "jojo_vulkan.hpp"
 #include "jojo_vulkan_utils.hpp"
@@ -71,13 +72,18 @@ void JojoEngine::startVulkan() {
     result = createLogicalDevice(chosenDevice, &device, chosenQueueFamilyIndex);
     ASSERT_VULKAN(result)
 
+    VmaAllocatorCreateInfo allocatorInfo = {};
+    allocatorInfo.physicalDevice = chosenDevice;
+    allocatorInfo.device = device;
+    ASSERT_VULKAN (vmaCreateAllocator (&allocatorInfo, &allocator));
+
     vkGetDeviceQueue(device, chosenQueueFamilyIndex, 0, &queue);
 
     result = checkSurfaceSupport(chosenDevice, surface, chosenQueueFamilyIndex);
-    ASSERT_VULKAN(result)
+    ASSERT_VULKAN (result);
 
     result = createCommandPool(device, &commandPool, chosenQueueFamilyIndex);
-    ASSERT_VULKAN(result)
+    ASSERT_VULKAN (result);
 }
 
 void JojoEngine::initializeDescriptorPool(uint32_t uniformCount,
@@ -94,6 +100,7 @@ void JojoEngine::shutdownVulkan() {
     delete descriptors;
     descriptors = nullptr;
     vkDestroyCommandPool(device, commandPool, nullptr);
+    vmaDestroyAllocator (allocator);
     vkDestroyDevice(device, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
 #ifdef ENABLE_VALIDATION

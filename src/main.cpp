@@ -823,9 +823,9 @@ int main(int argc, char *argv[]) {
         // TODO: use custom command buffer
         const auto cmd = swapchain.commandBuffers[0];
 
-        level = Level::alloc (&engine, "maps/heikousen.bsp");
+        level = Level::alloc (&engine, "maps/1");
         Level::stageVertexData (&engine, level, cmd);
-        Level::loadAndStageTextures (level);
+        //Level::loadAndStageTextures (level);
     }
 
     // --------------------------------------------------------------
@@ -868,19 +868,17 @@ int main(int argc, char *argv[]) {
 
     initializeMaterialsAndLights (config, &engine, &scene, &mesh);
 
-    {
-        VkPhysicalDeviceMemoryProperties memoryProperties;
-        vkGetPhysicalDeviceMemoryProperties (engine.chosenDevice, &memoryProperties);
+    Textures::Texture font;
 
-        auto font = Textures::fontTexture (
-            engine.device,
-            memoryProperties,
-            engine.commandPool,
-            engine.queue
+    {
+        Textures::fontTexture (
+            engine.allocator, engine.device, 
+            engine.commandPool, engine.queue,
+            &font
         );
 
         auto descriptors = engine.descriptors;
-        descriptors->update (Rendering::Set::Text, 0, font);
+        descriptors->update (Rendering::Set::Text, 0, Textures::descriptor(&font));
     }
 
     config.rebuildPipelines = ([&]() {
@@ -913,8 +911,9 @@ int main(int argc, char *argv[]) {
 
 
     VkResult result = vkDeviceWaitIdle(engine.device);
-    ASSERT_VULKAN(result)
+    ASSERT_VULKAN (result);
 
+    Textures::freeTexture (engine.allocator, engine.device, &font);
 
     mesh.destroyBuffers(&engine);
 

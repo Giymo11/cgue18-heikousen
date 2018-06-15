@@ -190,15 +190,30 @@ void cmdBuildAndStageIndicesNaively (
 void loadAndStageTextures (
     const JojoLevel       *level
 ) {
-    const auto bsp = level->bsp.get ();
-    const auto textures = bsp->textures;
+    const auto bsp       = level->bsp.get ();
+    const auto textures  = bsp->textures;
+    const auto normals   = bsp->normals;
+    const auto lightmaps = bsp->lightmaps;
+
+   /* cmdTextureArrayFromList (
+        const VkDevice                          device,
+        const VkPhysicalDeviceMemoryProperties &memoryProperties,
+        const VkCommandBuffer                   transferCmd,
+        const std::vector<std::string>         &textureList,
+        bool                                    generateDummyTexture,
+        Texture                                *outTexture,
+        VkBuffer                               *stagingBuffer,
+        VkDeviceMemory                         *stagingMemory
+    )*/
     
     std::cout << "=========================================\n";
     std::cout << "= LEVEL TEXTURES BEGIN                  =\n";
     std::cout << "=========================================\n";
 
-    for (auto i = 0; i < textures.size(); i++)
-        std::cout << i << " " << textures[i] << "\n";
+    for (auto i = 0; i < textures.size (); i++) {
+        std::cout << i << " " << textures[i].c_str () << bsp->lightmaps[bsp->lightmapLookup[i] - 1].c_str() << bsp->normals[i].c_str() << "\n";
+    }
+        
 
     std::cout << "=========================================\n";
     std::cout << "= LEVEL TEXTURES END                    =\n";
@@ -223,7 +238,7 @@ void loadAndStageTextures (
 
         for (auto lface = leafFaceBegin; lface != leafFaceEnd; ++lface) {
             const auto face = faces[lface->face];
-            /*std::cout << "FACE " << lface->face << " TEXTURE " << face.texture << " LIGHTMAP " << face.lm_index << "\n";*/
+            std::cout << "FACE " << lface->face << " TEXTURE " << face.texture << " LIGHTMAP " << face.lm_index << "\n";
 
             for (auto v = 0; v < face.n_meshverts; v++) {
                 const auto index = meshverts[face.meshvert + v].vertex + face.vertex;

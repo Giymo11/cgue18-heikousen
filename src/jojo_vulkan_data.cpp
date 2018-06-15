@@ -122,11 +122,10 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, Rendering::Set set) {
         &globalTransformationMemory
     );
 
-    auto texArray256 = Textures::generateTextureArray (
-        engine->device,
-        memoryProperties,
-        engine->commandPool,
-        engine->queue
+    Textures::generateTextureArray (
+        engine->allocator, engine->device,
+        engine->commandPool, engine->queue,
+        &diffuse256
     );
 
     VkDescriptorBufferInfo info = {};
@@ -151,11 +150,14 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, Rendering::Set set) {
     descriptors->update (set, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, info);
     descriptors->update (Rendering::Set::Level, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, info);
 
-    descriptors->update (set, 4, texArray256);
-    descriptors->update (Rendering::Set::Level, 2, texArray256);
+    auto diffuse256desc = Textures::descriptor (&diffuse256);
+    descriptors->update (set, 4, diffuse256desc);
+    descriptors->update (Rendering::Set::Level, 2, diffuse256desc);
 }
 
 void JojoVulkanMesh::destroyBuffers(JojoEngine *engine) {
+    Textures::freeTexture (engine->allocator, engine->device, &diffuse256);
+
     vkFreeMemory(engine->device, uniformBufferDeviceMemory, nullptr);
     vkDestroyBuffer(engine->device, uniformBuffer, nullptr);
 

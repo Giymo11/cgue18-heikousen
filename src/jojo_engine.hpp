@@ -1,12 +1,11 @@
-
-
 #pragma once
 
 
 #include <vector>
 #include <memory>
-
 #include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
+
 #include "jojo_vulkan_debug.hpp"
 
 class JojoWindow;
@@ -25,6 +24,8 @@ public:
     VkPhysicalDevice chosenDevice;
     VkDevice device;
     VkQueue queue;
+
+    VmaAllocator allocator;
 
     VkCommandPool commandPool;
     VkDescriptorPool descriptorPool;

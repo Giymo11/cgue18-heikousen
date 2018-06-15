@@ -1,28 +1,54 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
 
 namespace Textures {
 
-VkDescriptorImageInfo generateTextureArray (
-    VkDevice device,
-    const VkPhysicalDeviceMemoryProperties &memoryProperties,
-    VkCommandPool commandPool,
-    VkQueue queue
-);
-
-VkDescriptorImageInfo fontTexture (
-    VkDevice device,
-    const VkPhysicalDeviceMemoryProperties &memoryProperties,
-    VkCommandPool commandPool,
-    VkQueue queue
-);
-
 struct Texture {
     VkImage        image;
-    VkDeviceMemory memory;
+    VmaAllocation  memory;
     VkSampler      sampler;
     VkImageView    view;
 };
+
+void generateTextureArray (
+    const VmaAllocator              allocator,
+    const VkDevice                  device,
+    const VkCommandPool             commandPool,
+    const VkQueue                   queue,
+    Texture                        *outTexture
+);
+
+void fontTexture (
+    const VmaAllocator              allocator,
+    const VkDevice                  device,
+    const VkCommandPool             commandPool,
+    const VkQueue                   queue,
+    Texture                        *outTexture
+);
+
+void cmdTextureArrayFromList (
+    const VmaAllocator              allocator,
+    const VkDevice                  device,
+    const VkCommandBuffer           transferCmd,
+    const std::vector<std::string> &textureList,
+    uint32_t                        width,
+    uint32_t                        height,
+    bool                            generateDummyTexture,
+    Texture                        *outTexture,
+    VkBuffer                       *stagingBuffer,
+    VmaAllocation                  *stagingMemory
+);
+
+VkDescriptorImageInfo descriptor (
+    const Texture                  *texture
+);
+
+void freeTexture (
+    const VmaAllocator              allocator,
+    const VkDevice                  device,
+    const Texture                  *texture
+);
 
 }
