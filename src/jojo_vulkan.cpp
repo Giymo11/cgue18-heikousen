@@ -10,7 +10,7 @@
 
 #include "jojo_utils.hpp"
 #include "jojo_vulkan_data.hpp"
-#include "jojo_vulkan_debug.h"
+#include "jojo_vulkan_debug.hpp"
 
 #define BREAK_BREAK_BREAK\
 psnip_trap();\

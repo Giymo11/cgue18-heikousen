@@ -1,3 +1,6 @@
+#include <iostream>
+#include <unordered_map>
+
 #include "jojo_vulkan_utils.hpp"
 #include "jojo_engine.hpp"
 #include "jojo_level.hpp"
@@ -182,6 +185,67 @@ void cmdBuildAndStageIndicesNaively (
     VkBufferCopy bufferCopy = {};
     bufferCopy.size = indexDataSize;
     vkCmdCopyBuffer (transferCmd, level->indexStaging, level->index, 1, &bufferCopy);
+}
+
+void loadAndStageTextures (
+    const JojoLevel       *level
+) {
+    const auto bsp = level->bsp.get ();
+    const auto textures = bsp->textures;
+    const auto textureCount = bsp->header->direntries[BSP::Textures].length / sizeof (BSP::Texture);
+
+    char name[65];
+    std::fill (name, name + 65, 0);
+    
+    std::cout << "=========================================\n";
+    std::cout << "= LEVEL TEXTURES BEGIN                  =\n";
+    std::cout << "=========================================\n";
+
+    for (auto i = 0; i < textureCount; i++) {
+        const auto &texture = textures[i];
+        std::copy (texture.name, texture.name + 64, name);
+        std::cout << i << " " << name + 10 << "\n";
+    }
+
+    std::cout << "=========================================\n";
+    std::cout << "= LEVEL TEXTURES END                    =\n";
+    std::cout << "=========================================\n";
+
+    std::cout << "=========================================\n";
+    std::cout << "= FACE TEXTURES BEGIN                   =\n";
+    std::cout << "=========================================\n";
+
+    const auto header = bsp->header;
+    const auto leafs = bsp->leafs;
+    const auto leafFaces = bsp->leafFaces;
+    const auto faces = bsp->faces;
+    const auto meshverts = bsp->meshVertices;
+    const auto leafBytes = (const uint8_t *)leafs + header->direntries[BSP::Leafs].length;
+    const auto leafEnd = (const BSP::Leaf *)leafBytes;
+    std::unordered_map<int, int> vertexTextures;
+
+    for (auto leaf = &leafs[0]; leaf != leafEnd; ++leaf) {
+        const auto leafFaceBegin = leafFaces + leaf->leafface;
+        const auto leafFaceEnd = leafFaceBegin + leaf->n_leaffaces;
+
+        for (auto lface = leafFaceBegin; lface != leafFaceEnd; ++lface) {
+            const auto face = faces[lface->face];
+            /*std::cout << "FACE " << lface->face << " TEXTURE " << face.texture << " LIGHTMAP " << face.lm_index << "\n";*/
+
+            for (auto v = 0; v < face.n_meshverts; v++) {
+                const auto index = meshverts[face.meshvert + v].vertex + face.vertex;
+                const auto vtex = vertexTextures.find (index);
+                if (vtex != vertexTextures.end () && vtex->second != face.texture)
+                    std::cout << "TEXTURE CONFLICT VERTEX " << vtex->first << "\n";
+                else
+                    vertexTextures[index] = face.texture;
+            }
+        }
+    }
+
+    std::cout << "=========================================\n";
+    std::cout << "= FACE TEXTURES END                     =\n";
+    std::cout << "=========================================\n";
 }
 
 }

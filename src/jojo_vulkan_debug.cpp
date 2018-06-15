@@ -1,4 +1,4 @@
-#include "jojo_vulkan_debug.h"
+#include "jojo_vulkan_debug.hpp"
 #ifdef ENABLE_VALIDATION
 
 #include <iostream>

@@ -18,4 +18,11 @@ VkDescriptorImageInfo fontTexture (
     VkQueue queue
 );
 
+struct Texture {
+    VkImage        image;
+    VkDeviceMemory memory;
+    VkSampler      sampler;
+    VkImageView    view;
+};
+
 }

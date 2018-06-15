@@ -75,32 +75,6 @@ add_executable(heikousen ${SOURCE_FILES} ${SHADER_FILES} ${COMPILED_SHADERS})
 set(BINARY heikousen)
 
 
-if (UNIX)
-    target_include_directories(
-            heikousen PRIVATE
-            "/usr/include/bullet"
-            "/usr/include/v8"
-    )
-    list(APPEND V8_LIBRARIES
-            pthread
-            v8_base
-    )
-else ()
-    target_include_directories(
-            heikousen PRIVATE
-            ${CMAKE_SOURCE_DIR}/extern/dist/include
-            ${CMAKE_SOURCE_DIR}/extern/dist/include/v8
-    )
-    list(APPEND V8_LIBRARIES
-            winmm
-            dbghelp
-            shlwapi
-            v8_base_0
-            v8_base_1
-    )
-endif ()
-
-
 target_include_directories(
         heikousen PRIVATE
         ${Vulkan_INCLUDE_DIRS}
@@ -109,24 +83,11 @@ target_include_directories(
         ${CMAKE_SOURCE_DIR}/src
 )
 
-# order matters!
-list(APPEND V8_LIBRARIES
-        v8_nosnapshot
-        v8_libplatform
-        v8_libbase
-        v8_libsampler
-        v8_init
-        v8_initializers
-        icui18n
-        icuuc
-)
-
 # case sensitive!
 target_link_libraries(
         ${BINARY}
         ${BULLET_LIBRARIES}
         ${Vulkan_LIBRARIES}
-        ${V8_LIBRARIES}
         glm
         glfw
 )

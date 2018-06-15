@@ -1,7 +1,7 @@
 #include <fstream>
-#include <iostream>
+#include <string>
+#include <unordered_map>
 
-#include "jojo_bsp.hpp"
 #include "jojo_level.hpp"
 
 namespace BSP {
@@ -123,19 +123,28 @@ void buildIndicesNaive (
     );
 }
 
-BSPData::BSPData (
+BSPData (
     std::vector<uint8_t> &&data,
-    uint32_t               indexCount
+    std::vector<std::string> &&texturesIn,
+    std::vector<std::string> &&normalsIn,
+    std::vector<std::string> &&lightmapsIn,
+    std::vector<int32_t> &&lightmapLookupIn,
+    uint32_t indexCount
 ) :
-    raw          (std::move (data)),
-    header       ((const Header *)     (raw.data () + 0)),
-    nodes        ((const Node *)       (raw.data () + header->direntries[Nodes].offset)),
-    leafs        ((const Leaf *)       (raw.data () + header->direntries[Leafs].offset)),
-    leafFaces    ((const LeafFace *)   (raw.data () + header->direntries[Leaffaces].offset)),
-    faces        ((const Face *)       (raw.data () + header->direntries[Faces].offset)),
-    meshVertices ((const MeshVertex *) (raw.data () + header->direntries[Meshverts].offset)),
-    vertices     ((const Vertex *)     (raw.data () + header->direntries[Vertices].offset)),
-    indexCount   (indexCount)
+    raw            (std::move (data)),
+    textures       (std::move (texturesIn)),
+    normals        (std::move (normalsIn)),
+    lightmaps      (std::move (lightmapsIn)),
+    lightmapLookup (std::move (lightmapLookupIn)),
+    header         ((const Header *)     (raw.data () + 0)),
+    nodes          ((const Node *)       (raw.data () + header->direntries[Nodes].offset)),
+    leafs          ((const Leaf *)       (raw.data () + header->direntries[Leafs].offset)),
+    leafFaces      ((const LeafFace *)   (raw.data () + header->direntries[Leaffaces].offset)),
+    faces          ((const Face *)       (raw.data () + header->direntries[Faces].offset)),
+    meshVertices   ((const MeshVertex *) (raw.data () + header->direntries[Meshverts].offset)),
+    vertices       ((const Vertex *)     (raw.data () + header->direntries[Vertices].offset)),
+    textures       ((const Texture *)    (raw.data () + header->direntries[Textures].offset)),
+    indexCount     (indexCount)
 {
 }
 
@@ -143,7 +152,7 @@ std::unique_ptr<BSPData> loadBSP (
     const std::string &name
 ) {
     std::ifstream file (
-        name,
+        name + ".bsp",
         std::ios_base::in | std::ios_base::binary | std::ios_base::ate
     );
     if (!file.is_open ())
@@ -163,6 +172,10 @@ std::unique_ptr<BSPData> loadBSP (
     auto vertices  = (Vertex *)   (buffer.data () + header->direntries[Vertices].offset);
     auto indexNum  = indexCount (header, leafs, leafFaces, faces);
 
+    // --------------------------------------------------------------
+    // COORDINATE SYSTEM FIX BEGIN
+    // --------------------------------------------------------------
+
     const auto vertexBytes = (uint8_t *)vertices + header->direntries[Vertices].length;
     const auto endVertex = (Vertex *)vertexBytes;
     const auto scale = 0.03f;
@@ -179,6 +192,84 @@ std::unique_ptr<BSPData> loadBSP (
         v->position[1] *= scale;
         v->position[2] *= scale;
     }
+
+    // --------------------------------------------------------------
+    // COORDINATE SYSTEM FIX END
+    // --------------------------------------------------------------
+
+    // --------------------------------------------------------------
+    // TEXTURE FIX BEGIN
+    // --------------------------------------------------------------
+
+    int32_t newTextureCount = 0;
+    std::unordered_map<std::string, int32_t> nameLookup;
+
+    {
+        const auto textures    = (const Texture *) (buffer.data () + header->direntries[Textures].offset);
+        const auto numTextures = header->direntries[Textures].length / sizeof (Texture);
+        std::vector<int32_t> lookup (numTextures, 0);
+
+        // Create lookup array
+        for (auto i = 0; i < numTextures; ++i) {
+            const auto name = textures[i].name;
+            if (name[0] != 'h')
+                continue;
+
+            newTextureCount += 1;
+            lookup[i] = newTextureCount;
+            nameLookup.emplace (name + 10, newTextureCount);
+        }
+
+        // Fix texture of every face
+        auto faceEndBytes = (uint8_t *)faces + header->direntries[Faces].length;
+        auto facesEnd     = (Face *)faceEndBytes;
+        for (auto face = &faces[0]; face != facesEnd; ++face)
+            face->texture = lookup[face->texture];
+    }
+
+    std::vector<std::string> textures       (newTextureCount);
+    std::vector<std::string> normals        (newTextureCount);
+    std::vector<int32_t>     lightmapLookup (newTextureCount, 0);
+
+    int32_t lightmapCount = 0;
+    std::vector<std::string> lightmaps;
+    std::unordered_map<std::string, int32_t> lightmapNames;
+    lightmaps.reserve (newTextureCount);
+
+    {
+        std::ifstream tex (name + ".tex");
+        if (!tex.is_open ())
+            return nullptr;
+
+        std::string hash;
+        std::string texture;
+        std::string lightmap;
+        std::string normal;
+
+        while (tex >> hash >> texture >> lightmap >> normal) {
+            const auto it = nameLookup.find (hash);
+            if (it == nameLookup.end ())
+                continue;
+
+            const auto index = it->second;
+            textures[index] = std::move(texture);
+            normals[index] = std::move (normal);
+
+            auto lm = lightmapNames.find (lightmap);
+            if (lm == lightmapNames.end ()) {
+                lightmapCount += 1;
+                lightmapLookup[index] = lightmapCount;
+                lightmapNames.emplace (lightmap, lightmapCount);
+                lightmaps.emplace_back (std::move(lightmap));
+            } else {
+                lightmapLookup[index] = lm->second;
+            }
+        }
+    }
+
+    // --------------------------------------------------------------
+    // TEXTURE FIX END
+    // --------------------------------------------------------------
 
     return std::make_unique<BSPData>(std::move(buffer), indexNum);
 }

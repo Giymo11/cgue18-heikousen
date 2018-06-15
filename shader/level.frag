@@ -56,8 +56,8 @@ void main() {
 	vec3 v = normalize(-vert.position);
 
     outColor = vec4(objColor.xyz * ambient, objColor.w);
-    for (int i = 0; i < LIGHT_COUNT; i++)
-        outColor.xyz += point(objColor.xyz, lightInfo.lights[i], vert.position, vert.normal, v);
+    /* for (int i = 0; i < LIGHT_COUNT; i++)
+        outColor.xyz += point(objColor.xyz, lightInfo.lights[i], vert.position, vert.normal, v); */
 
 	outColor.xyz = gamma_adjust(outColor.xyz, gamma);
 }

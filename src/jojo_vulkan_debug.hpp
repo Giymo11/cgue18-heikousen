@@ -1,5 +1,4 @@
 #pragma once
-#define ENABLE_VALIDATION
 #ifdef ENABLE_VALIDATION
 #include <vulkan/vulkan.h>
 

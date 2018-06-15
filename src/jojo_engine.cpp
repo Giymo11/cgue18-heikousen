@@ -48,11 +48,7 @@ void JojoEngine::startVulkan() {
     ASSERT_VULKAN (result);
 #endif
 
-    //printInstanceLayers();
-    //printInstanceExtensions();
-
     jojoWindow->createSurface(instance, &surface);
-
 
     uint32_t numberOfPhysicalDevices = 0;
     // if passed nullptr as third parameter, outputs the number of GPUs to the second parameter
@@ -100,7 +96,9 @@ void JojoEngine::shutdownVulkan() {
     vkDestroyCommandPool(device, commandPool, nullptr);
     vkDestroyDevice(device, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
+#ifdef ENABLE_VALIDATION
     vkDestroyDebugReportCallbackEXT (instance, mCallback, nullptr);
+#endif
     vkDestroyInstance(instance, nullptr);
 }
 

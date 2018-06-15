@@ -7,7 +7,7 @@
 #include <memory>
 
 #include <vulkan/vulkan.h>
-#include "jojo_vulkan_debug.h"
+#include "jojo_vulkan_debug.hpp"
 
 class JojoWindow;
 namespace Rendering {

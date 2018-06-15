@@ -105,9 +105,21 @@ struct MeshVertex {
 };
 
 struct BSPData {
-    BSPData (std::vector<uint8_t> &&raw, uint32_t indexCount);
+    BSPData (
+        std::vector<uint8_t> &&raw,
+        std::vector<std::string> &&textures,
+        std::vector<std::string> &&normals,
+        std::vector<std::string> &&lightmaps,
+        std::vector<int32_t> &&lightmapLookup,
+        uint32_t indexCount
+    );
 
     const std::vector<uint8_t>  raw;
+    const std::vector<std::string> textures;
+    const std::vector<std::string> normals;
+    const std::vector<std::string> lightmaps;
+    const std::vector<int32_t> lightmapLookup;
+
     const Header     *header;
     const Node       *nodes;
     const Leaf       *leafs;

@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 
 #include "jojo_bsp.hpp"
+#include "jojo_vulkan_textures.hpp"
 
 class JojoEngine;
 
@@ -20,12 +21,16 @@ struct Vertex {
 struct JojoLevel {
     std::unique_ptr<BSP::BSPData> bsp;
 
-    VkBuffer vertex;
-    VkBuffer index;
-    VkBuffer indexStaging;
-    VkDeviceMemory vertexMemory;
-    VkDeviceMemory indexMemory;
-    VkDeviceMemory indexStagingMemory;
+    VkBuffer          vertex;
+    VkBuffer          index;
+    VkBuffer          indexStaging;
+    VkDeviceMemory    vertexMemory;
+    VkDeviceMemory    indexMemory;
+    VkDeviceMemory    indexStagingMemory;
+
+    Textures::Texture texDiffuse;
+    Textures::Texture texNormal;
+    Textures::Texture texLightmap;
 };
 
 JojoLevel *alloc (
@@ -52,6 +57,10 @@ void cmdBuildAndStageIndicesNaively (
     const VkQueue          transferQueue,
     const JojoLevel       *level,
     const VkCommandBuffer  transferCmd
+);
+
+void loadAndStageTextures (
+    const JojoLevel       *level
 );
 
 }

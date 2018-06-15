@@ -34,7 +34,6 @@
 #include "jojo_window.hpp"
 #include "jojo_replay.hpp"
 #include "Rendering/DescriptorSets.h"
-#include "jojo_script.hpp"
 #include "jojo_vulkan_textures.hpp"
 #include "jojo_level.hpp"
 
@@ -108,7 +107,7 @@ void recordCommandBuffer(
     // --------------------------------------------------------------
 
     /*vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
-    mesh->goDrawYourself(cmd, pipeline->pipelineLayout);*/
+    mesh->goDrawYourself(cmd, pipeline->pipelineLayout);
 
     vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, textPipeline->pipeline);
     auto textDescriptor = engine->descriptors->set (Rendering::Set::Text);
@@ -120,7 +119,7 @@ void recordCommandBuffer(
         1, &textDescriptor,
         0, nullptr
     );
-    vkCmdDraw (cmd, 6, 1, 0, 0);
+    vkCmdDraw (cmd, 6, 1, 0, 0);*/
 
     vkCmdEndRenderPass(cmd);
 }
@@ -693,13 +692,6 @@ void initializeMaterialsAndLights (
 }
 
 int main(int argc, char *argv[]) {
-    /* Scripting::Engine jojoScript;
-
-    Scripting::GameObject helloObj;
-    jojoScript.hookScript(helloObj, "scripts/hello.js");
-    helloObj.updateLogic(); */
-
-
     JojoPhysics physics;
 
     //loadFromGlb(&gltfModel, "../models/duck.glb");
@@ -715,7 +707,7 @@ int main(int argc, char *argv[]) {
     loadFromGlb(&gltfModel, "models/cobra3_cleaned3_textured.glb");
     JojoNode playerNode;
     playerNode.loadFromGltf(gltfModel, &scene);
-    playerNode.setRelativeMatrix(glm::mat4());
+    playerNode.setRelativeMatrix(glm::translate(glm::mat4(), glm::vec3(0, 2, 0)));
     scene.children.push_back(&playerNode);
 
     JojoPhysicsNode *playerPhysicsNode = makeSphereNode(physics, &playerNode);
@@ -833,8 +825,7 @@ int main(int argc, char *argv[]) {
 
         level = Level::alloc (&engine, "maps/heikousen.bsp");
         Level::stageVertexData (&engine, level, cmd);
-
-
+        Level::loadAndStageTextures (level);
     }
 
     // --------------------------------------------------------------
