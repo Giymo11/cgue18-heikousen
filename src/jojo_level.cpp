@@ -192,20 +192,13 @@ void loadAndStageTextures (
 ) {
     const auto bsp = level->bsp.get ();
     const auto textures = bsp->textures;
-    const auto textureCount = bsp->header->direntries[BSP::Textures].length / sizeof (BSP::Texture);
-
-    char name[65];
-    std::fill (name, name + 65, 0);
     
     std::cout << "=========================================\n";
     std::cout << "= LEVEL TEXTURES BEGIN                  =\n";
     std::cout << "=========================================\n";
 
-    for (auto i = 0; i < textureCount; i++) {
-        const auto &texture = textures[i];
-        std::copy (texture.name, texture.name + 64, name);
-        std::cout << i << " " << name + 10 << "\n";
-    }
+    for (auto i = 0; i < textures.size(); i++)
+        std::cout << i << " " << textures[i] << "\n";
 
     std::cout << "=========================================\n";
     std::cout << "= LEVEL TEXTURES END                    =\n";

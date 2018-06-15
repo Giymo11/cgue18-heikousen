@@ -123,7 +123,7 @@ void buildIndicesNaive (
     );
 }
 
-BSPData (
+BSPData::BSPData (
     std::vector<uint8_t> &&data,
     std::vector<std::string> &&texturesIn,
     std::vector<std::string> &&normalsIn,
@@ -143,7 +143,6 @@ BSPData (
     faces          ((const Face *)       (raw.data () + header->direntries[Faces].offset)),
     meshVertices   ((const MeshVertex *) (raw.data () + header->direntries[Meshverts].offset)),
     vertices       ((const Vertex *)     (raw.data () + header->direntries[Vertices].offset)),
-    textures       ((const Texture *)    (raw.data () + header->direntries[Textures].offset)),
     indexCount     (indexCount)
 {
 }
@@ -211,7 +210,7 @@ std::unique_ptr<BSPData> loadBSP (
 
         // Create lookup array
         for (auto i = 0; i < numTextures; ++i) {
-            const auto name = textures[i].name;
+            const auto name = (const char *)textures[i].name;
             if (name[0] != 'h')
                 continue;
 
@@ -271,7 +270,14 @@ std::unique_ptr<BSPData> loadBSP (
     // TEXTURE FIX END
     // --------------------------------------------------------------
 
-    return std::make_unique<BSPData>(std::move(buffer), indexNum);
+    return std::make_unique<BSPData>(
+        std::move(buffer),
+        std::move(textures),
+        std::move(normals),
+        std::move(lightmaps),
+        std::move(lightmapLookup),
+        indexNum
+    );
 }
 
 }

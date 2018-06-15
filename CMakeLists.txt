@@ -60,8 +60,8 @@ endif ()
 
 
 link_directories(
-        ${BULLET_LIBRARY_DIRS}
-        ${CMAKE_SOURCE_DIR}/extern/dist/lib
+    ${BULLET_LIBRARY_DIRS}
+    ${CMAKE_SOURCE_DIR}/extern/dist/lib
 )
 
 
@@ -70,26 +70,37 @@ message("Bullet found? " ${BULLET_FOUND})
 message("GLFW3 found? " ${GLFW_FOUND})
 message("GLM found? " ${GLM_FOUND})
 
-
 add_executable(heikousen ${SOURCE_FILES} ${SHADER_FILES} ${COMPILED_SHADERS})
 set(BINARY heikousen)
 
+if (UNIX)
+    target_include_directories(
+            heikousen PRIVATE
+            "/usr/include/bullet"
+    )
+else ()
+    target_include_directories(
+            heikousen PRIVATE
+            ${CMAKE_SOURCE_DIR}/extern/dist/include
+    )
+endif ()
+
 
 target_include_directories(
-        heikousen PRIVATE
-        ${Vulkan_INCLUDE_DIRS}
-        ${BULLET_INCLUDE_DIRS}
-        ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/src
+    heikousen PRIVATE
+    ${Vulkan_INCLUDE_DIRS}
+    ${BULLET_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
 )
 
 # case sensitive!
 target_link_libraries(
-        ${BINARY}
-        ${BULLET_LIBRARIES}
-        ${Vulkan_LIBRARIES}
-        glm
-        glfw
+    ${BINARY}
+    ${BULLET_LIBRARIES}
+    ${Vulkan_LIBRARIES}
+    glm
+    glfw
 )
 
 
