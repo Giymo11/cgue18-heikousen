@@ -17,18 +17,18 @@ JojoPhysics::JojoPhysics() {
 }
 
 JojoPhysics::~JojoPhysics() {
-    // Cleanup.
-    for (int i = dynamicsWorld->getNumCollisionObjects() - 1; i >= 0; --i) {
-        btCollisionObject *obj = dynamicsWorld->getCollisionObjectArray()[i];
-        btRigidBody *body = btRigidBody::upcast(obj);
-        if (body && body->getMotionState()) {
-            delete body->getMotionState();
-        }
-        dynamicsWorld->removeCollisionObject(obj);
-        delete obj;
-    }
+    //// Cleanup.
+    //for (int i = dynamicsWorld->getNumCollisionObjects() - 1; i >= 0; --i) {
+    //    btCollisionObject *obj = dynamicsWorld->getCollisionObjectArray()[i];
+    //    btRigidBody *body = btRigidBody::upcast(obj);
+    //    if (body && body->getMotionState()) {
+    //        delete body->getMotionState();
+    //    }
+    //    dynamicsWorld->removeCollisionObject(obj);
+    //    delete obj;
+    //}
 
-    for (int i = 0; i < collisionShapes.size(); ++i) {
+    /*for (int i = 0; i < collisionShapes.size(); ++i) {
         delete collisionShapes[i];
     }
     delete dynamicsWorld;
@@ -36,11 +36,11 @@ JojoPhysics::~JojoPhysics() {
     delete overlappingPairCache;
     delete dispatcher;
     delete collisionConfiguration;
-    collisionShapes.clear();
+    collisionShapes.clear();*/
 }
 
 void JojoPhysics::theTickCallback(btDynamicsWorld *dynamicsWorld, btScalar timeStep) {
-    objectsCollisions.clear();
+    /*objectsCollisions.clear();
 
     for(auto *node : dynamicNodes) {
         node->contacting.clear();
@@ -71,6 +71,6 @@ void JojoPhysics::theTickCallback(btDynamicsWorld *dynamicsWorld, btScalar timeS
             collisionsA.push_back(&pt);
             collisionsB.push_back(&pt);
         }
-    }
+    }*/
 }
 

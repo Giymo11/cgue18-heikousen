@@ -23,6 +23,7 @@ const float diffuse  = 0.95;
 const float specular = 0.2;
 const float alpha    = 2.0;
 const float gamma    = 1.22;
+const float exposure = 3.0;
 
 layout(std140, binding = 1) uniform LightBlock {
 	vec4 parameters;
@@ -49,6 +50,10 @@ vec3 point(vec3 objColor, LightSource light, vec3 p, vec3 n, vec3 v) {
     return phong(objColor, light.color, normalize(light.position - p), n, v) * (1 / attenuation);
 }
 
+vec3 tonemaping_exposure(vec3 hdrColor, float hdrExposure) {
+    return vec3(1.0) - exp(-hdrColor * hdrExposure);
+}
+
 vec3 gamma_adjust(vec3 color, float gamma) {
     return pow(color, vec3(1.0 / gamma));
 }
@@ -62,5 +67,6 @@ void main() {
     /* for (int i = 0; i < LIGHT_COUNT; i++)
         outColor.xyz += point(objColor.xyz, lightInfo.lights[i], vert.position, vert.normal, v); */
 
+	outColor.xyz = tonemaping_exposure(outColor.xyz, exposure);
 	outColor.xyz = gamma_adjust(outColor.xyz, gamma);
 }

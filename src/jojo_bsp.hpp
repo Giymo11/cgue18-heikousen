@@ -76,6 +76,26 @@ struct LeafFace {
     int32_t    face;
 };
 
+struct LeafBrush {
+    int32_t    brush;
+};
+
+struct Brush {
+    int32_t    brushside;
+    int32_t    n_brushsides;
+    int32_t    texture;
+};
+
+struct BrushSide {
+    int32_t    plane;
+    int32_t    texture;
+};
+
+struct Plane {
+    float      normal[3];
+    float      dist;
+};
+
 struct Face {
     int32_t    texture;
     int32_t    effect;
@@ -106,11 +126,11 @@ struct MeshVertex {
 
 struct BSPData {
     BSPData (
-        std::vector<uint8_t> &&raw,
+        std::vector<uint8_t>     &&raw,
         std::vector<std::string> &&textures,
         std::vector<std::string> &&normals,
         std::vector<std::string> &&lightmaps,
-        std::vector<int32_t> &&lightmapLookup,
+        std::vector<int32_t>     &&lightmapLookup,
         uint32_t indexCount
     );
 
@@ -124,6 +144,11 @@ struct BSPData {
     const Node       *nodes;
     const Leaf       *leafs;
     const LeafFace   *leafFaces;
+    const Brush      *brushes;
+    const LeafBrush  *leafBrushes;
+    const BrushSide  *brushSides;
+    const Plane      *planes;
+    const Texture    *textureData;
     const Face       *faces;
     const MeshVertex *meshVertices;
     const Vertex     *vertices;
@@ -156,6 +181,19 @@ void buildIndicesNaive (
     const Face       *faces,
     const MeshVertex *meshVerts,
     uint32_t         *indices
+);
+
+void buildColliders (
+    const Header    *header,
+    const Leaf      *leafs,
+    const LeafBrush *leafBrushes,
+    const Brush     *brushes,
+    const BrushSide *brushSides,
+    const Plane     *planes,
+    const Texture   *textures,
+    btAlignedObjectArray<btCollisionShape *>     *collisionShapes,
+    btAlignedObjectArray<btDefaultMotionState *> *motionStates,
+    btAlignedObjectArray<btRigidBody *>          *rigidBodies
 );
 
 }

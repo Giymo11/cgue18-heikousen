@@ -1,6 +1,7 @@
 #pragma once
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
+#include <btBulletDynamicsCommon.h>
 
 #include "jojo_bsp.hpp"
 #include "jojo_vulkan_textures.hpp"
@@ -42,6 +43,10 @@ struct JojoLevel {
     Textures::Texture texLightmap;
 
     VkDescriptorSet   descriptorSet;
+
+    btAlignedObjectArray<btCollisionShape *>     collisionShapes;
+    btAlignedObjectArray<btDefaultMotionState *> motionStates;
+    btAlignedObjectArray<btRigidBody *>          rigidBodies;
 };
 
 JojoLevel *alloc (
@@ -79,6 +84,11 @@ void cmdLoadAndStageTextures (
 void updateDescriptors (
     const Rendering::DescriptorSets *descriptors,
     const JojoLevel                 *level
+);
+
+void loadAndAddRigidBodies (
+    JojoLevel               *level,
+    btDiscreteDynamicsWorld *world
 );
 
 }

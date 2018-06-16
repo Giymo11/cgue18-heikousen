@@ -2,9 +2,15 @@
 #include <string>
 #include <unordered_map>
 
+#include <LinearMath/btVector3.h>
+#include <LinearMath/btAlignedObjectArray.h>
+#include <LinearMath/btGeometryUtil.h>
+
 #include "jojo_level.hpp"
 
 namespace BSP {
+
+const float GEOMSCALE = 0.03f;
 
 size_t vertexCount (
     const Header *bspHeader
@@ -44,7 +50,6 @@ void fillVertexBuffer (
     const int32_t    *lightmapLookup,
     Level::Vertex    *vertices
 ) {
-    const auto scale     = 0.03f;
     const auto leafBytes = (const uint8_t *)leafs + header->direntries[BSP::Leafs].length;
     const auto leafEnd   = (const BSP::Leaf *)leafBytes;
 
@@ -65,9 +70,9 @@ void fillVertexBuffer (
                 const auto &v    = bspVertices[index];
                 auto &vOut       = vertices[index];
                 
-                vOut.pos.x      = v.position[0]  * scale;
-                vOut.pos.y      = v.position[2]  * scale;
-                vOut.pos.z      = -v.position[1] * scale;
+                vOut.pos.x      = v.position[0]  * GEOMSCALE;
+                vOut.pos.y      = v.position[2]  * GEOMSCALE;
+                vOut.pos.z      = -v.position[1] * GEOMSCALE;
                 vOut.normal.x   = v.normal[0];
                 vOut.normal.y   = v.normal[2];
                 vOut.normal.z   = -v.normal[1];
@@ -162,13 +167,87 @@ void buildIndicesNaive (
     );
 }
 
+void buildColliders (
+    const Header    *header,
+    const Leaf      *leafs,
+    const LeafBrush *leafBrushes,
+    const Brush     *brushes,
+    const BrushSide *brushSides,
+    const Plane     *planes,
+    const Texture   *textures,
+    btAlignedObjectArray<btCollisionShape *>     *collisionShapes,
+    btAlignedObjectArray<btDefaultMotionState *> *motionStates,
+    btAlignedObjectArray<btRigidBody *>          *rigidBodies
+) {
+    const auto BSPCONTENTS_SOLID = 1;
+    const auto leafBytes = (uint8_t *)leafs + header->direntries[Leafs].length;
+    const auto leafsEnd  = (const Leaf *)leafBytes;
+    const auto maxBrush  = header->direntries[Brushes].length / (int)sizeof (Brush);
+
+    btAlignedObjectArray<bool> visited;
+    visited.resize (maxBrush, false);
+    collisionShapes->reserve (maxBrush);
+    motionStates->reserve (maxBrush);
+    rigidBodies->reserve (maxBrush);
+
+    for (auto leaf = &leafs[0]; leaf != leafsEnd; ++leaf) {
+        const auto leafBrushBegin = leafBrushes + leaf->leafbrush;
+        const auto leafBrushEnd   = leafBrushBegin + leaf->n_leafbrushes;
+        
+        for (auto lbrush = leafBrushBegin; lbrush != leafBrushEnd; ++lbrush) {
+            const auto brushIndex = lbrush->brush;
+            const auto &brush     = brushes[brushIndex];
+
+            if (brush.texture < 0 || visited[brushIndex])
+                continue;
+            if (textures[brush.texture].contents & BSPCONTENTS_SOLID == 0)
+                continue;
+            visited[brushIndex] = true;
+
+            btAlignedObjectArray<btVector3> planeEquations;
+            planeEquations.reserve (brush.n_brushsides);
+
+            const auto brushSideBegin = brushSides + brush.brushside;
+            const auto brushSideEnd   = brushSideBegin + brush.n_brushsides;
+            for (auto bside = brushSideBegin; bside != brushSideEnd; ++bside) {
+                const auto &plane = planes[bside->plane];
+
+                btVector3 planeEq;
+                planeEq.setValue (plane.normal[0], plane.normal[2], -plane.normal[1]);
+                planeEq[3] = GEOMSCALE * -plane.dist;
+                planeEquations.push_back (planeEq);
+            }
+
+            if (brush.n_brushsides > 0) {
+                btAlignedObjectArray<btVector3> vertices;
+                btGeometryUtil::getVerticesFromPlaneEquations (planeEquations, vertices);
+
+                if (vertices.size () > 0) {
+                    auto shape = new btConvexHullShape (&(vertices[0].getX ()), vertices.size ());
+                    collisionShapes->push_back (shape);
+
+                    btTransform startTransform;
+                    startTransform.setIdentity ();
+                    startTransform.setOrigin (btVector3 (0, 0, 0));
+                    auto motionState = new btDefaultMotionState (startTransform);
+                    motionStates->push_back (motionState);
+
+                    auto info = btRigidBody::btRigidBodyConstructionInfo (0.f, motionState, shape);
+                    auto body = new btRigidBody (info);
+                    rigidBodies->push_back (body);
+                }
+            }
+        }
+    }
+}
+
 BSPData::BSPData (
-    std::vector<uint8_t> &&data,
+    std::vector<uint8_t>     &&data,
     std::vector<std::string> &&texturesIn,
     std::vector<std::string> &&normalsIn,
     std::vector<std::string> &&lightmapsIn,
-    std::vector<int32_t> &&lightmapLookupIn,
-    uint32_t indexCount
+    std::vector<int32_t>     &&lightmapLookupIn,
+    uint32_t                   indexCount
 ) :
     raw            (std::move (data)),
     textures       (std::move (texturesIn)),
@@ -182,6 +261,11 @@ BSPData::BSPData (
     faces          ((const Face *)       (raw.data () + header->direntries[Faces].offset)),
     meshVertices   ((const MeshVertex *) (raw.data () + header->direntries[Meshverts].offset)),
     vertices       ((const Vertex *)     (raw.data () + header->direntries[Vertices].offset)),
+    leafBrushes    ((const LeafBrush *)  (raw.data () + header->direntries[Leafbrushes].offset)),
+    brushes        ((const Brush *)      (raw.data () + header->direntries[Brushes].offset)),
+    brushSides     ((const BrushSide *)  (raw.data () + header->direntries[Brushsides].offset)),
+    planes         ((const Plane *)      (raw.data () + header->direntries[Planes].offset)),
+    textureData    ((const Texture *)    (raw.data () + header->direntries[Textures].offset)),
     indexCount     (indexCount)
 {
 }

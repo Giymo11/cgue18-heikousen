@@ -106,7 +106,7 @@ void recordCommandBuffer(
     // LEVEL DRAWING END
     // --------------------------------------------------------------
 
-    /*vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+    vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
     mesh->goDrawYourself(cmd, pipeline->pipelineLayout);
 
     vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, textPipeline->pipeline);
@@ -119,7 +119,7 @@ void recordCommandBuffer(
         1, &textDescriptor,
         0, nullptr
     );
-    vkCmdDraw (cmd, 6, 1, 0, 0);*/
+    vkCmdDraw (cmd, 6, 1, 0, 0);
 
     vkCmdEndRenderPass(cmd);
 }
@@ -715,44 +715,44 @@ int main(int argc, char *argv[]) {
     physics.player = playerPhysicsNode;
 
 
-    auto translation = glm::vec3(10, 1, 1);
-    auto scale = glm::vec3(1, 1, 1);
+    //auto translation = glm::vec3(10, 1, 1);
+    //auto scale = glm::vec3(1, 1, 1);
 
-    tinygltf::Model gltfModel2;
-    loadFromGlb(&gltfModel2, "models/uvcube.glb");
-    JojoNode *icosphere = new JojoNode();
-    icosphere->loadFromGltf(gltfModel2, &scene);
-    icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
-    scene.children.push_back(icosphere);
+    //tinygltf::Model gltfModel2;
+    //loadFromGlb(&gltfModel2, "models/uvcube.glb");
+    //JojoNode *icosphere = new JojoNode();
+    //icosphere->loadFromGltf(gltfModel2, &scene);
+    //icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
+    //scene.children.push_back(icosphere);
 
-    JojoPhysicsNode *winnerPhysicsNode = makeSphereNode(physics, icosphere);
-    physics.dynamicNodes.push_back(winnerPhysicsNode);
-    physics.winner = winnerPhysicsNode;
+    //JojoPhysicsNode *winnerPhysicsNode = makeSphereNode(physics, icosphere);
+    //physics.dynamicNodes.push_back(winnerPhysicsNode);
+    //physics.winner = winnerPhysicsNode;
 
 
-    translation = glm::vec3(1, 1, 10);
-    icosphere = new JojoNode();
-    icosphere->loadFromGltf(gltfModel2, &scene);
-    icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
-    scene.children.push_back(icosphere);
-    physics.dynamicNodes.push_back(makeSphereNode(physics, icosphere));
+    //translation = glm::vec3(1, 1, 10);
+    //icosphere = new JojoNode();
+    //icosphere->loadFromGltf(gltfModel2, &scene);
+    //icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
+    //scene.children.push_back(icosphere);
+    //physics.dynamicNodes.push_back(makeSphereNode(physics, icosphere));
 
-    translation = glm::vec3(1, 1, -10);
-    icosphere = new JojoNode();
-    icosphere->loadFromGltf(gltfModel2, &scene);
-    icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
-    scene.children.push_back(icosphere);
-    physics.dynamicNodes.push_back(makeSphereNode(physics, icosphere));
+    //translation = glm::vec3(1, 1, -10);
+    //icosphere = new JojoNode();
+    //icosphere->loadFromGltf(gltfModel2, &scene);
+    //icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
+    //scene.children.push_back(icosphere);
+    //physics.dynamicNodes.push_back(makeSphereNode(physics, icosphere));
 
-    translation = glm::vec3(-10, 1, 1);
-    icosphere = new JojoNode();
-    icosphere->loadFromGltf(gltfModel2, &scene);
-    icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
-    scene.children.push_back(icosphere);
+    //translation = glm::vec3(-10, 1, 1);
+    //icosphere = new JojoNode();
+    //icosphere->loadFromGltf(gltfModel2, &scene);
+    //icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
+    //scene.children.push_back(icosphere);
 
-    JojoPhysicsNode *loserPhysicsNode = makeSphereNode(physics, icosphere);
-    physics.dynamicNodes.push_back(loserPhysicsNode);
-    physics.loser = loserPhysicsNode;
+    //JojoPhysicsNode *loserPhysicsNode = makeSphereNode(physics, icosphere);
+    //physics.dynamicNodes.push_back(loserPhysicsNode);
+    //physics.loser = loserPhysicsNode;
 
 
     tinygltf::Model gltfModel3;
@@ -821,12 +821,10 @@ int main(int argc, char *argv[]) {
     Level::CleanupQueue levelCleanupQueue;
 
     {
-        // TODO: use custom command buffer
         const auto cmd       = swapchain.commandBuffers[0];
         const auto fence     = swapchain.commandBufferFences[0];
         const auto allocator = engine.allocator;
         
-
         level = Level::alloc (allocator, "maps/1");
         levelCleanupQueue.reserve (10);
 
@@ -834,7 +832,6 @@ int main(int argc, char *argv[]) {
         Level::cmdStageVertexData (allocator, level, cmd, &levelCleanupQueue);
         Level::cmdLoadAndStageTextures (allocator, engine.device, cmd, level, &levelCleanupQueue);
         Level::cmdBuildAndStageIndicesNaively (allocator, engine.device, level, cmd);
-        Level::updateDescriptors (engine.descriptors, level); /* POSSIBLY DANGEROUS */
         ASSERT_VULKAN (vkEndCommandBuffer (cmd));
 
         VkSubmitInfo submitInfo = {};
@@ -852,8 +849,15 @@ int main(int argc, char *argv[]) {
             result = vkWaitForFences (engine.device, 1, &fence, VK_TRUE, 100000000);
         ASSERT_VULKAN (result);
 
+        // Staging cleanup
         for (const auto &pair : levelCleanupQueue)
             vmaDestroyBuffer (allocator, pair.first, pair.second);
+
+        // Update descriptors
+        Level::updateDescriptors (engine.descriptors, level);
+
+        // Add rigid bodies to the world
+        Level::loadAndAddRigidBodies (level, physics.dynamicsWorld);
     }
 
     // --------------------------------------------------------------

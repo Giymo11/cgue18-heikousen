@@ -103,6 +103,21 @@ void free (
     const VmaAllocator     allocator,
     JojoLevel             *level
 ) {
+    auto &shapes   = level->collisionShapes;
+    auto numShapes = shapes.size ();
+    for (int i = 0; i < numShapes; i++)
+        delete shapes[i];
+
+    auto &motionStates   = level->motionStates;
+    auto numMotionStates = motionStates.size ();
+    for (int i = 0; i < numMotionStates; i++)
+        delete motionStates[i];
+
+    auto &bodies   = level->rigidBodies;
+    auto numBodies = bodies.size ();
+    for (int i = 0; i < numBodies; i++)
+        delete bodies[i];
+
     vmaDestroyBuffer (allocator, level->indexStaging, level->indexStagingMemory);
     vmaDestroyBuffer (allocator, level->index, level->indexMemory);
     vmaDestroyBuffer (allocator, level->vertex, level->vertexMemory);
@@ -249,6 +264,25 @@ void updateDescriptors (
     descriptors->update (Rendering::Set::Level, 2, diffuse512);
     auto lightmap = Textures::descriptor (&level->texLightmap);
     descriptors->update (Rendering::Set::Level, 3, lightmap);
+}
+
+void loadAndAddRigidBodies (
+    JojoLevel               *level,
+    btDiscreteDynamicsWorld *world
+) {
+    const auto bsp = level->bsp.get();
+
+    BSP::buildColliders (
+        bsp->header, bsp->leafs, bsp->leafBrushes, bsp->brushes,
+        bsp->brushSides, bsp->planes, bsp->textureData,
+        &level->collisionShapes, &level->motionStates,
+        &level->rigidBodies
+    );
+
+    const auto numBodies = level->rigidBodies.size ();
+    auto &bodies = level->rigidBodies;
+    for (int i = 0; i < numBodies; i++)
+        world->addRigidBody (bodies[i]);
 }
 
 }
