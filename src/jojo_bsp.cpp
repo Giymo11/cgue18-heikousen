@@ -35,12 +35,51 @@ static uint32_t indexCount (
 }
 
 void fillVertexBuffer (
-    const Vertex *bspVertices,
-    size_t count,
-    Level::Vertex *vertices
+    const Header     *header,
+    const Leaf       *leafs,
+    const LeafFace   *leafFaces,
+    const Face       *faces,
+    const MeshVertex *meshverts,
+    const Vertex     *bspVertices,
+    const int32_t    *lightmapLookup,
+    Level::Vertex    *vertices
 ) {
-    for (int32_t i = 0; i < count; i++)
-        vertices[i] = *(Level::Vertex *)(&bspVertices[i]);
+    const auto scale     = 0.03f;
+    const auto leafBytes = (const uint8_t *)leafs + header->direntries[BSP::Leafs].length;
+    const auto leafEnd   = (const BSP::Leaf *)leafBytes;
+
+    for (auto leaf = &leafs[0]; leaf != leafEnd; ++leaf) {
+        const auto leafFaceBegin = leafFaces + leaf->leafface;
+        const auto leafFaceEnd   = leafFaceBegin + leaf->n_leaffaces;
+
+        for (auto lface = leafFaceBegin; lface != leafFaceEnd; ++lface) {
+            const auto &face         = faces[lface->face];
+            const auto texture       = static_cast<float>(face.texture);
+            const auto lightmap      = static_cast<float>(lightmapLookup[face.texture]);
+            const auto baseVert      = face.vertex;
+            const auto meshvertBegin = meshverts + face.meshvert;
+            const auto meshvertEnd   = meshvertBegin + face.n_meshverts;
+
+            for (auto mvert = meshvertBegin; mvert != meshvertEnd; ++mvert) {
+                const auto index = mvert->vertex + baseVert;
+                const auto &v    = bspVertices[index];
+                auto &vOut       = vertices[index];
+                
+                vOut.pos.x      = v.position[0]  * scale;
+                vOut.pos.y      = v.position[2]  * scale;
+                vOut.pos.z      = -v.position[1] * scale;
+                vOut.normal.x   = v.normal[0];
+                vOut.normal.y   = v.normal[2];
+                vOut.normal.z   = -v.normal[1];
+                vOut.uv.x       = v.texcoord[0][0];
+                vOut.uv.y       = v.texcoord[0][1];
+                vOut.uv.z       = texture;
+                vOut.light_uv.x = v.texcoord[1][0];
+                vOut.light_uv.y = v.texcoord[1][1];
+                vOut.light_uv.z = lightmap;
+            }
+        }
+    }
 }
 
 static void buildIndicesNaiveLeaf (
@@ -170,31 +209,6 @@ std::unique_ptr<BSPData> loadBSP (
     auto faces     = (Face *)     (buffer.data () + header->direntries[Faces].offset);
     auto vertices  = (Vertex *)   (buffer.data () + header->direntries[Vertices].offset);
     auto indexNum  = indexCount (header, leafs, leafFaces, faces);
-
-    // --------------------------------------------------------------
-    // COORDINATE SYSTEM FIX BEGIN
-    // --------------------------------------------------------------
-
-    const auto vertexBytes = (uint8_t *)vertices + header->direntries[Vertices].length;
-    const auto endVertex = (Vertex *)vertexBytes;
-    const auto scale = 0.03f;
-    for (auto v = &vertices[0]; v != endVertex; ++v) {
-        float tmp = v->position[1];
-        v->position[1] = v->position[2];
-        v->position[2] = -tmp;
-
-        tmp = v->normal[1];
-        v->normal[1] = v->normal[2];
-        v->normal[2] = -tmp;
-
-        v->position[0] *= scale;
-        v->position[1] *= scale;
-        v->position[2] *= scale;
-    }
-
-    // --------------------------------------------------------------
-    // COORDINATE SYSTEM FIX END
-    // --------------------------------------------------------------
 
     // --------------------------------------------------------------
     // TEXTURE FIX BEGIN

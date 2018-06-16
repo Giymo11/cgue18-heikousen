@@ -12,12 +12,13 @@ struct LightSource {
 layout(location = 0) in VertexData {
 	vec3 position;
 	vec3 normal;
-	vec2 uv;
+	vec3 uv;
+	vec3 lightUv;
 } vert;
 
 layout(location = 0) out vec4 outColor;
 
-const float ambient  = 0.5;
+const float ambient  = 0.2;
 const float diffuse  = 0.95;
 const float specular = 0.2;
 const float alpha    = 2.0;
@@ -29,6 +30,7 @@ layout(std140, binding = 1) uniform LightBlock {
 } lightInfo;
 
 layout(binding = 2) uniform sampler2DArray diffuseTex1;
+layout(binding = 3) uniform sampler2DArray lightmap;
 
 vec3 phong(vec3 objColor, vec3 intensity, vec3 l, vec3 n, vec3 v) {
     vec3 diffuse = objColor * intensity * max(dot(n,l), 0.0) * diffuse;
@@ -52,10 +54,11 @@ vec3 gamma_adjust(vec3 color, float gamma) {
 }
 
 void main() {
-	vec4 objColor = texture(diffuseTex1, vec3(vert.uv, 0));
+	vec4 objColor = texture(diffuseTex1, vert.uv);
+	vec3 lightmap = texture(lightmap, vec3(vert.lightUv.xy, 1.0)).rgb;
 	vec3 v = normalize(-vert.position);
 
-    outColor = vec4(objColor.xyz * ambient, objColor.w);
+    outColor = vec4(objColor.rgb * lightmap * 1.4, objColor.w);
     /* for (int i = 0; i < LIGHT_COUNT; i++)
         outColor.xyz += point(objColor.xyz, lightInfo.lights[i], vert.position, vert.normal, v); */
 

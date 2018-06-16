@@ -6,15 +6,23 @@
 #include "jojo_vulkan_textures.hpp"
 
 class JojoEngine;
+namespace Rendering {
+class DescriptorSets;
+}
 
 namespace Level {
 
 using namespace glm;
 
+VkVertexInputBindingDescription                vertexInputBinding ();
+std::vector<VkVertexInputAttributeDescription> vertexAttributes ();
+
+typedef std::vector<std::pair<VkBuffer, VmaAllocation>> CleanupQueue;
+
 struct Vertex {
     vec3 pos;
-    vec2 uv;
-    vec2 light_uv;
+    vec3 uv;
+    vec3 light_uv;
     vec3 normal;
 };
 
@@ -24,43 +32,53 @@ struct JojoLevel {
     VkBuffer          vertex;
     VkBuffer          index;
     VkBuffer          indexStaging;
-    VkDeviceMemory    vertexMemory;
-    VkDeviceMemory    indexMemory;
-    VkDeviceMemory    indexStagingMemory;
+    VmaAllocation     vertexMemory;
+    VmaAllocation     indexMemory;
+    VmaAllocation     indexStagingMemory;
+    VmaAllocationInfo indexInfo;
 
     Textures::Texture texDiffuse;
     Textures::Texture texNormal;
     Textures::Texture texLightmap;
+
+    VkDescriptorSet   descriptorSet;
 };
 
 JojoLevel *alloc (
-    const JojoEngine      *engine,
+    const VmaAllocator     allocator,
     const std::string     &bsp
 );
 
-VkVertexInputBindingDescription                vertexInputBinding ();
-std::vector<VkVertexInputAttributeDescription> vertexAttributes   ();
-
 void free (
-    const JojoEngine      *engine,
+    const VmaAllocator     allocator,
     JojoLevel             *level
 );
 
-void stageVertexData (
-    const JojoEngine      *engine,
+void cmdStageVertexData (
+    const VmaAllocator     allocator,
     const JojoLevel       *level,
-    const VkCommandBuffer  transferCmd
+    const VkCommandBuffer  transferCmd,
+    CleanupQueue          *cleanupQueue
 );
 
 void cmdBuildAndStageIndicesNaively (
+    const VmaAllocator     allocator,
     const VkDevice         device,
-    const VkQueue          transferQueue,
     const JojoLevel       *level,
     const VkCommandBuffer  transferCmd
 );
 
-void cmdloadAndStageTextures (
-    const JojoLevel       *level
+void cmdLoadAndStageTextures (
+    const VmaAllocator     allocator,
+    const VkDevice         device,
+    const VkCommandBuffer  transferCmd,
+    JojoLevel             *level,
+    CleanupQueue          *cleanupQueue
+);
+
+void updateDescriptors (
+    const Rendering::DescriptorSets *descriptors,
+    const JojoLevel                 *level
 );
 
 }

@@ -3,14 +3,14 @@
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inNormal;
-layout(location = 2) in vec2 inUv;
-layout(location = 3) in vec2 inLightUv;
+layout(location = 2) in vec3 inUv;
+layout(location = 3) in vec3 inLightUv;
 
 layout(location = 0) out VertexData {
 	vec3 position;
 	vec3 normal;
-	vec2 uv;
-    vec2 lightUv;
+	vec3 uv;
+    vec3 lightUv;
 } vert;
 
 layout(binding = 0) uniform GlobalTransformations {

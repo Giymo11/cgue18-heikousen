@@ -139,8 +139,13 @@ size_t vertexCount (
 );
 
 void fillVertexBuffer (
+    const Header     *header,
+    const Leaf       *leafs,
+    const LeafFace   *leafFaces,
+    const Face       *faces,
+    const MeshVertex *meshverts,
     const Vertex     *bspVertices,
-    size_t            count,
+    const int32_t    *lightmapLookup,
     Level::Vertex    *vertices
 );
 

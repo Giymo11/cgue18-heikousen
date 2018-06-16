@@ -152,7 +152,6 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, Rendering::Set set) {
 
     auto diffuse256desc = Textures::descriptor (&diffuse256);
     descriptors->update (set, 4, diffuse256desc);
-    descriptors->update (Rendering::Set::Level, 2, diffuse256desc);
 }
 
 void JojoVulkanMesh::destroyBuffers(JojoEngine *engine) {

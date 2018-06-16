@@ -17,8 +17,8 @@ class DescriptorSets {
   DescriptorSets(VkDevice device);
   ~DescriptorSets();
   void allocate(VkDescriptorPool pool);
-  void update(Set set, uint32_t binding, VkDescriptorType type, VkDescriptorBufferInfo info);
-  void update(Set set, uint32_t binding, VkDescriptorImageInfo info);
+  void update(Set set, uint32_t binding, VkDescriptorType type, VkDescriptorBufferInfo info) const;
+  void update(Set set, uint32_t binding, VkDescriptorImageInfo info) const;
   VkDescriptorSet set(Set s) const;
   VkDescriptorSetLayout layout(Set s) const;
   const std::unordered_map<VkDescriptorType, uint32_t> &requirements() const;

@@ -40,7 +40,7 @@ void DescriptorSets::update (
     uint32_t binding,
     VkDescriptorType type,
     VkDescriptorBufferInfo info
-) {
+) const {
     VkWriteDescriptorSet write = {};
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write.dstSet = descriptorSets[static_cast<size_t>(set)];
@@ -51,7 +51,11 @@ void DescriptorSets::update (
     vkUpdateDescriptorSets (device, 1, &write, 0, nullptr);
 }
 
-void DescriptorSets::update (Set set, uint32_t binding, VkDescriptorImageInfo info) {
+void DescriptorSets::update (
+    Set set,
+    uint32_t binding,
+    VkDescriptorImageInfo info
+) const {
     VkWriteDescriptorSet write = {};
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write.dstSet = descriptorSets[static_cast<size_t>(set)];

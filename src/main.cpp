@@ -136,17 +136,16 @@ void drawFrame (
     const JojoPipeline *levelPipeline,
     const Level::JojoLevel *level
 ) {
-    const auto device = engine->device;
-    const auto drawQueue = engine->queue;
+    const auto allocator     = engine->allocator;
+    const auto device        = engine->device;
+    const auto drawQueue     = engine->queue;
     const auto transferQueue = engine->queue;
 
     uint32_t imageIndex;
-    VkResult result = vkAcquireNextImageKHR(device,
-                                            swapchain->swapchain,
-                                            std::numeric_limits<uint64_t>::max(),
-                                            swapchain->semaphoreImageAvailable,
-                                            VK_NULL_HANDLE,
-                                            &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(
+        device, swapchain->swapchain, std::numeric_limits<uint64_t>::max(),
+        swapchain->semaphoreImageAvailable, VK_NULL_HANDLE, &imageIndex
+    );
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         swapchain->recreateSwapchain(config, engine, window);
         return;
@@ -176,7 +175,7 @@ void drawFrame (
          ASSERT_VULKAN (result);
 
          // Perform data staging
-         Level::cmdBuildAndStageIndicesNaively (device, transferQueue, level, transferCmd);
+         Level::cmdBuildAndStageIndicesNaively (allocator, device, level, transferCmd);
 
          result = vkEndCommandBuffer (transferCmd);
          ASSERT_VULKAN (result);
@@ -582,6 +581,7 @@ void Rendering::DescriptorSets::createLayouts ()
     addLayout (level, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
     addLayout (level, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addLayout (level, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (level, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (level));
 }
 
@@ -818,14 +818,42 @@ int main(int argc, char *argv[]) {
     // --------------------------------------------------------------
 
     Level::JojoLevel *level = nullptr;
+    Level::CleanupQueue levelCleanupQueue;
 
     {
         // TODO: use custom command buffer
-        const auto cmd = swapchain.commandBuffers[0];
+        const auto cmd       = swapchain.commandBuffers[0];
+        const auto fence     = swapchain.commandBufferFences[0];
+        const auto allocator = engine.allocator;
+        
 
-        level = Level::alloc (&engine, "maps/1");
-        Level::stageVertexData (&engine, level, cmd);
-        //Level::loadAndStageTextures (level);
+        level = Level::alloc (allocator, "maps/1");
+        levelCleanupQueue.reserve (10);
+
+        ASSERT_VULKAN (beginCommandBuffer (cmd));
+        Level::cmdStageVertexData (allocator, level, cmd, &levelCleanupQueue);
+        Level::cmdLoadAndStageTextures (allocator, engine.device, cmd, level, &levelCleanupQueue);
+        Level::cmdBuildAndStageIndicesNaively (allocator, engine.device, level, cmd);
+        Level::updateDescriptors (engine.descriptors, level); /* POSSIBLY DANGEROUS */
+        ASSERT_VULKAN (vkEndCommandBuffer (cmd));
+
+        VkSubmitInfo submitInfo = {};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &cmd;
+
+        ASSERT_VULKAN (vkResetFences (engine.device, 1, &fence));
+        vkQueueSubmit (engine.queue, 1, &submitInfo, fence);
+
+        // Wait for staging to complete
+        // WARNING: do not reset fence here! apparently we get a deadlock
+        auto result = VK_TIMEOUT;
+        while (result == VK_TIMEOUT)
+            result = vkWaitForFences (engine.device, 1, &fence, VK_TRUE, 100000000);
+        ASSERT_VULKAN (result);
+
+        for (const auto &pair : levelCleanupQueue)
+            vmaDestroyBuffer (allocator, pair.first, pair.second);
     }
 
     // --------------------------------------------------------------
@@ -917,7 +945,7 @@ int main(int argc, char *argv[]) {
 
     mesh.destroyBuffers(&engine);
 
-    Level::free (&engine, level);
+    Level::free (engine.allocator, level);
 
     swapchain.destroyCommandBuffers(&engine);
 

@@ -4,6 +4,7 @@
 #include "jojo_vulkan_utils.hpp"
 #include "jojo_engine.hpp"
 #include "jojo_level.hpp"
+#include "Rendering/DescriptorSets.h"
 
 namespace Level {
 
@@ -31,23 +32,23 @@ std::vector<VkVertexInputAttributeDescription> vertexAttributes () {
 
     attrib[2].location = 2;
     attrib[2].binding = 0;
-    attrib[2].format = VK_FORMAT_R32G32_SFLOAT;
+    attrib[2].format = VK_FORMAT_R32G32B32_SFLOAT;
     attrib[2].offset = offsetof (Vertex, uv);
 
     attrib[3].location = 3;
     attrib[3].binding = 0;
-    attrib[3].format = VK_FORMAT_R32G32_SFLOAT;
+    attrib[3].format = VK_FORMAT_R32G32B32_SFLOAT;
     attrib[3].offset = offsetof (Vertex, light_uv);
 
     return attrib;
 }
 
 JojoLevel *alloc (
-    const JojoEngine  *engine,
-    const std::string &bspName
+    const VmaAllocator     allocator,
+    const std::string     &bspName
 ) {
-    const auto device = engine->device;
-    const auto chosenDevice = engine->chosenDevice;
+    VkBufferCreateInfo binfo = {};
+    VmaAllocationCreateInfo allocInfo = {};
     auto level = new JojoLevel;
 
     // Load bsp and count vertices/indices
@@ -58,202 +59,196 @@ JojoLevel *alloc (
     const auto vertexDataSize = (uint32_t)(sizeof (Vertex) * vertexCount);
     const auto indexDataSize = (uint32_t)(sizeof (uint32_t) * indexCount);
 
-    createBuffer (
-        device, chosenDevice, vertexDataSize,
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        &level->vertex, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        &level->vertexMemory
-    );
-    createBuffer (
-        device, chosenDevice, indexDataSize,
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        &level->index, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        &level->indexMemory
-    );
-    createBuffer (
-        device, chosenDevice, indexDataSize,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, &level->indexStaging,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        &level->indexStagingMemory
-    );
+    binfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    binfo.size = vertexDataSize;
+    binfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    binfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    ASSERT_VULKAN (vmaCreateBuffer (
+        allocator, &binfo, &allocInfo,
+        &level->vertex, &level->vertexMemory, nullptr
+    ));
+
+    binfo.size = indexDataSize;
+    binfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    binfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    ASSERT_VULKAN (vmaCreateBuffer (
+        allocator, &binfo, &allocInfo,
+        &level->index, &level->indexMemory, nullptr
+    ));
+
+    binfo.size = indexDataSize;
+    binfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    binfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+    allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    allocInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+
+    ASSERT_VULKAN (vmaCreateBuffer (
+        allocator, &binfo, &allocInfo,
+        &level->indexStaging, &level->indexStagingMemory,
+        &level->indexInfo
+    ));
 
     return level;
 }
 
 void free (
-    const JojoEngine *engine,
-    JojoLevel        *level
+    const VmaAllocator     allocator,
+    JojoLevel             *level
 ) {
-    const auto device = engine->device;
-
-    vkFreeMemory (device, level->indexStagingMemory, nullptr);
-    vkFreeMemory (device, level->indexMemory, nullptr);
-    vkFreeMemory (device, level->vertexMemory, nullptr);
-
-    vkDestroyBuffer (device, level->indexStaging, nullptr);
-    vkDestroyBuffer (device, level->index, nullptr);
-    vkDestroyBuffer (device, level->vertex, nullptr);
+    vmaDestroyBuffer (allocator, level->indexStaging, level->indexStagingMemory);
+    vmaDestroyBuffer (allocator, level->index, level->indexMemory);
+    vmaDestroyBuffer (allocator, level->vertex, level->vertexMemory);
 
     delete level;
 }
 
-void stageVertexData (
-    const JojoEngine      *engine,
+void cmdStageVertexData (
+    const VmaAllocator     allocator,
     const JojoLevel       *level,
-    const VkCommandBuffer  transferCmd
+    const VkCommandBuffer  transferCmd,
+    CleanupQueue          *cleanupQueue
 ) {
-    const auto device = engine->device;
-    const auto chosenDevice = engine->chosenDevice;
     const auto bsp = level->bsp.get ();
     const auto vertexCount = BSP::vertexCount (bsp->header);
     const auto vertexDataSize = (uint32_t)(sizeof (Vertex) * vertexCount);
 
-    // TODO: actually use a transfer queue
-    const auto transferQueue = engine->queue;
-
     VkBuffer staging;
-    VkDeviceMemory stagingMemory;
-    createBuffer (
-        device, chosenDevice, vertexDataSize,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, &staging,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        &stagingMemory
-    );
+    VmaAllocation stagingMemory;
+
+    VkBufferCreateInfo stagingInfo = {};
+    stagingInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    stagingInfo.size = vertexDataSize;
+    stagingInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    stagingInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    allocInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    ASSERT_VULKAN (vmaCreateBuffer (
+        allocator, &stagingInfo, &allocInfo,
+        &staging, &stagingMemory, nullptr
+    ));
 
     Vertex *vertexData = nullptr;
-    VkResult result = vkMapMemory (
-        device, stagingMemory, 0, vertexDataSize, 0,
-        (void **)(&vertexData)
-    );
-    ASSERT_VULKAN (result);
+    ASSERT_VULKAN (vmaMapMemory (
+        allocator, stagingMemory,
+        (void **)&vertexData
+    ));
 
     // Generate vertex data and write it directly to staging buffer
-    BSP::fillVertexBuffer (bsp->vertices, vertexCount, vertexData);
-    vkUnmapMemory (device, stagingMemory);
+    BSP::fillVertexBuffer (
+        bsp->header, bsp->leafs, bsp->leafFaces,
+        bsp->faces, bsp->meshVertices, bsp->vertices,
+        bsp->lightmapLookup.data(), vertexData
+    );
+    vmaUnmapMemory (allocator, stagingMemory);
+
 
     VkBufferCopy bufferCopy = {};
     bufferCopy.size = vertexDataSize;
     VkCommandBufferBeginInfo cmdBegin = {};
     cmdBegin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     cmdBegin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    result = vkBeginCommandBuffer (transferCmd, &cmdBegin);
-    ASSERT_VULKAN (result);
     vkCmdCopyBuffer (transferCmd, staging, level->vertex, 1, &bufferCopy);
-    result = vkEndCommandBuffer (transferCmd);
-    ASSERT_VULKAN (result);
 
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &transferCmd;
-
-    // TODO: Maybe batch all of this together
-    result = vkQueueSubmit (transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    ASSERT_VULKAN (result)
-    result = vkQueueWaitIdle (transferQueue);
-    ASSERT_VULKAN (result)
-
-    vkFreeMemory    (device, stagingMemory, nullptr);
-    vkDestroyBuffer (device, staging, nullptr);
+    // Add staging buffers to cleanup queue
+    cleanupQueue->emplace_back (staging, stagingMemory);
 }
 
 void cmdBuildAndStageIndicesNaively (
+    const VmaAllocator     allocator,
     const VkDevice         device,
-    const VkQueue          transferQueue,
     const JojoLevel       *level,
     const VkCommandBuffer  transferCmd
 ) {
-    const auto bsp = level->bsp.get ();
-    const auto indexCount = bsp->indexCount;
+    const auto bsp           = level->bsp.get ();
+    const auto indexCount    = bsp->indexCount;
     const auto indexDataSize = (uint32_t)(sizeof (uint32_t) * indexCount);
-
-    uint32_t *indexData = nullptr;
-    VkResult result = vkMapMemory (
-        device, level->indexStagingMemory, 0, indexDataSize, 0,
-        (void **)(&indexData)
-    );
-    ASSERT_VULKAN (result);
+    const auto allocInfo     = level->indexInfo;
+    auto indexData           = (uint32_t *)allocInfo.pMappedData;
 
     // Traverse BSP, generate indices and write them directly to staging buffer
     BSP::buildIndicesNaive (
         bsp->nodes, bsp->leafs, bsp->leafFaces, 
         bsp->faces, bsp->meshVertices, indexData
     );
-    vkUnmapMemory (device, level->indexStagingMemory);
+
+    // Flush memory range if neccessary
+    VkMemoryPropertyFlags memFlags;
+    vmaGetMemoryTypeProperties (allocator, allocInfo.memoryType, &memFlags);
+    if ((memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+        VkMappedMemoryRange memRange = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
+        memRange.memory = allocInfo.deviceMemory;
+        memRange.offset = allocInfo.offset;
+        memRange.size = allocInfo.size;
+        vkFlushMappedMemoryRanges (device, 1, &memRange);
+    }
 
     VkBufferCopy bufferCopy = {};
     bufferCopy.size = indexDataSize;
     vkCmdCopyBuffer (transferCmd, level->indexStaging, level->index, 1, &bufferCopy);
 }
 
-void loadAndStageTextures (
-    const JojoLevel       *level
+void cmdLoadAndStageTextures (
+    const VmaAllocator     allocator,
+    const VkDevice         device,
+    const VkCommandBuffer  transferCmd,
+    JojoLevel             *level,
+    CleanupQueue          *cleanupQueue
 ) {
     const auto bsp       = level->bsp.get ();
     const auto textures  = bsp->textures;
     const auto normals   = bsp->normals;
     const auto lightmaps = bsp->lightmaps;
 
-   /* cmdTextureArrayFromList (
-        const VkDevice                          device,
-        const VkPhysicalDeviceMemoryProperties &memoryProperties,
-        const VkCommandBuffer                   transferCmd,
-        const std::vector<std::string>         &textureList,
-        bool                                    generateDummyTexture,
-        Texture                                *outTexture,
-        VkBuffer                               *stagingBuffer,
-        VkDeviceMemory                         *stagingMemory
-    )*/
-    
-    std::cout << "=========================================\n";
-    std::cout << "= LEVEL TEXTURES BEGIN                  =\n";
-    std::cout << "=========================================\n";
+    VkBuffer stagingDiffuse;
+    VkBuffer stagingNormal;
+    VkBuffer stagingLightmaps;
 
-    for (auto i = 0; i < textures.size (); i++) {
-        std::cout << i << " " << textures[i].c_str () << bsp->lightmaps[bsp->lightmapLookup[i] - 1].c_str() << bsp->normals[i].c_str() << "\n";
-    }
-        
+    VmaAllocation memDiffuse;
+    VmaAllocation memNormal;
+    VmaAllocation memLightmaps;
 
-    std::cout << "=========================================\n";
-    std::cout << "= LEVEL TEXTURES END                    =\n";
-    std::cout << "=========================================\n";
+    Textures::cmdTextureArrayFromList (
+        allocator, device, transferCmd, textures,
+        512, 512, true, &level->texDiffuse,
+        &stagingDiffuse, &memDiffuse
+    );
 
-    std::cout << "=========================================\n";
-    std::cout << "= FACE TEXTURES BEGIN                   =\n";
-    std::cout << "=========================================\n";
+    Textures::cmdTextureArrayFromList (
+        allocator, device, transferCmd, normals,
+        512, 512, true, &level->texNormal,
+        &stagingNormal, &memNormal
+    );
 
-    const auto header = bsp->header;
-    const auto leafs = bsp->leafs;
-    const auto leafFaces = bsp->leafFaces;
-    const auto faces = bsp->faces;
-    const auto meshverts = bsp->meshVertices;
-    const auto leafBytes = (const uint8_t *)leafs + header->direntries[BSP::Leafs].length;
-    const auto leafEnd = (const BSP::Leaf *)leafBytes;
-    std::unordered_map<int, int> vertexTextures;
+    Textures::cmdTextureArrayFromList (
+        allocator, device, transferCmd, lightmaps,
+        2048, 2048, false, &level->texLightmap,
+        &stagingLightmaps, &memLightmaps
+    );
 
-    for (auto leaf = &leafs[0]; leaf != leafEnd; ++leaf) {
-        const auto leafFaceBegin = leafFaces + leaf->leafface;
-        const auto leafFaceEnd = leafFaceBegin + leaf->n_leaffaces;
+    cleanupQueue->emplace_back (stagingDiffuse, memDiffuse);
+    cleanupQueue->emplace_back (stagingNormal, memNormal);
+    cleanupQueue->emplace_back (stagingLightmaps, memLightmaps);
+}
 
-        for (auto lface = leafFaceBegin; lface != leafFaceEnd; ++lface) {
-            const auto face = faces[lface->face];
-            std::cout << "FACE " << lface->face << " TEXTURE " << face.texture << " LIGHTMAP " << face.lm_index << "\n";
-
-            for (auto v = 0; v < face.n_meshverts; v++) {
-                const auto index = meshverts[face.meshvert + v].vertex + face.vertex;
-                const auto vtex = vertexTextures.find (index);
-                if (vtex != vertexTextures.end () && vtex->second != face.texture)
-                    std::cout << "TEXTURE CONFLICT VERTEX " << vtex->first << "\n";
-                else
-                    vertexTextures[index] = face.texture;
-            }
-        }
-    }
-
-    std::cout << "=========================================\n";
-    std::cout << "= FACE TEXTURES END                     =\n";
-    std::cout << "=========================================\n";
+void updateDescriptors (
+    const Rendering::DescriptorSets *descriptors,
+    const JojoLevel                 *level
+) {
+    auto diffuse512 = Textures::descriptor (&level->texDiffuse);
+    descriptors->update (Rendering::Set::Level, 2, diffuse512);
+    auto lightmap = Textures::descriptor (&level->texLightmap);
+    descriptors->update (Rendering::Set::Level, 3, lightmap);
 }
 
 }
