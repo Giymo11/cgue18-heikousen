@@ -11,6 +11,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/transform.hpp>
 #include <btBulletDynamicsCommon.h>
+#include <vulkan/vulkan.h>
 
 #define CHECK(x) { if (!x) psnip_trap(); }
 
