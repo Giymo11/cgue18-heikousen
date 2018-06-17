@@ -3,55 +3,58 @@
 //
 
 #pragma once
-
 #include <vector>
-#include <map>
-
 #include <btBulletCollisionCommon.h>
 #include <btBulletDynamicsCommon.h>
-#include "jojo_physics_node.hpp"
-
-#define PRINTF_FLOAT "%7.3f"
+#include "jojo_level.hpp"
+#include "jojo_scene.hpp"
 
 constexpr float objectRestitution = 0.99f;
 
-#define PRINTF_FLOAT "%7.3f"
+namespace Level {
+struct JojoLevel;
+}
 
-static void myTickCallback(btDynamicsWorld *world, btScalar timeStep);
+namespace Physics {
 
-class JojoPhysics {
-public:
+struct Collision {
+    Scene::Instance *obj;
 
-    btDefaultCollisionConfiguration *collisionConfiguration = new btDefaultCollisionConfiguration();
-
-    btCollisionDispatcher *dispatcher = new btCollisionDispatcher(collisionConfiguration);
-
-    btBroadphaseInterface *overlappingPairCache = new btDbvtBroadphase();
-    btSequentialImpulseConstraintSolver *solver = new btSequentialImpulseConstraintSolver;
-
-    btDiscreteDynamicsWorld *dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher,
-                                                                         overlappingPairCache,
-                                                                         solver,
-                                                                         collisionConfiguration);
-
-    btAlignedObjectArray<btCollisionShape *> collisionShapes;
-
-    std::map<const btCollisionObject *, std::vector<btManifoldPoint *>> objectsCollisions;
-
-
-
-    JojoPhysicsNode *player;
-    JojoPhysicsNode *winner;
-    JojoPhysicsNode *loser;
-
-    std::vector<JojoPhysicsNode*> dynamicNodes;
-
-    void theTickCallback(btDynamicsWorld *dynamicsWorld, btScalar timeStep);
-
-    JojoPhysics();
-
-    ~JojoPhysics();
-
+    bool active;
+    bool sticky;
 };
 
+struct Physics {
+    btDefaultCollisionConfiguration      *collisionConfig;
+    btCollisionDispatcher                *dispatcher;
+    btBroadphaseInterface                *overlappingPairCache;
+    btSequentialImpulseConstraintSolver  *solver;
+    btDiscreteDynamicsWorld              *world;
+
+    btAlignedObjectArray<Collision>       collisionArray;
+};
+
+void alloc (
+    Physics *physics
+);
+
+void free (
+    Physics *physics
+);
+
+void addInstancesToWorld (
+    Physics          *physics,
+    Level::JojoLevel *level,
+    Scene::Instance  *instances,
+    size_t            numInstances
+);
+
+void removeInstancesFromWorld (
+    Physics          *physics,
+    Level::JojoLevel *level,
+    Scene::Instance  *instances,
+    size_t            numInstances
+);
+
+}
 

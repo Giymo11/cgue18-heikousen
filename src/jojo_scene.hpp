@@ -1,138 +1,138 @@
 //
 // Created by benja on 4/27/2018.
 //
-
 #pragma once
-
-
 #include <string>
 #include <vector>
-
+#include <debug_trap.h>
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-
 #include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/transform.hpp>
+#include <btBulletDynamicsCommon.h>
 
-// tinygltf forward declarations, makes header handling easier
-namespace tinygltf {
-    class Node;
+#define CHECK(x) { if (!x) psnip_trap(); }
 
-    class Model;
+class JojoVulkanMesh;
 
-    struct Primitive;
-}
+namespace Object {
 
-// TODO: make sure to create these classes with proper constructors and constant member fields in place
+using namespace glm;
 
-class JojoVertex {
-public:
-    glm::vec3 pos;
-    glm::vec3 normal;
-    glm::vec2 uv;
-
-    JojoVertex(glm::vec3 pos, glm::vec3 normal, glm::vec2 uv);
-
-
+struct Vertex {
+    vec3 pos;
+    vec3 nml;
+    vec2 tex;
 };
 
+struct Primitive {
+    uint32_t dynamicMVP;
+    uint32_t dynamicMaterial;
 
-class JojoMaterial {
-
-};
-
-class JojoLight {
-public:
-    glm::vec3 color;
-    // etc
-};
-
-/**
- * representing a mesh with only one material
- */
-class JojoPrimitive {
-public:
-    uint32_t indexOffset;
     uint32_t indexCount;
-    uint32_t dynamicOffset;
-    JojoMaterial *material;
-    // TODO: make the material a offset too
-
-    // material info
-    // index info
-    // vertex info
-    // normal map info
-    // texture info
-    // TODO: alpha blending
+    uint32_t indexOffset;
+    uint32_t vertexOffset;
 };
 
+struct TransData {
+    mat4 model;
+    mat4 view;
+    mat4 projection;
+};
 
-class JojoNode;
+struct Material {
+    uint32_t something;
+};
 
+enum CollisionShapeType : uint8_t {
+    Box,
+    Convex
+};
 
-/**
- * Representing the whole scene
- */
-class JojoScene {
-public:
-    std::vector<JojoNode*> children;
-
-    std::vector<uint32_t> indices;
-    std::vector<JojoVertex> vertices;
-    std::vector<glm::mat4> mvps;
-
-    std::vector<JojoMaterial> materials;
+struct CollisionShapeInfo {
+    CollisionShapeType type;
+    std::string        shapeModel;
+};
 
 };
 
-/**
- * Representing a transformation
- */
-class JojoNode {
+namespace Scene {
 
-private:
-    glm::mat4 matrix;
+using namespace glm;
 
-public:
-    JojoNode *parent = nullptr;
-    JojoScene *root = nullptr;
+typedef std::vector<std::pair<
+    const std::string,
+    const Object::CollisionShapeInfo
+>> TemplateInfo;
 
-    std::vector<JojoNode*> children;
-    std::string name;
+struct Node {
+    mat4                           baseMatrix;
+    mat4                           matrix;
 
-    std::vector<JojoPrimitive> primitives;
-    std::vector<JojoLight> lights;
-    // TODO: make sure you pass through twice, the first time to get all the lights
-
-
-    // position?
-    // bullet bounding box info
-
-private:
-    void loadMatrix(const tinygltf::Node &gltfNode);
-
-    void loadVertices(const tinygltf::Model &model, const tinygltf::Primitive &primitive);
-
-    uint32_t
-    loadIndices(const tinygltf::Model &model, const tinygltf::Primitive &primitive, const uint32_t vertexStart);
-
-    void loadNode(const tinygltf::Node &gltfNode,
-                  const tinygltf::Model &model,
-                  std::vector<JojoMaterial> &materials);
-
-public:
-    const glm::mat4 &getRelativeMatrix() const;
-
-    void setRelativeMatrix(const glm::mat4 &newMatrix);
-
-    void setParent(JojoNode *newParent);
-
-    void loadFromGltf(const tinygltf::Model &gltfModel, JojoScene *root);
-
-    glm::mat4 calculateAbsoluteMatrix();
-
-    glm::mat4 startTransform;
+    std::vector<Node>              children;
+    std::vector<Object::Primitive> primitives;
 };
 
+struct Template {
+    std::vector<Node>  nodes;
+    btCollisionShape  *shape;
+    uint32_t           nextInstance;
+};
 
+enum InstanceType : uint8_t {
+    PlayerInstance,
+    NonLethalInstance,
+    LethalInstance,
+    PortalInstance
+};
 
+struct Instance {
+    uint32_t              instanceId;
+    uint32_t              templateId;
+
+    InstanceType          type;
+    btRigidBody          *body;
+    btDefaultMotionState *motionState;
+};
+
+struct SceneTemplates {
+    std::vector<Template>         templates;
+    std::vector<Instance>         instances;
+
+    uint32_t                      numInstances;
+    uint32_t                      nextDynTrans;
+    uint32_t                      nextDynMaterial;
+
+    std::vector<uint32_t>         indices;
+    std::vector<Object::Vertex>   vertices;
+    std::vector<Object::Material> materials;
+    std::vector<std::string>      textures;
+};
+
+void loadTemplate (
+    const std::string                 &modelName,
+    const Object::CollisionShapeInfo  &collisionInfo,
+    uint32_t                           templateIndex,
+    SceneTemplates                    *templates
+);
+
+void instantiate (
+    const btVector3      &position,
+    uint32_t              templateIndex,
+    InstanceType          type,
+    SceneTemplates       *scene,
+    Instance             *instance
+);
+
+void cmdDrawInstances (
+    const VkCommandBuffer   cmd,
+    const VkPipelineLayout  pipelineLayout,
+    const JojoVulkanMesh   *data,
+    const Template         *templates,
+    const Instance         *instances,
+    uint32_t                instanceCount
+);
+
+}
 

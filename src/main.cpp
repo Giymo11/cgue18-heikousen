@@ -3,15 +3,6 @@
 #include <array>
 #include <chrono>
 
-
-#define TINYGLTF_IMPLEMENTATION
-#define TINYGLTF_NO_STB_IMAGE_WRITE
-#define STB_IMAGE_IMPLEMENTATION
-#define _SILENCE_CXX17_OLD_ALLOCATOR_MEMBERS_DEPRECATION_WARNING
-
-#include <tiny_gltf.h>
-
-
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
@@ -24,8 +15,6 @@
 #include <btBulletDynamicsCommon.h>
 
 #include "jojo_utils.hpp"
-// #include "jojo_script.hpp"
-
 #include "jojo_vulkan_data.hpp"
 #include "jojo_vulkan.hpp"
 #include "jojo_vulkan_utils.hpp"
@@ -38,17 +27,18 @@
 #include "jojo_level.hpp"
 
 
-void recordCommandBuffer(
-    Config &config,
-    JojoEngine *engine,
-    JojoPipeline *pipeline,
-    VkCommandBuffer cmd,
-    VkFramebuffer framebuffer,
-    VkRenderPass renderPass,
-    JojoVulkanMesh *mesh,
-    JojoPipeline *textPipeline,
-    const JojoPipeline *levelPipeline,
-    const Level::JojoLevel *level
+void recordCommandBuffer (
+    Config                      &config,
+    JojoEngine                  *engine,
+    const VkCommandBuffer        cmd,
+    const VkFramebuffer          framebuffer,
+    const VkRenderPass           renderPass,
+    JojoVulkanMesh              *mesh,
+    const JojoPipeline          *pipeline,
+    const JojoPipeline          *textPipeline,
+    const JojoPipeline          *levelPipeline,
+    const Scene::SceneTemplates *scene,
+    const Level::JojoLevel      *level
 ) {
 
     std::array<VkClearValue, 2> clearValues = {};
@@ -89,7 +79,10 @@ void recordCommandBuffer(
     {
         auto descriptor = engine->descriptors->set (Rendering::Set::Level);
 
-        vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, levelPipeline->pipeline);
+        vkCmdBindPipeline (
+            cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+            levelPipeline->pipeline
+        );
         vkCmdBindDescriptorSets (
             cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, levelPipeline->pipelineLayout,
             0, 1, &descriptor, 0, nullptr
@@ -106,10 +99,20 @@ void recordCommandBuffer(
     // LEVEL DRAWING END
     // --------------------------------------------------------------
 
-    vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
-    mesh->goDrawYourself(cmd, pipeline->pipelineLayout);
+    vkCmdBindPipeline (
+        cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        pipeline->pipeline
+    );
+    Scene::cmdDrawInstances (
+        cmd, pipeline->pipelineLayout, mesh,
+        scene->templates.data(), scene->instances.data(),
+        scene->numInstances
+    );
 
-    vkCmdBindPipeline (cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, textPipeline->pipeline);
+    vkCmdBindPipeline (
+        cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        textPipeline->pipeline
+    );
     auto textDescriptor = engine->descriptors->set (Rendering::Set::Text);
     vkCmdBindDescriptorSets (
         cmd,
@@ -126,15 +129,16 @@ void recordCommandBuffer(
 
 
 void drawFrame (
-    Config &config,
-    JojoEngine *engine,
-    JojoWindow *window,
-    JojoSwapchain *swapchain,
-    JojoPipeline *pipeline,
-    JojoVulkanMesh *mesh,
-    JojoPipeline *textPipeline,
-    const JojoPipeline *levelPipeline,
-    const Level::JojoLevel *level
+    Config                      &config,
+    JojoEngine                  *engine,
+    JojoWindow                  *window,
+    JojoSwapchain               *swapchain,
+    JojoVulkanMesh              *mesh,
+    const JojoPipeline          *pipeline,
+    const JojoPipeline          *textPipeline,
+    const JojoPipeline          *levelPipeline,
+    const Scene::SceneTemplates *scene,
+    const Level::JojoLevel      *level
 ) {
     const auto allocator     = engine->allocator;
     const auto device        = engine->device;
@@ -162,29 +166,29 @@ void drawFrame (
     // DATA STAGING BEGIN
     // --------------------------------------------------------------
 
-     {
-         // Wait for previous drawing to finish
-         result = VK_TIMEOUT;
-         while (result == VK_TIMEOUT)
-             result = vkWaitForFences (device, 1, &fence, VK_TRUE, 100000000);
-         ASSERT_VULKAN (result);
-         result = vkResetFences (device, 1, &fence);
-         ASSERT_VULKAN (result);
+    {
+        // Wait for previous drawing to finish
+        result = VK_TIMEOUT;
+        while (result == VK_TIMEOUT)
+            result = vkWaitForFences (device, 1, &fence, VK_TRUE, 100000000);
+        ASSERT_VULKAN (result);
+        result = vkResetFences (device, 1, &fence);
+        ASSERT_VULKAN (result);
+        
+        result = beginCommandBuffer (transferCmd);
+        ASSERT_VULKAN (result);
 
-         result = beginCommandBuffer (transferCmd);
-         ASSERT_VULKAN (result);
+        // Perform data staging
+        Level::cmdBuildAndStageIndicesNaively (allocator, device, level, transferCmd);
 
-         // Perform data staging
-         Level::cmdBuildAndStageIndicesNaively (allocator, device, level, transferCmd);
+        result = vkEndCommandBuffer (transferCmd);
+        ASSERT_VULKAN (result);
 
-         result = vkEndCommandBuffer (transferCmd);
-         ASSERT_VULKAN (result);
-
-         VkSubmitInfo submitInfo = {};
-         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-         submitInfo.commandBufferCount = 1;
-         submitInfo.pCommandBuffers = &transferCmd;
-         vkQueueSubmit (transferQueue, 1, &submitInfo, fence);
+        VkSubmitInfo submitInfo = {};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &transferCmd;
+        vkQueueSubmit (transferQueue, 1, &submitInfo, fence);
      }
 
     // --------------------------------------------------------------
@@ -208,15 +212,12 @@ void drawFrame (
         ASSERT_VULKAN (result);
 
         recordCommandBuffer (
-            config,
-            engine,
-            pipeline,
+            config, engine,
             swapchain->commandBuffers[imageIndex],
             swapchain->framebuffers[imageIndex],
             swapchain->swapchainRenderPass,
-            mesh,
-            textPipeline,
-            levelPipeline, level
+            mesh, pipeline, textPipeline,
+            levelPipeline, scene, level
         );
 
         result = vkEndCommandBuffer (drawCmd);
@@ -266,23 +267,33 @@ void drawFrame (
 auto lastFrameTime = std::chrono::high_resolution_clock::now();
 
 
-void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVulkanMesh *mesh) {
+void updateMvp (
+    Config           &config,
+    JojoEngine       *engine,
+    Physics::Physics *physics,
+    JojoVulkanMesh   *mesh
+) {
+    auto world = physics->world;
+
     auto now = std::chrono::high_resolution_clock::now();
-    float timeSinceLastFrame =
-            std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count() / 1000.0f;
+    float timeSinceLastFrame = std::chrono::duration_cast<std::chrono::milliseconds> (
+        now - lastFrameTime
+    ).count() / 1000.0f;
     lastFrameTime = now;
 
     if(config.isFrametimeOutputEnabled)
         std::cout << "frame time " << timeSinceLastFrame << std::endl;
 
-    //glm::mat4 view = glm::translate(glm::mat4(), glm::vec3(0.0f, 0.0f, -5.0f));
-    //view[1][1] *= -1;
-    glm::mat4 projection = glm::perspective(glm::radians(60.0f), config.width / (float) config.height, 0.001f, 3000.0f);
-    // openGL has the z dir flipped
-    projection[1][1] *= -1;
+    glm::mat4 projection = glm::perspective (
+        glm::radians(60.0f),
+        config.width / (float) config.height,
+        0.001f, 3000.0f
+    );
+    projection[1][1] *= -1;  // openGL has the z dir flipped
 
 
-    physics.dynamicsWorld->stepSimulation(timeSinceLastFrame);
+    world->stepSimulation (timeSinceLastFrame);
+
 
 
     for (JojoPhysicsNode *physicsNode : physics.dynamicNodes) {
@@ -306,9 +317,6 @@ void updateMvp(Config &config, JojoEngine *engine, JojoPhysics &physics, JojoVul
         trans.getOpenGLMatrix(glm::value_ptr(matrix));
         node->setRelativeMatrix(matrix);
     }
-
-    //int direction = (i % 2 * 2 - 1);
-    //mesh.modelMatrix = glm::rotate(mesh.modelMatrix, timeSinceLastFrame * glm::radians(30.0f) * direction, glm::vec3(0, 0, 1));
 
     auto matrix = physics.player->node->calculateAbsoluteMatrix();
     glm::mat4 view = glm::inverse(matrix);
@@ -365,13 +373,14 @@ void gameloop (
     JojoEngine *engine,
     JojoWindow *jojoWindow,
     JojoSwapchain *swapchain,
-    JojoPipeline *pipeline,
-    Replay::Recorder *jojoReplay,
-    JojoPhysics &physics,
-    JojoVulkanMesh *mesh,
-    JojoPipeline *textPipeline,
-    const JojoPipeline *levelPipeline,
-    const Level::JojoLevel *level
+    Replay::Recorder            *jojoReplay,
+    JojoVulkanMesh              *mesh,
+    const JojoPipeline          *pipeline,
+    const JojoPipeline          *textPipeline,
+    const JojoPipeline          *levelPipeline,
+    const Scene::SceneTemplates *scene,
+    const Level::JojoLevel      *level,
+    Physics::Physics            *physics
 ) {
     // TODO: extract a bunch of this to JojoWindow
 
@@ -471,95 +480,60 @@ void gameloop (
         if (jojoReplay->nextTickReady()) {
             jojoReplay->nextTick();
 
-            // TODO: extract into script
-
-            if (!relativeForce.isZero() || !relativeTorque.isZero() || xPressed || yPressed) {
-                btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[0];
-                btRigidBody *body = btRigidBody::upcast(obj);
+            if (!relativeForce.isZero () || !relativeTorque.isZero () || xPressed || yPressed) {
+                auto body = scene->instances[0].body;
 
                 btTransform trans;
-                if (body && body->getMotionState()) {
-                    body->getMotionState()->getWorldTransform(trans);
+                body->getMotionState ()->getWorldTransform (trans);
 
-                    btMatrix3x3 &boxRot = trans.getBasis();
+                btMatrix3x3 &boxRot = trans.getBasis ();
 
-                    if (xPressed) {
-                        if (body->getLinearVelocity().norm() < 0.01) {
-                            // stop the jiggling around
-                            body->setLinearVelocity(btVector3(0, 0, 0));
-                        } else {
-                            // counteract the current inertia
-                            // TODO: think about maybe making halting easier than accelerating.
-                            btVector3 correctedForce = (body->getLinearVelocity() * -1).normalized();
-                            body->applyCentralForce(correctedForce);
-                        }
+                if (xPressed) {
+                    if (body->getLinearVelocity ().norm () < 0.01) {
+                        // stop the jiggling around
+                        body->setLinearVelocity (btVector3 (0, 0, 0));
+                    } else {
+                        // counteract the current inertia
+                        // TODO: think about maybe making halting easier than accelerating.
+                        btVector3 correctedForce = (body->getLinearVelocity () * -1).normalized ();
+                        body->applyCentralForce (correctedForce);
                     }
-                    if (yPressed) {
-                        if (body->getAngularVelocity().norm() < 0.01) {
-                            body->setAngularVelocity(btVector3(0, 0, 0));
-                        } else {
-                            btVector3 correctedTorque = (body->getAngularVelocity() * -1).normalized();
-                            body->applyTorque(correctedTorque);
-                        }
+                }
+                if (yPressed) {
+                    if (body->getAngularVelocity ().norm () < 0.01) {
+                        body->setAngularVelocity (btVector3 (0, 0, 0));
+                    } else {
+                        btVector3 correctedTorque = (body->getAngularVelocity () * -1).normalized ();
+                        body->applyTorque (correctedTorque);
                     }
+                }
 
-                    if (!xPressed) {
-                        if (!relativeForce.isZero()) {
-                            // TODO: decide about maybe normalizing
-                            btVector3 correctedForce = boxRot * relativeForce;
-                            body->applyCentralForce(correctedForce);
-                        }
+                if (!xPressed) {
+                    if (!relativeForce.isZero ()) {
+                        // TODO: decide about maybe normalizing
+                        btVector3 correctedForce = boxRot * relativeForce;
+                        body->applyCentralForce (correctedForce);
                     }
-                    if (!yPressed) {
-                        if (!relativeTorque.isZero()) {
-                            btVector3 correctedTorque = boxRot * relativeTorque;
-                            body->applyTorque(correctedTorque);
-                        }
+                }
+                if (!yPressed) {
+                    if (!relativeTorque.isZero ()) {
+                        btVector3 correctedTorque = boxRot * relativeTorque;
+                        body->applyTorque (correctedTorque);
                     }
-
-                } else {
-                    // for later use
-                    trans = obj->getWorldTransform();
                 }
             }
 
-
-            for(JojoPhysicsNode* node : physics.player->contacting) {
-                if(node == physics.winner) {
-                    if(jojoReplay->state() == Replay::RecorderState::Recording) {
-                        std::cout << "You are touching the winner, but you have to do so in the Replay (press spacebar)" << std::endl;
-                    } else if(jojoReplay->state() == Replay::RecorderState::Replaying || jojoReplay->state() == Replay::RecorderState::ReplayFinished) {
-                        std::cout << "You have WON!" << std::endl;
-                    }
-
-                }
-                if(node == physics.loser) {
-                    std::cout << "You have LOST!" << std::endl;
-                }
-            }
-
-            updateMvp(config, engine, physics, mesh);
+            updateMvp (
+                config, engine,
+                physics, mesh
+            );
         }
 
         drawFrame (
             config, engine, jojoWindow, swapchain,
-            pipeline, mesh, textPipeline, levelPipeline, level
+            mesh, textPipeline, levelPipeline,
+            pipeline, scene, level
         );
-    }
-}
-
-
-void loadFromGlb(tinygltf::Model *modelDst, std::string relPath) {
-    tinygltf::TinyGLTF loader;
-    std::string err;
-
-    bool loaded = loader.LoadBinaryFromFile(modelDst, &err, relPath);
-    if (!err.empty()) {
-        std::cout << "Err: " << err << std::endl;
-    }
-    if (!loaded) {
-        std::cout << "Failed to parse glTF: " << std::endl;
-        psnip_trap();
     }
 }
 
@@ -585,190 +559,106 @@ void Rendering::DescriptorSets::createLayouts ()
     layouts.push_back (createLayout (level));
 }
 
-JojoPhysicsNode *makeSphereNode(JojoPhysics &physics, JojoNode *node) {
-    auto collisionShapeIndex = physics.collisionShapes.size();
-    auto collisionObjectArrayIndex = physics.dynamicsWorld->getCollisionObjectArray().size();
-
-    std::cout << "shapeIndex " << collisionShapeIndex << ", objectIndex " << collisionObjectArrayIndex << std::endl;
-
-    btCollisionShape *colShape = new btSphereShape(1.5);
-    physics.collisionShapes.push_back(colShape);
-
-    auto absoluteMatrix = node->calculateAbsoluteMatrix();
-    btTransform startTransform;
-    startTransform.setFromOpenGLMatrix(glm::value_ptr(absoluteMatrix));
-    node->startTransform = absoluteMatrix;
-
-    btVector3 localInertia(0, 1, 0);
-    btScalar mass(1.0f);
-    colShape->calculateLocalInertia(mass, localInertia);
-
-    btDefaultMotionState *myMotionState = new btDefaultMotionState(startTransform);
-    auto rigidBodyConstuctionInfo = btRigidBody::btRigidBodyConstructionInfo(mass,
-                                                                             myMotionState,
-                                                                             colShape,
-                                                                             localInertia);
-    btRigidBody *body = new btRigidBody(rigidBodyConstuctionInfo);
-    body->setRestitution(objectRestitution);
-    body->forceActivationState(DISABLE_DEACTIVATION);
-
-    physics.dynamicsWorld->addRigidBody(body);
-
-    JojoPhysicsNode *physicsNode = new JojoPhysicsNode();
-    physicsNode->collisionObjectArrayIndex = collisionObjectArrayIndex;
-    physicsNode->collisionShapeIndex = collisionShapeIndex;
-    physicsNode->node = node;
-
-    body->setUserPointer(physicsNode);
-
-    return physicsNode;
-}
-
-void initializeMaterialsAndLights (
-    const Config &config,
-    JojoEngine *engine,
-    JojoScene *scene,
-    JojoVulkanMesh *mesh
-) {
-    JojoVulkanMesh::MaterialInfo *materialInfo;
-    vkMapMemory (
-        engine->device,
-        mesh->materialInfoMemory, 0,
-        sizeof (JojoVulkanMesh::MaterialInfo), 0,
-        (void **)(&materialInfo)
-    );
-
-    for (int i = 0; i < scene->mvps.size (); ++i) {
-        // cast pointer to number to circumvent the step size of glm::mat4
-        JojoVulkanMesh::MaterialInfo *alignedStruct = (JojoVulkanMesh::MaterialInfo *)(((uint64_t)materialInfo + (i * mesh->materialInfoAlignment)));
-        alignedStruct->ambient = 0.1f;
-        alignedStruct->diffuse = 0.9f;
-        alignedStruct->specular = 0.3f;
-        alignedStruct->alpha = 10.0f;
-
-        if (i == scene->mvps.size () - 1) {
-            alignedStruct->texture = 1.0f;
-            alignedStruct->ambient = 0.06f;
-            alignedStruct->diffuse = 0.95f;
-            alignedStruct->specular = 0.2f;
-            alignedStruct->alpha = 2.0f;
-        } else if (i == 0) {
-            alignedStruct->texture = 1.0f;
-            alignedStruct->ambient = 0.06f;
-            alignedStruct->diffuse = 0.5f;
-            alignedStruct->specular = 0.0f;
-            alignedStruct->alpha = 1.0f;
-        } else {
-            alignedStruct->texture = 0.0f;
-        }
-        alignedStruct->param1 = 0.0f;
-        alignedStruct->param2 = 0.0f;
-        alignedStruct->param3 = 0.0f;
-    }
-    vkUnmapMemory (engine->device, mesh->materialInfoMemory);
-
-    JojoVulkanMesh::LightBlock *lightInfo;
-    vkMapMemory (
-        engine->device,
-        mesh->lightInfoMemory, 0,
-        sizeof (JojoVulkanMesh::LightBlock), 0,
-        (void **)(&lightInfo)
-    );
-    // TODO: DEBUGGING
-    lightInfo->parameters.x = config.gamma; // Gamma
-    lightInfo->parameters.y = config.hdrMode; // HDR enable
-    lightInfo->parameters.z = 1.0f; // HDR exposure
-    lightInfo->parameters.w = 0.0f;
-    lightInfo->sources[0].position = glm::vec3 (0.0, 0.5, 1.0);
-    lightInfo->sources[0].color = glm::vec3 (1.0, 1.0, 1.0);
-    lightInfo->sources[0].attenuation = glm::vec3 (2.0f, 0.4f, 0.1f);
-    lightInfo->sources[1].position = glm::vec3 (-97.0, 0.0, 0.0);
-    lightInfo->sources[1].color = glm::vec3 (1.0, 1.0, 1.0);
-    lightInfo->sources[1].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
-    lightInfo->sources[2].position = glm::vec3 (97.0, 0.0, 0.0);
-    lightInfo->sources[2].color = glm::vec3 (0.0, 1.0, 0.0);
-    lightInfo->sources[2].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
-    lightInfo->sources[3].position = glm::vec3 (0.0, 0.0, -97.0f);
-    lightInfo->sources[3].color = glm::vec3 (0.0, 0.0, 1.0);
-    lightInfo->sources[3].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
-    lightInfo->sources[4].position = glm::vec3 (0.0, 0.0, 97.0f);
-    lightInfo->sources[4].color = glm::vec3 (1.0, 1.0, 0.0);
-    lightInfo->sources[4].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
-    vkUnmapMemory (engine->device, mesh->lightInfoMemory);
-}
+//void initializeMaterialsAndLights (
+//    const Config &config,
+//    JojoEngine *engine,
+//    JojoScene *scene,
+//    JojoVulkanMesh *mesh
+//) {
+//    JojoVulkanMesh::MaterialInfo *materialInfo;
+//    vkMapMemory (
+//        engine->device,
+//        mesh->materialInfoMemory, 0,
+//        sizeof (JojoVulkanMesh::MaterialInfo), 0,
+//        (void **)(&materialInfo)
+//    );
+//
+//    for (int i = 0; i < scene->mvps.size (); ++i) {
+//        // cast pointer to number to circumvent the step size of glm::mat4
+//        JojoVulkanMesh::MaterialInfo *alignedStruct = (JojoVulkanMesh::MaterialInfo *)(((uint64_t)materialInfo + (i * mesh->materialInfoAlignment)));
+//        alignedStruct->ambient = 0.1f;
+//        alignedStruct->diffuse = 0.9f;
+//        alignedStruct->specular = 0.3f;
+//        alignedStruct->alpha = 10.0f;
+//
+//        if (i == scene->mvps.size () - 1) {
+//            alignedStruct->texture = 1.0f;
+//            alignedStruct->ambient = 0.06f;
+//            alignedStruct->diffuse = 0.95f;
+//            alignedStruct->specular = 0.2f;
+//            alignedStruct->alpha = 2.0f;
+//        } else if (i == 0) {
+//            alignedStruct->texture = 1.0f;
+//            alignedStruct->ambient = 0.06f;
+//            alignedStruct->diffuse = 0.5f;
+//            alignedStruct->specular = 0.0f;
+//            alignedStruct->alpha = 1.0f;
+//        } else {
+//            alignedStruct->texture = 0.0f;
+//        }
+//        alignedStruct->param1 = 0.0f;
+//        alignedStruct->param2 = 0.0f;
+//        alignedStruct->param3 = 0.0f;
+//    }
+//    vkUnmapMemory (engine->device, mesh->materialInfoMemory);
+//
+//    JojoVulkanMesh::LightBlock *lightInfo;
+//    vkMapMemory (
+//        engine->device,
+//        mesh->lightInfoMemory, 0,
+//        sizeof (JojoVulkanMesh::LightBlock), 0,
+//        (void **)(&lightInfo)
+//    );
+//    // TODO: DEBUGGING
+//    lightInfo->parameters.x = config.gamma; // Gamma
+//    lightInfo->parameters.y = config.hdrMode; // HDR enable
+//    lightInfo->parameters.z = 1.0f; // HDR exposure
+//    lightInfo->parameters.w = 0.0f;
+//    lightInfo->sources[0].position = glm::vec3 (0.0, 0.5, 1.0);
+//    lightInfo->sources[0].color = glm::vec3 (1.0, 1.0, 1.0);
+//    lightInfo->sources[0].attenuation = glm::vec3 (2.0f, 0.4f, 0.1f);
+//    lightInfo->sources[1].position = glm::vec3 (-97.0, 0.0, 0.0);
+//    lightInfo->sources[1].color = glm::vec3 (1.0, 1.0, 1.0);
+//    lightInfo->sources[1].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
+//    lightInfo->sources[2].position = glm::vec3 (97.0, 0.0, 0.0);
+//    lightInfo->sources[2].color = glm::vec3 (0.0, 1.0, 0.0);
+//    lightInfo->sources[2].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
+//    lightInfo->sources[3].position = glm::vec3 (0.0, 0.0, -97.0f);
+//    lightInfo->sources[3].color = glm::vec3 (0.0, 0.0, 1.0);
+//    lightInfo->sources[3].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
+//    lightInfo->sources[4].position = glm::vec3 (0.0, 0.0, 97.0f);
+//    lightInfo->sources[4].color = glm::vec3 (1.0, 1.0, 0.0);
+//    lightInfo->sources[4].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
+//    vkUnmapMemory (engine->device, mesh->lightInfoMemory);
+//}
 
 int main(int argc, char *argv[]) {
-    JojoPhysics physics;
+    Physics::Physics      physics   = {};
+    Scene::SceneTemplates scene     = {};
 
-    //loadFromGlb(&gltfModel, "../models/duck.glb");
+    // --------------------------------------------------------------
+    // TEMPLATE LOADING START
+    // --------------------------------------------------------------
 
-    JojoScene scene;
-/*
-    JojoNode duck;
-    duck.loadFromGltf(gltfModel, &scene);
-    scene.children.push_back(duck);
-*/
+    {
+        const Scene::TemplateInfo templateFiles = {
+            { "ship", { Object::Box }},
+            {"uvcube", { Object::Box }}
+        };
+        const uint32_t numTemplates = (uint32_t) templateFiles.size ();
 
-    tinygltf::Model gltfModel;
-    loadFromGlb(&gltfModel, "models/ship.glb");
-    JojoNode playerNode;
-    playerNode.loadFromGltf(gltfModel, &scene);
-    playerNode.setRelativeMatrix(glm::translate(glm::mat4(), glm::vec3(0, 2, 0)));
-    scene.children.push_back(&playerNode);
+        scene.templates.resize (numTemplates);
+        for (uint32_t t = 0; t < numTemplates; ++t) {
+            const auto &tfile = templateFiles[t];
+            Scene::loadTemplate (
+                tfile.first, tfile.second, t, &scene
+            );
+        }
+    }
 
-    JojoPhysicsNode *playerPhysicsNode = makeSphereNode(physics, &playerNode);
-    physics.dynamicNodes.push_back(playerPhysicsNode);
-    physics.player = playerPhysicsNode;
-
-
-    //auto translation = glm::vec3(10, 1, 1);
-    //auto scale = glm::vec3(1, 1, 1);
-
-    //tinygltf::Model gltfModel2;
-    //loadFromGlb(&gltfModel2, "models/uvcube.glb");
-    //JojoNode *icosphere = new JojoNode();
-    //icosphere->loadFromGltf(gltfModel2, &scene);
-    //icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
-    //scene.children.push_back(icosphere);
-
-    //JojoPhysicsNode *winnerPhysicsNode = makeSphereNode(physics, icosphere);
-    //physics.dynamicNodes.push_back(winnerPhysicsNode);
-    //physics.winner = winnerPhysicsNode;
-
-
-    //translation = glm::vec3(1, 1, 10);
-    //icosphere = new JojoNode();
-    //icosphere->loadFromGltf(gltfModel2, &scene);
-    //icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
-    //scene.children.push_back(icosphere);
-    //physics.dynamicNodes.push_back(makeSphereNode(physics, icosphere));
-
-    //translation = glm::vec3(1, 1, -10);
-    //icosphere = new JojoNode();
-    //icosphere->loadFromGltf(gltfModel2, &scene);
-    //icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
-    //scene.children.push_back(icosphere);
-    //physics.dynamicNodes.push_back(makeSphereNode(physics, icosphere));
-
-    //translation = glm::vec3(-10, 1, 1);
-    //icosphere = new JojoNode();
-    //icosphere->loadFromGltf(gltfModel2, &scene);
-    //icosphere->setRelativeMatrix(glm::translate(glm::scale(icosphere->getRelativeMatrix(), scale), translation));
-    //scene.children.push_back(icosphere);
-
-    //JojoPhysicsNode *loserPhysicsNode = makeSphereNode(physics, icosphere);
-    //physics.dynamicNodes.push_back(loserPhysicsNode);
-    //physics.loser = loserPhysicsNode;
-
-
-    /*tinygltf::Model gltfModel3;
-    loadFromGlb(&gltfModel3, "models/skybox.glb");
-    JojoNode skybox;
-    skybox.loadFromGltf(gltfModel3, &scene);
-    skybox.setRelativeMatrix(glm::mat4());
-    scene.children.push_back(&skybox);*/
-
-
+    // --------------------------------------------------------------
+    // TEMPLATE LOADING END
+    // --------------------------------------------------------------
 
     Config config = Config::readFromFile("config.ini");
 
@@ -776,39 +666,15 @@ int main(int argc, char *argv[]) {
     window.startGlfw(config);
 
     Replay::Recorder jojoReplay(window.window);
-    jojoReplay.setResetFunc([&physics]() {
-        // TODO: Reset state of the world here
-        btVector3 zeroVector(0, 0, 0);
-
-        for(JojoPhysicsNode *node : physics.dynamicNodes) {
-            node->contacting.clear();
-        }
-
-        auto playerIndex = physics.player->collisionObjectArrayIndex;
-        btTransform startTransform;
-        auto startMatrix = physics.player->node->startTransform;
-        startTransform.setFromOpenGLMatrix(glm::value_ptr(startMatrix));
-
-        btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[playerIndex];
-        btRigidBody *body = btRigidBody::upcast(obj);
-
-        body->clearForces();
-        body->setLinearVelocity(zeroVector);
-        body->setAngularVelocity(zeroVector);
-        body->setWorldTransform(startTransform);
-    });
+    jojoReplay.setResetFunc ([]() {});
 
     JojoEngine engine;
     engine.jojoWindow = &window;
     engine.startVulkan();
     engine.initializeDescriptorPool(100, 100, 100);
 
-
-
-
     JojoVulkanMesh mesh;
     mesh.scene = &scene;
-
 
     JojoSwapchain swapchain;
     swapchain.createCommandBuffers(&engine);
@@ -831,13 +697,20 @@ int main(int argc, char *argv[]) {
         const auto fence     = swapchain.commandBufferFences[0];
         const auto allocator = engine.allocator;
         
-        level = Level::alloc (allocator, "maps/1");
+        level = Level::alloc (allocator, "1");
         levelCleanupQueue.reserve (10);
 
         ASSERT_VULKAN (beginCommandBuffer (cmd));
-        Level::cmdStageVertexData (allocator, level, cmd, &levelCleanupQueue);
-        Level::cmdLoadAndStageTextures (allocator, engine.device, cmd, level, &levelCleanupQueue);
-        Level::cmdBuildAndStageIndicesNaively (allocator, engine.device, level, cmd);
+        Level::cmdStageVertexData (
+            allocator, level, cmd, &levelCleanupQueue
+        );
+        Level::cmdLoadAndStageTextures (
+            allocator, engine.device, cmd,
+            level, &levelCleanupQueue
+        );
+        Level::cmdBuildAndStageIndicesNaively (
+            allocator, engine.device, level, cmd
+        );
         ASSERT_VULKAN (vkEndCommandBuffer (cmd));
 
         VkSubmitInfo submitInfo = {};
@@ -849,10 +722,15 @@ int main(int argc, char *argv[]) {
         vkQueueSubmit (engine.queue, 1, &submitInfo, fence);
 
         // Wait for staging to complete
-        // WARNING: do not reset fence here! apparently we get a deadlock
+        // WARNING: do not reset fence here!
+        //          apparently we get a deadlock otherwise
         auto result = VK_TIMEOUT;
-        while (result == VK_TIMEOUT)
-            result = vkWaitForFences (engine.device, 1, &fence, VK_TRUE, 100000000);
+        while (result == VK_TIMEOUT) {
+            result = vkWaitForFences (
+                engine.device, 1, &fence, 
+                VK_TRUE, 100000000
+            );
+        }
         ASSERT_VULKAN (result);
 
         // Staging cleanup
@@ -862,12 +740,39 @@ int main(int argc, char *argv[]) {
         // Update descriptors
         Level::updateDescriptors (engine.descriptors, level);
 
-        // Add rigid bodies to the world
-        Level::loadAndAddRigidBodies (level, physics.dynamicsWorld);
+        // Load rigid bodies
+        Level::loadRigidBodies (level);
     }
 
     // --------------------------------------------------------------
     // LEVEL LOADING END
+    // --------------------------------------------------------------
+
+    // --------------------------------------------------------------
+    // CREATE INSTANCES FOR CURRENT LEVEL START
+    // --------------------------------------------------------------
+
+    {
+        scene.instances.resize (1, {});
+        scene.numInstances = 1;
+
+        // Create player instance
+        Scene::instantiate (
+            btVector3 (0, 0, 0), 0, Scene::PlayerInstance,
+            &scene, &scene.instances[0]
+        );
+
+        // Create physics world
+        Physics::alloc (&physics);
+        Physics::addInstancesToWorld (
+            &physics, level,
+            scene.instances.data (),
+            scene.numInstances
+        );
+    }
+
+    // --------------------------------------------------------------
+    // CREATE INSTANCES FOR CURRENT LEVEL END
     // --------------------------------------------------------------
 
     // --------------------------------------------------------------
@@ -899,12 +804,12 @@ int main(int argc, char *argv[]) {
     }
 
     // --------------------------------------------------------------
-    // PIPELINE CREATION START
+    // PIPELINE CREATION END
     // --------------------------------------------------------------
 
     mesh.initializeBuffers(&engine, Rendering::Set::Phong);
 
-    initializeMaterialsAndLights (config, &engine, &scene, &mesh);
+    // initializeMaterialsAndLights (config, &engine, &scene, &mesh);
 
     Textures::Texture font;
 
@@ -942,11 +847,10 @@ int main(int argc, char *argv[]) {
     });
 
     gameloop (
-        config, &engine, &window, &swapchain, &pipeline,
-        &jojoReplay, physics, &mesh, &textPipeline,
-        &levelPipeline, level
+        config, &engine, &window, &swapchain, &jojoReplay,
+        &mesh, &pipeline, &textPipeline, &levelPipeline,
+        &scene, level, &physics
     );
-
 
     VkResult result = vkDeviceWaitIdle(engine.device);
     ASSERT_VULKAN (result);
@@ -955,7 +859,34 @@ int main(int argc, char *argv[]) {
 
     mesh.destroyBuffers(&engine);
 
-    Level::free (engine.allocator, level);
+    // --------------------------------------------------------------
+    // PHYSICS CLEANUP BEGIN
+    // --------------------------------------------------------------
+
+    {
+        Physics::removeInstancesFromWorld (
+            &physics, level,
+            scene.instances.data (),
+            scene.numInstances
+        );
+        Physics::free (&physics);
+    }
+
+    // --------------------------------------------------------------
+    // PHYSICS CLEANUP END
+    // --------------------------------------------------------------
+
+    // --------------------------------------------------------------
+    // LEVEL CLEANUP BEGIN
+    // --------------------------------------------------------------
+
+    {
+        Level::free (engine.allocator, level);
+    }
+    
+    // --------------------------------------------------------------
+    // PHYSICS CLEANUP END
+    // --------------------------------------------------------------
 
     swapchain.destroyCommandBuffers(&engine);
 

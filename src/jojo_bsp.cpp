@@ -200,7 +200,7 @@ void buildColliders (
 
             if (brush.texture < 0 || visited[brushIndex])
                 continue;
-            if (textures[brush.texture].contents & BSPCONTENTS_SOLID == 0)
+            if ((textures[brush.texture].contents & BSPCONTENTS_SOLID) == 0)
                 continue;
             visited[brushIndex] = true;
 

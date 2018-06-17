@@ -61,7 +61,7 @@ public:
         float param3;
     };
 
-    JojoScene *scene = nullptr;
+    Scene::SceneTemplates *scene = nullptr;
 
     size_t dynamicAlignment;
     size_t materialInfoAlignment;
@@ -99,9 +99,11 @@ public:
 
     void updateAlignedUniforms(const glm::mat4 &view);
 
-    void goDrawYourself(VkCommandBuffer &commandBuffer, VkPipelineLayout &pipelineLayout);
-
-    void drawNode(VkCommandBuffer &commandBuffer, VkPipelineLayout &pipelineLayout, const JojoNode *node);
+    void drawNode (
+        const VkCommandBuffer   cmd,
+        const VkPipelineLayout  pipelineLayout,
+        const Scene::Node      *node
+    ) const;
 };
 
 

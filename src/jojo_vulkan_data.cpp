@@ -18,30 +18,30 @@ VkVertexInputBindingDescription JojoVulkanMesh::getVertexInputBindingDescription
     VkVertexInputBindingDescription vertexInputBindingDescription;
 
     vertexInputBindingDescription.binding = 0;
-    vertexInputBindingDescription.stride = sizeof(JojoVertex);
+    vertexInputBindingDescription.stride = sizeof(Object::Vertex);
     vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
     return vertexInputBindingDescription;
 }
 
 std::vector<VkVertexInputAttributeDescription> JojoVulkanMesh::getVertexInputAttributeDescriptions() {
-    std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions(3);
-    vertexInputAttributeDescriptions[0].location = 0;   // location in shader
-    vertexInputAttributeDescriptions[0].binding = 0;
-    vertexInputAttributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;   // for vec2 in shader
-    vertexInputAttributeDescriptions[0].offset = offsetof(JojoVertex, pos);
+    std::vector<VkVertexInputAttributeDescription> attr(3);
+    attr[0].location = 0;
+    attr[0].binding = 0;
+    attr[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attr[0].offset = offsetof(Object::Vertex, pos);
 
-    vertexInputAttributeDescriptions[1].location = 1;
-    vertexInputAttributeDescriptions[1].binding = 0;
-    vertexInputAttributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;   // for vec3 in shader
-    vertexInputAttributeDescriptions[1].offset = offsetof(JojoVertex, normal);
+    attr[1].location = 1;
+    attr[1].binding = 0;
+    attr[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attr[1].offset = offsetof(Object::Vertex, nml);
 
-    vertexInputAttributeDescriptions[2].location = 2;
-    vertexInputAttributeDescriptions[2].binding = 0; 
-    vertexInputAttributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;   // for vec2 in shader
-    vertexInputAttributeDescriptions[2].offset = offsetof (JojoVertex, uv);
+    attr[2].location = 2;
+    attr[2].binding = 0; 
+    attr[2].format = VK_FORMAT_R32G32_SFLOAT;
+    attr[2].offset = offsetof (Object::Vertex, tex);
 
-    return vertexInputAttributeDescriptions;
+    return attr;
 }
 
 void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, Rendering::Set set) {
@@ -179,36 +179,32 @@ void JojoVulkanMesh::updateAlignedUniforms(const glm::mat4 &view) {
 
 }
 
-void JojoVulkanMesh::drawNode(VkCommandBuffer &commandBuffer, VkPipelineLayout &pipelineLayout, const JojoNode *node) {
-    for (const JojoPrimitive &primitive : node->primitives) {
+void JojoVulkanMesh::drawNode (
+    const VkCommandBuffer   cmd,
+    const VkPipelineLayout  pipelineLayout,
+    const Scene::Node      *node
+) const {
+    for (const auto &primitive : node->primitives) {
         uint32_t offsets[] = {
-            primitive.dynamicOffset * static_cast<uint32_t>(dynamicAlignment),
-            primitive.dynamicOffset * static_cast<uint32_t>(materialInfoAlignment)
+            primitive.dynamicMVP      * static_cast<uint32_t>(dynamicAlignment),
+            primitive.dynamicMaterial * static_cast<uint32_t>(materialInfoAlignment)
         };
 
-        vkCmdBindDescriptorSets(commandBuffer,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                pipelineLayout,
-                                0,
-                                1,
-                                &descriptorSet,
-                                2,
-                                offsets);
+        vkCmdBindDescriptorSets (
+            cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipelineLayout, 0, 1, &descriptorSet,
+            2, offsets
+        );
 
-        vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.indexOffset, 0, 0);
+        vkCmdDrawIndexed (
+            cmd, primitive.indexCount, 1,
+            primitive.indexOffset,
+            primitive.vertexOffset, 0
+        );
     }
-    for (const JojoNode *child : node->children) {
-        drawNode(commandBuffer, pipelineLayout, child);
-    }
-}
 
-void JojoVulkanMesh::goDrawYourself(VkCommandBuffer &commandBuffer, VkPipelineLayout &pipelineLayout) {
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-    for (JojoNode *child : scene->children) {
-        drawNode(commandBuffer, pipelineLayout, child);
+    for (const auto &child : node->children) {
+        drawNode(cmd, pipelineLayout, &child);
     }
 }
 

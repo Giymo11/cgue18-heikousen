@@ -66,11 +66,15 @@ void DescriptorSets::update (
     vkUpdateDescriptorSets (device, 1, &write, 0, nullptr);
 }
 
-VkDescriptorSet DescriptorSets::set (Set s) const {
+VkDescriptorSet DescriptorSets::set (
+    Set s
+) const {
     return descriptorSets[static_cast<size_t>(s)];
 }
 
-VkDescriptorSetLayout DescriptorSets::layout (Set s) const {
+VkDescriptorSetLayout DescriptorSets::layout (
+    Set s
+) const {
     return layouts[static_cast<size_t>(s)];
 }
 

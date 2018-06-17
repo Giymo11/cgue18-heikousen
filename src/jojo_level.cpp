@@ -52,7 +52,7 @@ JojoLevel *alloc (
     auto level = new JojoLevel;
 
     // Load bsp and count vertices/indices
-    level->bsp = BSP::loadBSP (bspName);
+    level->bsp = BSP::loadBSP ("maps/" + bspName);
     const auto bsp = level->bsp.get ();
     const auto vertexCount = BSP::vertexCount (bsp->header);
     const auto indexCount = bsp->indexCount;
@@ -61,7 +61,8 @@ JojoLevel *alloc (
 
     binfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     binfo.size = vertexDataSize;
-    binfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    binfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+        | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     binfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
     allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -72,7 +73,8 @@ JojoLevel *alloc (
     ));
 
     binfo.size = indexDataSize;
-    binfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    binfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+        | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     binfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
     allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -88,7 +90,8 @@ JojoLevel *alloc (
     allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
     allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-    allocInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+    allocInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
 
     ASSERT_VULKAN (vmaCreateBuffer (
         allocator, &binfo, &allocInfo,
@@ -266,9 +269,8 @@ void updateDescriptors (
     descriptors->update (Rendering::Set::Level, 3, lightmap);
 }
 
-void loadAndAddRigidBodies (
-    JojoLevel               *level,
-    btDiscreteDynamicsWorld *world
+void loadRigidBodies (
+    JojoLevel               *level
 ) {
     const auto bsp = level->bsp.get();
 
@@ -278,11 +280,26 @@ void loadAndAddRigidBodies (
         &level->collisionShapes, &level->motionStates,
         &level->rigidBodies
     );
+}
 
+void addRigidBodies (
+    JojoLevel               *level,
+    btDiscreteDynamicsWorld *world
+) {
     const auto numBodies = level->rigidBodies.size ();
     auto &bodies = level->rigidBodies;
     for (int i = 0; i < numBodies; i++)
         world->addRigidBody (bodies[i]);
+}
+
+void removeRigidBodies (
+    JojoLevel               *level,
+    btDiscreteDynamicsWorld *world
+) {
+    const auto numBodies = level->rigidBodies.size ();
+    auto &bodies = level->rigidBodies;
+    for (int i = 0; i < numBodies; i++)
+        world->removeRigidBody (bodies[i]);
 }
 
 }

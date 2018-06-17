@@ -86,7 +86,16 @@ void updateDescriptors (
     const JojoLevel                 *level
 );
 
-void loadAndAddRigidBodies (
+void loadRigidBodies (
+    JojoLevel               *level
+);
+
+void addRigidBodies (
+    JojoLevel               *level,
+    btDiscreteDynamicsWorld *world
+);
+
+void removeRigidBodies (
     JojoLevel               *level,
     btDiscreteDynamicsWorld *world
 );

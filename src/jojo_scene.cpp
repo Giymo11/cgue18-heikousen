@@ -1,249 +1,97 @@
 //
 // Created by benja on 4/28/2018.
 //
+#include "jojo_vulkan_data.hpp"
 
-#include <iostream>
+namespace Scene {
 
-#include <tiny_gltf.h>
+void instantiate (
+    const btVector3      &position,
+    uint32_t              templateIndex,
+    InstanceType          type,
+    SceneTemplates       *scene,
+    Instance             *instance
+) {
+    btTransform startTransform;
+    startTransform.setIdentity ();
+    startTransform.setOrigin (position);
+    instance->motionState = new btDefaultMotionState (startTransform);
 
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+    auto info = btRigidBody::btRigidBodyConstructionInfo (
+        0.f,
+        instance->motionState,
+        scene->templates[templateIndex].shape
+    );
+    instance->body = new btRigidBody (info);
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
-#include "jojo_scene.hpp"
-#include "jojo_vulkan_utils.hpp"
-
-
-JojoVertex::JojoVertex(glm::vec3 pos, glm::vec3 normal, glm::vec2 uv)
-        : pos(pos), normal(normal), uv(uv) {}
-
-void JojoNode::loadFromGltf(const tinygltf::Model &gltfModel, JojoScene *root) {
-    // loadImages(gltfModel, device, transferQueue);
-    // loadMaterials(gltfModel, device, transferQueue);
-    std::vector<JojoMaterial> materials;
-
-    const tinygltf::Scene &scene = gltfModel.scenes[gltfModel.defaultScene];
-
-    // TODO: load materials and textures into root
-
-    this->root = root;
-    this->name = scene.name;
-
-    for (auto &node : scene.nodes) {
-        this->loadNode(gltfModel.nodes[node], gltfModel, materials);
-    }
-
-    std::cout << "loaded " << this->children.size() << " own nodes" << std::endl;
+    auto &nextInstance   = scene->templates[templateIndex].nextInstance;
+    instance->templateId = templateIndex;
+    instance->instanceId = nextInstance;
+    instance->type       = type;
+    nextInstance += 1;
 }
 
+void cmdDrawInstances (
+    const VkCommandBuffer   cmd,
+    const VkPipelineLayout  pipelineLayout,
+    const JojoVulkanMesh   *data,
+    const Template         *templates,
+    const Instance         *instances,
+    const uint32_t          instanceCount
+) {
+    VkDeviceSize offsets = 0;
+    vkCmdBindVertexBuffers (
+        cmd, 0, 1, &data->vertexBuffer,
+        &offsets
+    );
+    vkCmdBindIndexBuffer (
+        cmd, data->indexBuffer, 0,
+        VK_INDEX_TYPE_UINT32
+    );
 
-void
-JojoNode::loadNode(const tinygltf::Node &gltfNode,
-                   const tinygltf::Model &model,
-                   std::vector<JojoMaterial> &materials) {
+    for (uint32_t i = 0; i < instanceCount; i++) {
+        const auto &inst = instances[i];
+        const auto &temp = templates[inst.templateId];
 
-    JojoNode *jojoNode = new JojoNode();
-    jojoNode->root = this->root;
-    jojoNode->name = gltfNode.name;
-    jojoNode->loadMatrix(gltfNode);
+        // Only one instance for now
+        if (inst.instanceId > 0)
+            continue;
 
-    // Node contains mesh data
-    if (gltfNode.mesh > -1) {
-        const tinygltf::Mesh mesh = model.meshes[gltfNode.mesh];
-        jojoNode->name += " - " + mesh.name;
-
-        // add matrix to the vector
-        auto dynOffset = root->mvps.size();
-        root->mvps.push_back(matrix);
-
-        // generate primitive information
-        for (const auto &primitive : mesh.primitives) {
-            if (primitive.indices < 0) {
-                continue;
-            }
-            const auto indexStart = static_cast<uint32_t>(this->root->indices.size());
-            const auto vertexStart = static_cast<uint32_t>(this->root->vertices.size());
-            // Vertices
-            jojoNode->loadVertices(model, primitive);
-            // Indices
-            const uint32_t indexCount = jojoNode->loadIndices(model, primitive, vertexStart);
-            if (indexCount <= 0) {
-                std::cout << "Index count was 0" << std::endl;
-                continue;
-            }
-
-            JojoPrimitive jojoPrimitive;
-            jojoPrimitive.indexOffset = indexStart;
-            jojoPrimitive.indexCount = indexCount;
-            jojoPrimitive.dynamicOffset = dynOffset;
-            jojoPrimitive.material = nullptr;    // TODO from materials[primitive.material]} build a materialOffset
-
-            jojoNode->primitives.push_back(jojoPrimitive);
-        }
-    }
-
-
-    if (!gltfNode.children.empty()) {
-        for (auto i = 0; i < gltfNode.children.size(); i++) {
-            jojoNode->loadNode(model.nodes[gltfNode.children[i]], model, materials);
-        }
-    }
-
-    jojoNode->setParent(this);
-    this->children.push_back(jojoNode);
-}
-
-uint32_t JojoNode::loadIndices(const tinygltf::Model &model,
-                               const tinygltf::Primitive &primitive,
-                               const uint32_t vertexStart) {
-
-    const tinygltf::Accessor &accessor = model.accessors[primitive.indices];
-    const tinygltf::BufferView &bufferView = model.bufferViews[accessor.bufferView];
-    const tinygltf::Buffer &buffer = model.buffers[bufferView.buffer];
-
-    const uint32_t indexCount = static_cast<uint32_t>(accessor.count);
-
-    switch (accessor.componentType) {
-        case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
-            uint32_t *buf = new uint32_t[accessor.count];
-            memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset],
-                   accessor.count * sizeof(uint32_t));
-            for (size_t index = 0; index < accessor.count; index++) {
-                this->root->indices.push_back(buf[index] + vertexStart);
-            }
-            break;
-        }
-        case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
-            uint16_t *buf = new uint16_t[accessor.count];
-            memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset],
-                   accessor.count * sizeof(uint16_t));
-            for (size_t index = 0; index < accessor.count; index++) {
-                this->root->indices.push_back(buf[index] + vertexStart);
-            }
-            break;
-        }
-        case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: {
-            uint8_t *buf = new uint8_t[accessor.count];
-            memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset],
-                   accessor.count * sizeof(uint8_t));
-            for (size_t index = 0; index < accessor.count; index++) {
-                this->root->indices.push_back(buf[index] + vertexStart);
-            }
-            break;
-        }
-        default:
-            std::cerr << "Index component type " << accessor.componentType << " not supported!" << std::endl;
-            psnip_trap();
-            return 0;
-    }
-
-    return indexCount;
-}
-
-
-void JojoNode::loadVertices(const tinygltf::Model &model,
-                            const tinygltf::Primitive &primitive) {
-    const float *bufferPos = nullptr;
-    const float *bufferNormals = nullptr;
-    const float *bufferTexCoords = nullptr;
-
-    // Position attribute is required
-    assert(primitive.attributes.find("POSITION") != primitive.attributes.end());
-
-    const tinygltf::Accessor &posAccessor = model.accessors[primitive.attributes.find("POSITION")->second];
-    const tinygltf::BufferView &posView = model.bufferViews[posAccessor.bufferView];
-    bufferPos = reinterpret_cast<const float *>(&(model.buffers[posView.buffer].data[posAccessor.byteOffset +
-                                                                                     posView.byteOffset]));
-
-    if (primitive.attributes.find("NORMAL") != primitive.attributes.end()) {
-        const tinygltf::Accessor &normAccessor = model.accessors[primitive.attributes.find("NORMAL")->second];
-        const tinygltf::BufferView &normView = model.bufferViews[normAccessor.bufferView];
-        bufferNormals = reinterpret_cast<const float *>(&(model.buffers[normView.buffer].data[
-                normAccessor.byteOffset + normView.byteOffset]));
-    }
-
-    if (primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end()) {
-        const tinygltf::Accessor &uvAccessor = model.accessors[primitive.attributes.find("TEXCOORD_0")->second];
-        const tinygltf::BufferView &uvView = model.bufferViews[uvAccessor.bufferView];
-        bufferTexCoords = reinterpret_cast<const float *>(&(model.buffers[uvView.buffer].data[
-                uvAccessor.byteOffset + uvView.byteOffset]));
-    }
-
-    // generate vertex information
-    for (size_t v = 0; v < posAccessor.count; v++) {
-        // TOOD: Are these transformation one-time only?
-
-        auto pos = glm::make_vec3(&bufferPos[v * 3]);
-        auto normal = bufferNormals ? glm::make_vec3 (&bufferNormals[v * 3]) : glm::vec3 (0.f);
-        auto uv = bufferTexCoords ? glm::make_vec2 (&bufferTexCoords[v * 2]) : glm::vec2 (0.f);
-
-        pos.y *= -1.0f;
-        normal.y *= -1.0f;
-
-        this->root->vertices.emplace_back (pos, normal, uv * 5.0f);
+        for (const auto &node : temp.nodes)
+            data->drawNode (cmd, pipelineLayout, &node);
     }
 }
 
-void JojoNode::loadMatrix(const tinygltf::Node &gltfNode) {
-    // Generate local node matrix
-    glm::vec3 translation = glm::vec3(0.0f);
-    if (gltfNode.translation.size() == 3) {
-        translation = glm::make_vec3(gltfNode.translation.data());
-    }
-    glm::mat4 rotation = glm::mat4(1.0f);
-    if (gltfNode.rotation.size() == 4) {
-        glm::quat q = glm::make_quat(gltfNode.rotation.data());
-        rotation = glm::mat4(q);
-    }
-    glm::vec3 scale = glm::vec3(1.0f);
-    if (gltfNode.scale.size() == 3) {
-        scale = glm::make_vec3(gltfNode.scale.data());
-    }
-    glm::mat4 localNodeMatrix = glm::mat4(1.0f);
-    if (gltfNode.matrix.size() == 16) {
-        localNodeMatrix = glm::make_mat4x4(gltfNode.matrix.data());
-    } else {
-        // T * R * S
-        localNodeMatrix = glm::translate(glm::mat4(1.0f), translation) * rotation * glm::scale(glm::mat4(1.0f), scale);
-    }
-    // localNodeMatrix = parentMatrix * localNodeMatrix;
-    this->matrix = localNodeMatrix;
 }
 
-const glm::mat4 &JojoNode::getRelativeMatrix() const {
-    return matrix;
-}
-
-glm::mat4 JojoNode::calculateAbsoluteMatrix() {
-    if (parent != nullptr) {
-        return parent->calculateAbsoluteMatrix() * matrix;
-    }
-    return matrix;
-}
-
-void JojoNode::setRelativeMatrix(const glm::mat4 &newMatrix) {
-    matrix = newMatrix;
-
-    if (!primitives.empty()) {
-        auto &primitive = primitives[0];
-        auto dynOffset = primitive.dynamicOffset;
-
-        if (parent) {
-            root->mvps[dynOffset] = calculateAbsoluteMatrix();
-        }
-    }
-    for (auto *child : children) {
-        child->setParent(this);
-    }
-}
-
-void JojoNode::setParent(JojoNode *newParent) {
-    parent = newParent;
-    setRelativeMatrix(matrix);
-}
-
-
+//
+//glm::mat4 JojoNode::calculateAbsoluteMatrix() {
+//    if (parent != nullptr) {
+//        return parent->calculateAbsoluteMatrix() * matrix;
+//    }
+//    return matrix;
+//}
+//
+//void JojoNode::setRelativeMatrix(const glm::mat4 &newMatrix) {
+//    matrix = newMatrix;
+//
+//    if (!primitives.empty()) {
+//        auto &primitive = primitives[0];
+//        auto dynOffset = primitive.dynamicOffset;
+//
+//        if (parent) {
+//            root->mvps[dynOffset] = calculateAbsoluteMatrix();
+//        }
+//    }
+//    for (auto *child : children) {
+//        child->setParent(this);
+//    }
+//}
+//
+//void JojoNode::setParent(JojoNode *newParent) {
+//    parent = newParent;
+//    setRelativeMatrix(matrix);
+//}
+//
+//
 

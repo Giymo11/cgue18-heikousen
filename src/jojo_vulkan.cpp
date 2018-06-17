@@ -568,7 +568,7 @@ VkResult createDescriptorPool(const VkDevice device,
     descriptorPoolCreateInfo.pNext = nullptr;
     descriptorPoolCreateInfo.flags = 0;
     descriptorPoolCreateInfo.maxSets = uniformCount + dynamicUniformCount + samplerCount;
-    descriptorPoolCreateInfo.poolSizeCount = descriptorPoolSizes.size();
+    descriptorPoolCreateInfo.poolSizeCount = (uint32_t)descriptorPoolSizes.size();
     descriptorPoolCreateInfo.pPoolSizes = descriptorPoolSizes.data();
 
     return vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, nullptr, descriptorPool);
