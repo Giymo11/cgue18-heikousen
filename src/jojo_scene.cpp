@@ -183,7 +183,7 @@ void JojoNode::loadVertices(const tinygltf::Model &model,
         pos.y *= -1.0f;
         normal.y *= -1.0f;
 
-        this->root->vertices.emplace_back (pos, normal, uv);
+        this->root->vertices.emplace_back (pos, normal, uv * 5.0f);
     }
 }
 

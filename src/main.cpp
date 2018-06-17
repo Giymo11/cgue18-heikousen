@@ -646,12 +646,18 @@ void initializeMaterialsAndLights (
         alignedStruct->specular = 0.3f;
         alignedStruct->alpha = 10.0f;
 
-        if (i == scene->mvps.size() - 1) {
+        if (i == scene->mvps.size () - 1) {
             alignedStruct->texture = 1.0f;
             alignedStruct->ambient = 0.06f;
             alignedStruct->diffuse = 0.95f;
             alignedStruct->specular = 0.2f;
             alignedStruct->alpha = 2.0f;
+        } else if (i == 0) {
+            alignedStruct->texture = 1.0f;
+            alignedStruct->ambient = 0.06f;
+            alignedStruct->diffuse = 0.5f;
+            alignedStruct->specular = 0.0f;
+            alignedStruct->alpha = 1.0f;
         } else {
             alignedStruct->texture = 0.0f;
         }
@@ -673,11 +679,11 @@ void initializeMaterialsAndLights (
     lightInfo->parameters.y = config.hdrMode; // HDR enable
     lightInfo->parameters.z = 1.0f; // HDR exposure
     lightInfo->parameters.w = 0.0f;
-    lightInfo->sources[0].position = glm::vec3 (0.0, 0.7, -4.0);
-    lightInfo->sources[0].color = glm::vec3 (20.0, 1.0, 1.0);
-    lightInfo->sources[0].attenuation = glm::vec3 (0.6f, 0.4f, 0.1f);
+    lightInfo->sources[0].position = glm::vec3 (0.0, 0.5, 1.0);
+    lightInfo->sources[0].color = glm::vec3 (1.0, 1.0, 1.0);
+    lightInfo->sources[0].attenuation = glm::vec3 (2.0f, 0.4f, 0.1f);
     lightInfo->sources[1].position = glm::vec3 (-97.0, 0.0, 0.0);
-    lightInfo->sources[1].color = glm::vec3 (100.0, 2.0, 2.0);
+    lightInfo->sources[1].color = glm::vec3 (1.0, 1.0, 1.0);
     lightInfo->sources[1].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
     lightInfo->sources[2].position = glm::vec3 (97.0, 0.0, 0.0);
     lightInfo->sources[2].color = glm::vec3 (0.0, 1.0, 0.0);
@@ -704,7 +710,7 @@ int main(int argc, char *argv[]) {
 */
 
     tinygltf::Model gltfModel;
-    loadFromGlb(&gltfModel, "models/cobra3_cleaned3_textured.glb");
+    loadFromGlb(&gltfModel, "models/ship.glb");
     JojoNode playerNode;
     playerNode.loadFromGltf(gltfModel, &scene);
     playerNode.setRelativeMatrix(glm::translate(glm::mat4(), glm::vec3(0, 2, 0)));
@@ -755,12 +761,12 @@ int main(int argc, char *argv[]) {
     //physics.loser = loserPhysicsNode;
 
 
-    tinygltf::Model gltfModel3;
+    /*tinygltf::Model gltfModel3;
     loadFromGlb(&gltfModel3, "models/skybox.glb");
     JojoNode skybox;
     skybox.loadFromGltf(gltfModel3, &scene);
     skybox.setRelativeMatrix(glm::mat4());
-    scene.children.push_back(&skybox);
+    scene.children.push_back(&skybox);*/
 
 
 
