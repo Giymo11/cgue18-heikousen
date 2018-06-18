@@ -335,7 +335,7 @@ std::unique_ptr<BSPData> loadBSP (
                 float xval = std::strtof (x.c_str (), nullptr);
                 float yval = std::strtof (y.c_str (), nullptr);
                 float zval = std::strtof (z.c_str (), nullptr);
-                std::cout << xval << " " << yval << " " << zval << "\n";
+
                 lightPositions.emplace_back (
                     xval * GEOMSCALE,
                     zval * GEOMSCALE,

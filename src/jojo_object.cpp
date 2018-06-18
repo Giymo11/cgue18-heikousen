@@ -371,7 +371,7 @@ static void loadTemplateFromGLB (
             const auto &v  = m.values;
             auto       &sm = sceneMaterials[dynMatBase + i];
 
-            sm.ambient  = 0.08f;
+            sm.ambient  = 0.01f;
             sm.diffuse  = 0.6f;
             sm.specular = 0.2f;
             sm.alpha    = 2.0f;
@@ -395,10 +395,21 @@ static void loadTemplateFromGLB (
                 ].source;
             }
 
-            if (roughness != v.end ())
+            if (scene->templates.data () == templ) {
+                sm.diffuse  = 0.04;
+                sm.specular = 0.01;
+            } else {
+                sm.ambient  = 0.08;
+                sm.alpha    = 40;
+                sm.diffuse  = 0.6;
+                sm.specular = 0.2;
+            }
+
+
+           /* if (roughness != v.end ())
                 sm.alpha = roughness->second.Factor () * 42.f;
             if (metallic != v.end ())
-                sm.specular = metallic->second.Factor ();  
+                sm.specular = metallic->second.Factor ();  */
         }
     }
 

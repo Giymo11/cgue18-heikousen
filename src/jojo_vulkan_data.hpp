@@ -33,7 +33,7 @@ public:
          * z = HDR exposure (1.0 default)
          */
         glm::vec4 parameters;
-        LightSource sources[8];
+        LightSource sources[16];
     };
 
     struct GlobalTransformations {

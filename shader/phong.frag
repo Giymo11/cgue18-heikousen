@@ -1,7 +1,7 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-const int LIGHT_COUNT = 5;
+const int LIGHT_COUNT = 16;
 
 struct LightSource {
     vec3 position;
@@ -73,7 +73,9 @@ void main() {
 	vec3 v = normalize(-vert.position);
 
     outColor = vec4(objColor.xyz * materialInfo.ambient, objColor.w);
-    for (int i = 0; i < LIGHT_COUNT; i++) {
+
+	int lightNum = int(lightInfo.parameters.w);
+    for (int i = 0; i < lightNum; i++) {
         outColor.xyz += point(objColor.xyz, lightInfo.lights[i], vert.position, vert.normal, v);
     }
 

@@ -333,12 +333,13 @@ void drawFrame (
 auto lastFrameTime = std::chrono::high_resolution_clock::now();
 
 
-void updateMvp (
+static void updateMvp (
     Config                      &config,
     JojoEngine                  *engine,
     Physics::Physics            *physics,
     JojoVulkanMesh              *mesh,
-    const Scene::SceneTemplates *scene
+    const Scene::SceneTemplates *scene,
+    const Level::JojoLevel      *level
 ) {
     auto world = physics->world;
 
@@ -385,16 +386,16 @@ void updateMvp (
     globalTrans->projection = projection;
     globalTrans->view = view;
 
+    const auto &lpos      = level->bsp->lightPos;
+    const auto  numlights = lpos.size () + 1;
     auto lightInfo = (JojoVulkanMesh::LightBlock *)
         mesh->alli_lightInfo.pMappedData;
     lightInfo->parameters.x = config.gamma;   // Gamma
     lightInfo->parameters.y = config.hdrMode; // HDR enable
     lightInfo->parameters.z = 1.0f;           // HDR exposure
-    lightInfo->parameters.w = 0.0f;
-    lightInfo->sources[1].position = glm::vec3 (view * glm::vec4 (-97.0, 0.0, 0.0, 1.0));
-    lightInfo->sources[2].position = glm::vec3 (view * glm::vec4 (97.0, 0.0, 0.0, 1.0));
-    lightInfo->sources[3].position = glm::vec3 (view * glm::vec4 (0.0, 0.0, -97.0, 1.0));
-    lightInfo->sources[4].position = glm::vec3 (view * glm::vec4 (0.0, 0.0, 97.0, 1.0));
+    lightInfo->parameters.w = (float)numlights;
+    for (size_t i = 1; i < numlights; i++)
+        lightInfo->sources[i].position = glm::vec3 (view * glm::vec4(lpos[i], 1.0f));
 }
 
 
@@ -554,7 +555,7 @@ void gameloop (
 
             updateMvp (
                 config, engine,
-                physics, mesh, scene
+                physics, mesh, scene, level
             );
         }
 
@@ -586,79 +587,6 @@ void Rendering::DescriptorSets::createLayouts ()
     addLayout (level, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (level));
 }
-
-//void initializeMaterialsAndLights (
-//    const Config &config,
-//    JojoEngine *engine,
-//    JojoScene *scene,
-//    JojoVulkanMesh *mesh
-//) {
-//    JojoVulkanMesh::MaterialInfo *materialInfo;
-//    vkMapMemory (
-//        engine->device,
-//        mesh->materialInfoMemory, 0,
-//        sizeof (JojoVulkanMesh::MaterialInfo), 0,
-//        (void **)(&materialInfo)
-//    );
-//
-//    for (int i = 0; i < scene->mvps.size (); ++i) {
-//        // cast pointer to number to circumvent the step size of glm::mat4
-//        JojoVulkanMesh::MaterialInfo *alignedStruct = (JojoVulkanMesh::MaterialInfo *)(((uint64_t)materialInfo + (i * mesh->materialInfoAlignment)));
-//        alignedStruct->ambient = 0.1f;
-//        alignedStruct->diffuse = 0.9f;
-//        alignedStruct->specular = 0.3f;
-//        alignedStruct->alpha = 10.0f;
-//
-//        if (i == scene->mvps.size () - 1) {
-//            alignedStruct->texture = 1.0f;
-//            alignedStruct->ambient = 0.06f;
-//            alignedStruct->diffuse = 0.95f;
-//            alignedStruct->specular = 0.2f;
-//            alignedStruct->alpha = 2.0f;
-//        } else if (i == 0) {
-//            alignedStruct->texture = 1.0f;
-//            alignedStruct->ambient = 0.06f;
-//            alignedStruct->diffuse = 0.5f;
-//            alignedStruct->specular = 0.0f;
-//            alignedStruct->alpha = 1.0f;
-//        } else {
-//            alignedStruct->texture = 0.0f;
-//        }
-//        alignedStruct->param1 = 0.0f;
-//        alignedStruct->param2 = 0.0f;
-//        alignedStruct->param3 = 0.0f;
-//    }
-//    vkUnmapMemory (engine->device, mesh->materialInfoMemory);
-//
-//    JojoVulkanMesh::LightBlock *lightInfo;
-//    vkMapMemory (
-//        engine->device,
-//        mesh->lightInfoMemory, 0,
-//        sizeof (JojoVulkanMesh::LightBlock), 0,
-//        (void **)(&lightInfo)
-//    );
-//    // TODO: DEBUGGING
-//    lightInfo->parameters.x = config.gamma; // Gamma
-//    lightInfo->parameters.y = config.hdrMode; // HDR enable
-//    lightInfo->parameters.z = 1.0f; // HDR exposure
-//    lightInfo->parameters.w = 0.0f;
-//    lightInfo->sources[0].position = glm::vec3 (0.0, 0.5, 1.0);
-//    lightInfo->sources[0].color = glm::vec3 (1.0, 1.0, 1.0);
-//    lightInfo->sources[0].attenuation = glm::vec3 (2.0f, 0.4f, 0.1f);
-//    lightInfo->sources[1].position = glm::vec3 (-97.0, 0.0, 0.0);
-//    lightInfo->sources[1].color = glm::vec3 (1.0, 1.0, 1.0);
-//    lightInfo->sources[1].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
-//    lightInfo->sources[2].position = glm::vec3 (97.0, 0.0, 0.0);
-//    lightInfo->sources[2].color = glm::vec3 (0.0, 1.0, 0.0);
-//    lightInfo->sources[2].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
-//    lightInfo->sources[3].position = glm::vec3 (0.0, 0.0, -97.0f);
-//    lightInfo->sources[3].color = glm::vec3 (0.0, 0.0, 1.0);
-//    lightInfo->sources[3].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
-//    lightInfo->sources[4].position = glm::vec3 (0.0, 0.0, 97.0f);
-//    lightInfo->sources[4].color = glm::vec3 (1.0, 1.0, 0.0);
-//    lightInfo->sources[4].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
-//    vkUnmapMemory (engine->device, mesh->lightInfoMemory);
-//}
 
 int main(int argc, char *argv[]) {
     Physics::Physics      physics   = {};
@@ -874,6 +802,33 @@ int main(int argc, char *argv[]) {
             Level::vertexAttributes ()
         );
     });
+
+    // --------------------------------------------------------------
+    // INITIALIZE LIGHTSOURCES BEGIN
+    // --------------------------------------------------------------
+
+    {
+        auto lblock = (JojoVulkanMesh::LightBlock *)
+            mesh.alli_lightInfo.pMappedData;
+
+        const auto &lpos      = level->bsp->lightPos;
+        const auto  numlights = lpos.size () + 1;
+
+        lblock->parameters.w           = (float)numlights;
+        lblock->sources[0].color       = glm::vec3 (0.9f);
+        lblock->sources[0].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
+        lblock->sources[0].position    = glm::vec3 (0.f, 0.f, -3.f);
+
+        for (size_t i = 1; i < numlights; i++) {
+            lblock->sources[i].color       = glm::vec3 (2.0, 0.0, 0.0);
+            lblock->sources[i].attenuation = glm::vec3 (0.4f, 0.05f, 0.01f);
+            lblock->sources[i].position    = lpos[i];
+        }
+    }
+ 
+    // --------------------------------------------------------------
+    // INITIALIZE LIGHTSOURCES END
+    // --------------------------------------------------------------
 
     // --------------------------------------------------------------
     // STAGING ONCE BEGIN
