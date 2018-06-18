@@ -9,13 +9,13 @@
 #include "jojo_level.hpp"
 #include "jojo_scene.hpp"
 
-constexpr float objectRestitution = 0.99f;
-
 namespace Level {
 struct JojoLevel;
 }
 
 namespace Physics {
+
+const float objectRestitution = 0.99f;
 
 struct Collision {
     Scene::Instance *obj;

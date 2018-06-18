@@ -20,7 +20,9 @@ static void loadMesh (
     const uint32_t                dynamicMVP,
     std::vector<Vertex>          *vertices,
     std::vector<uint32_t>        *indices,
-    std::vector<Primitive>       *primitives
+    std::vector<Primitive>       *primitives,
+    vec3                         *minExtent,
+    vec3                         *maxExtent
 ) {
     primitives->reserve (primitives->size () + mesh.primitives.size ());
 
@@ -84,6 +86,9 @@ static void loadMesh (
 
                 vert.pos.y = -vert.pos.y;
                 vert.nml.y = -vert.nml.y;
+
+                *minExtent = min (vert.pos, *minExtent);
+                *maxExtent = max (vert.pos, *maxExtent);
             }
 
             primitive.vertexOffset = currentNum;
@@ -174,6 +179,8 @@ static void loadNode (
     std::vector<uint32_t>        *indices,
     uint32_t                     *nextDynamicMVP,
     uint32_t                     *nextDynamicMaterial,
+    vec3                         *minExtent,
+    vec3                         *maxExtent,
     Scene::Node                  *sceneNode
 ) {
     const auto &node = nodes[currentNode];
@@ -183,7 +190,7 @@ static void loadNode (
     // --------------------------------------------------------------
 
     vec3 translation;
-    vec3 scale;
+    vec3 scale (1.0f);
     mat4 rotation;
     mat4 local;
 
@@ -211,7 +218,7 @@ static void loadNode (
         loadMesh (
             meshes[node.mesh], accessors, views, buffers,
             currentDynamicMVP, vertices, indices,
-            &sceneNode->primitives
+            &sceneNode->primitives, minExtent, maxExtent
         );
   
         *nextDynamicMVP += 1;
@@ -234,6 +241,7 @@ static void loadNode (
                 *nextDynamicMVP, currentDynamicMaterial,
                 node.children[n], vertices, indices,
                 nextDynamicMVP, nextDynamicMaterial,
+                minExtent, maxExtent,
                 &sceneNode->children[n]
             );
         }
@@ -295,6 +303,7 @@ static void loadTemplateFromGLB (
                 currentDynamicMVP, currentDynamicMaterial,
                 scene.nodes[n], vertices, indices,
                 nextDynamicMVP, nextDynamicMaterial,
+                &templ->minExtent, &templ->maxExtent,
                 &templ->nodes[n]
             );
         }
@@ -335,7 +344,23 @@ void loadTemplate (
     // INITIALIZE COLLISION SHAPE START
     // --------------------------------------------------------------
 
-    // TODO
+    switch (collisionInfo.type) {
+    case Object::Box:
+    {
+       auto &temp = templates->templates[templateIndex];
+       vec3 extent = (temp.maxExtent - temp.minExtent) * 0.5f;
+        temp.shape = new btBoxShape (btVector3(
+            extent.x,
+            extent.y,
+            extent.z
+        ));
+    }
+        break;
+    case Object::Convex:
+    default:
+        CHECK (false);
+        break;
+    }
 
     // --------------------------------------------------------------
     // INITIALIZE COLLISION SHAPE END

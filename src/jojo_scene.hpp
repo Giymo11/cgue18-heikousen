@@ -88,6 +88,9 @@ struct Template {
     std::vector<Node>  nodes;
     btCollisionShape  *shape;
     uint32_t           nextInstance;
+
+    vec3               minExtent;
+    vec3               maxExtent;
 };
 
 enum InstanceType : uint8_t {
@@ -128,7 +131,7 @@ void loadTemplate (
 );
 
 void instantiate (
-    const btVector3      &position,
+    const mat4           &transform,
     uint32_t              templateIndex,
     InstanceType          type,
     SceneTemplates       *scene,
@@ -149,6 +152,7 @@ void updateMatrices (
     const Instance *instances,
     const uint32_t  instanceCount,
     const uint32_t  transAlignment,
+    const bool      withPhysics,
     uint8_t        *transBuffer
 );
 

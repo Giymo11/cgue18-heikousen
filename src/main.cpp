@@ -363,16 +363,16 @@ void updateMvp (
 
     Scene::updateMatrices (
         scene->templates.data (), scene->instances.data (),
-        scene->numInstances, mesh->alignModelTrans,
+        scene->numInstances, mesh->alignModelTrans, true,
         (uint8_t *)mesh->alli_modelTrans.pMappedData
     );
 
     auto &player     = scene->templates[scene->instances[0].templateId].nodes[0];
     auto playerTrans = (JojoVulkanMesh::ModelTransformations *) (
         (uint8_t *)mesh->alli_modelTrans.pMappedData
-        + mesh->alignModelTrans + player.dynamicTrans
+        + mesh->alignModelTrans * player.dynamicTrans
     );
-    glm::mat4 view  /* = glm::inverse (playerTrans->model) */;
+    glm::mat4 view = glm::inverse (playerTrans->model);
 
     Scene::updateNormalMatrices (
         scene->templates.data (), scene->instances.data (),
@@ -486,14 +486,13 @@ void gameloop (
         double absXpos = glm::abs(relXpos);
         double absYpos = glm::abs(relYpos);
 
-        /* TODO: DEBUGGING
         if (absXpos > minX) {
             if (absXpos > maxX) {
                 absXpos = maxX;
             }
             double torque = (absXpos - minX) / (maxX - minX) * glm::sign(relXpos) * -1;
             relativeTorque = relativeTorque + btVector3(0, 0, static_cast<float>(torque));
-        } */
+        } 
 
         if (absYpos > minY) {
             if (absYpos > maxY) {
@@ -744,7 +743,8 @@ int main(int argc, char *argv[]) {
 
         // Create player instance
         Scene::instantiate (
-            btVector3 (0, 0, 0), 0, Scene::PlayerInstance,
+            glm::translate(glm::vec3(0.f, 2.5f, 0.f)),
+            0, Scene::PlayerInstance,
             &scene, &scene.instances[0]
         );
 

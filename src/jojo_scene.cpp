@@ -7,23 +7,41 @@
 namespace Scene {
 
 void instantiate (
-    const btVector3      &position,
+    const mat4           &transform,
     uint32_t              templateIndex,
     InstanceType          type,
     SceneTemplates       *scene,
     Instance             *instance
 ) {
+    const auto &templ = scene->templates[templateIndex];
+
+    // Calculate start transform
+    JojoVulkanMesh::ModelTransformations modelTrans;
+    updateMatrices (
+        scene->templates.data (),
+        instance, 1, 0, false,
+        (uint8_t *)&modelTrans
+    );
+    modelTrans.model = transform * modelTrans.model;
+
     btTransform startTransform;
-    startTransform.setIdentity ();
-    startTransform.setOrigin (position);
+    startTransform.setFromOpenGLMatrix (value_ptr (modelTrans.model));
     instance->motionState = new btDefaultMotionState (startTransform);
 
+    btVector3 localInertia (0, 1, 0);
+    btScalar mass (1.0f);
+    templ.shape->calculateLocalInertia (mass, localInertia);
+
     auto info = btRigidBody::btRigidBodyConstructionInfo (
-        0.f,
+        mass,
         instance->motionState,
-        scene->templates[templateIndex].shape
+        scene->templates[templateIndex].shape,
+        localInertia
     );
     instance->body = new btRigidBody (info);
+    instance->body->setRestitution (Physics::objectRestitution);
+    instance->body->forceActivationState (DISABLE_DEACTIVATION);
+    instance->body->setUserPointer ((void *)instance);
 
     auto &nextInstance   = scene->templates[templateIndex].nextInstance;
     instance->templateId = templateIndex;
@@ -94,6 +112,7 @@ void updateMatrices (
     const Instance *instances,
     const uint32_t  instanceCount,
     const uint32_t  transAlignment,
+    const bool      withPhysics,
     uint8_t        *transBuffer
 ) {
     for (uint32_t i = 0; i < instanceCount; i++) {
@@ -106,7 +125,7 @@ void updateMatrices (
 
         mat4 physicsMatrix;
 
-        {
+        if (withPhysics) {
             btTransform trans;
             inst.body->getMotionState ()->getWorldTransform (trans);
             trans.getOpenGLMatrix (glm::value_ptr (physicsMatrix));
