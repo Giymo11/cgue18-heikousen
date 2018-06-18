@@ -297,108 +297,6 @@ static VkImageView view (
     return view;
 }
 
-void generateTextureArray (
-    const VmaAllocator  allocator,
-    const VkDevice      device,
-    const VkCommandPool commandPool,
-    const VkQueue       queue,
-    Texture            *outTexture
-) {
-    VkBuffer            stagingBuffer;
-    VmaAllocation       stagingMem;
-
-    const uint32_t      mipLevels  = 10;
-    const uint32_t      layers     = 2;
-    const uint32_t      width      = 512;
-    const uint32_t      height     = 512;
-    const uint32_t      channels   = 4;
-    const uint32_t      dataOffset = width * height * channels;
-
-    std::array<VkBufferImageCopy, layers> copy;
-    std::vector<uint8_t> texData (dataOffset * layers);
-
-
-    {
-        int dummy;
-        auto tex = stbi_load ("textures/cube_tex.jpg", &dummy, &dummy, &dummy, STBI_rgb_alpha);
-        std::copy ((uint8_t *)tex, (uint8_t *)tex + dataOffset, texData.data ());
-        stbi_image_free (tex);
-    }
-
-    {
-        int dummy;
-        auto tex = stbi_load ("textures/wall_tex.jpg", &dummy, &dummy, &dummy, STBI_rgb_alpha);
-        std::copy ((uint8_t *)tex, (uint8_t *)tex + dataOffset, texData.data () + dataOffset);
-        stbi_image_free (tex);
-    }
-
-    create (
-        allocator,
-        dataOffset,
-        VK_FORMAT_R8G8B8A8_UNORM,
-        layers,
-        mipLevels,
-        width,
-        height,
-        &stagingBuffer,
-        &stagingMem,
-        &outTexture->image,
-        &outTexture->memory
-    );
-
-    stage (
-        allocator,
-        stagingMem,
-        texData.data (),
-        dataOffset * layers
-    );
-
-    for (uint32_t layer = 0, offset = 0; layer < layers; layer++) {
-        auto &region = copy[layer];
-        region = {};
-        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        region.imageSubresource.mipLevel = 0;
-        region.imageSubresource.baseArrayLayer = layer;
-        region.imageSubresource.layerCount = 1;
-        region.imageExtent.width = width;
-        region.imageExtent.height = height;
-        region.imageExtent.depth = 1;
-        region.bufferOffset = offset;
-        region.bufferRowLength = 0;
-        region.bufferImageHeight = 0;
-
-        offset += dataOffset;
-    }
-
-    VkCommandBuffer commandBuffer;
-    allocateAndBeginSingleUseBuffer (device, commandPool, &commandBuffer);
-    transfer (
-        commandBuffer,
-        stagingBuffer,
-        outTexture->image,
-        copy.data(),
-        layers,
-        width, height,
-        mipLevels
-    );
-    endAndSubmitCommandBuffer (device, commandPool, queue, commandBuffer);
-
-    outTexture->sampler = sampler (
-        device,
-        mipLevels
-    );
-
-    outTexture->view = view (
-        device,
-        outTexture->image,
-        VK_FORMAT_R8G8B8A8_UNORM,
-        layers,
-        mipLevels
-    );
-
-    vmaDestroyBuffer (allocator, stagingBuffer, stagingMem);
-}
-
 void fontTexture (
     const VmaAllocator  allocator,
     const VkDevice      device,
@@ -495,6 +393,7 @@ void cmdTextureArrayFromData (
     const std::vector<
         Scene::TextureData
     >                              &texData,
+    uint32_t                        numTextures,
     uint32_t                        width,
     uint32_t                        height,
     Texture                        *outTexture,
@@ -504,7 +403,7 @@ void cmdTextureArrayFromData (
     const uint32_t mipLevels = 10;
     const uint32_t channels = 4;
     const uint32_t dataOffset = width * height * channels;
-    const uint32_t layers = (uint32_t)texData.size ();
+    const uint32_t layers = numTextures;
     std::vector<VkBufferImageCopy> copy (layers);
 
     create (

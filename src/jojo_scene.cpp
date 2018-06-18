@@ -68,7 +68,7 @@ void cmdDrawInstances (
         VK_INDEX_TYPE_UINT32
     );
 
-    for (uint32_t i = 0; i < instanceCount; i++) {
+    for (uint32_t i = 1; i < instanceCount; i++) {
         const auto &inst = instances[i];
         const auto &temp = templates[inst.templateId];
 
@@ -79,6 +79,10 @@ void cmdDrawInstances (
         for (const auto &node : temp.nodes)
             data->drawNode (cmd, pipelineLayout, &node);
     }
+
+    // Draw player instance last
+    for (const auto &node : templates[instances[0].templateId].nodes)
+        data->drawNode (cmd, pipelineLayout, &node);
 }
 
 static void updateNodeMatrices (
@@ -135,7 +139,7 @@ void updateMatrices (
         // PHYSICS TRANSFORMATION END
         // --------------------------------------------------------------
 
-        for (const auto &node : templates->nodes) {
+        for (const auto &node : temp.nodes) {
             updateNodeMatrices (
                 node, physicsMatrix, inst.instanceId,
                 transAlignment, transBuffer

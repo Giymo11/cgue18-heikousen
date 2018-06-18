@@ -14,14 +14,6 @@ struct Texture {
     VkImageView    view;
 };
 
-void generateTextureArray (
-    const VmaAllocator              allocator,
-    const VkDevice                  device,
-    const VkCommandPool             commandPool,
-    const VkQueue                   queue,
-    Texture                        *outTexture
-);
-
 void fontTexture (
     const VmaAllocator              allocator,
     const VkDevice                  device,
@@ -37,6 +29,7 @@ void cmdTextureArrayFromData (
     const std::vector<
         Scene::TextureData
     >                              &texData,
+    uint32_t                        numTextures,
     uint32_t                        width,
     uint32_t                        height,
     Texture                        *outTexture,

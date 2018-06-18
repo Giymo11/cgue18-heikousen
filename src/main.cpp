@@ -700,7 +700,10 @@ int main(int argc, char *argv[]) {
     {
         const Scene::TemplateInfo templateFiles = {
             { "ship", { Object::Box }},
-            {"uvcube", { Object::Box }}
+            { "roundcube", { Object::Box }},
+            { "roundcube", { Object::Box }},
+            { "roundcube", { Object::Box }},
+            { "roundcube", { Object::Box }}
         };
         const uint32_t numTemplates = (uint32_t) templateFiles.size ();
 
@@ -764,14 +767,28 @@ int main(int argc, char *argv[]) {
     // --------------------------------------------------------------
 
     {
-        scene.instances.resize (1, {});
-        scene.numInstances = 1;
+        using namespace glm;
+
+        scene.instances.resize (3, {});
+        scene.numInstances = 3;
 
         // Create player instance
         Scene::instantiate (
-            glm::translate(glm::vec3(0.f, 2.5f, 0.f)),
+            translate(vec3(0.f, 2.5f, 0.f)),
             0, Scene::PlayerInstance,
             &scene, &scene.instances[0]
+        );
+
+        // Create a few boxes
+        Scene::instantiate (
+            translate (vec3 (0.f, 2.5f, -10.f)),
+            1, Scene::NonLethalInstance,
+            &scene, &scene.instances[1]
+        );
+        Scene::instantiate (
+            translate (vec3 (-1.0f, 3.0f, -6.f)),
+            2, Scene::NonLethalInstance,
+            &scene, &scene.instances[2]
         );
 
         // Create physics world
@@ -890,7 +907,8 @@ int main(int argc, char *argv[]) {
 
             Textures::cmdTextureArrayFromData (
                 allocator, engine.device, cmd,
-                scene.textures, 512, 512, &mesh.textures,
+                scene.textures, scene.textureCount,
+                512, 512, &mesh.textures,
                 &staging, &stagingMem
             );
 
