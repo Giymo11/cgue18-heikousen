@@ -421,10 +421,32 @@ void gameloop (
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        if (jojoReplay->state() != Replay::RecorderState::Replaying) {
-            auto state = jojoReplay->getKey(GLFW_KEY_SPACE);
-            if (state == GLFW_PRESS)
+        int collState = 0;
+        auto &coll = physics->collisionArray;
+        for (int i = 0; i < coll.size (); i++) {
+            if (!coll[i].active)
+                continue;
+            if (coll[i].obj->type == Scene::LethalInstance) {
+                collState = 1;
+                coll[i].sticky = false;
+                coll[i].active = false;
+                break;
+            } else if (coll[i].obj->type == Scene::PortalInstance) {
+                collState = 2;
+                coll[i].sticky = false;
+                coll[i].active = false;
+                break;
+            }
+        }
+
+        if (jojoReplay->state() == Replay::RecorderState::Recording) {
+            if (collState == 2)
                 jojoReplay->startReplay();
+        } else {
+            if (collState == 1)
+                std::cout << "YOU LOST" << "\n";
+            else if (collState == 2)
+                std::cout << "YOU WON" << "\n";
         }
 
         btVector3 relativeForce(0, 0, 0);
@@ -630,7 +652,7 @@ int main(int argc, char *argv[]) {
             { "ship", { Object::Player }},
             { "roundcube", { Object::Box }},
             { "roundcube", { Object::Box }},
-            { "roundcube", { Object::Box }},
+            { "goal", { Object::Box }},
             { "roundcube", { Object::Box }}
         };
         const uint32_t numTemplates = (uint32_t) templateFiles.size ();
@@ -654,7 +676,6 @@ int main(int argc, char *argv[]) {
     window.startGlfw(config);
 
     Replay::Recorder jojoReplay(window.window);
-    jojoReplay.setResetFunc ([]() {});
 
     JojoEngine engine;
     engine.jojoWindow = &window;
@@ -697,8 +718,8 @@ int main(int argc, char *argv[]) {
     {
         using namespace glm;
 
-        scene.instances.resize (3, {});
-        scene.numInstances = 3;
+        scene.instances.resize (4, {});
+        scene.numInstances = 4;
 
         // Create player instance
         Scene::instantiate (
@@ -715,8 +736,13 @@ int main(int argc, char *argv[]) {
         );
         Scene::instantiate (
             translate (vec3 (-1.0f, 3.0f, -6.f)), 0.3f,
-            2, Scene::NonLethalInstance,
+            2, Scene::LethalInstance,
             &scene, &scene.instances[2]
+        );
+        Scene::instantiate (
+            translate (vec3 (0.f, 2.9f, -17.24f)), 0.0f,
+            3, Scene::PortalInstance,
+            &scene, &scene.instances[3]
         );
 
         // Create physics world
@@ -727,6 +753,37 @@ int main(int argc, char *argv[]) {
             scene.numInstances
         );
     }
+
+    jojoReplay.setResetFunc ([&physics, &scene, level]() {
+        using namespace glm;
+
+        Physics::removeInstancesFromWorld (
+            &physics, level,
+            scene.instances.data (),
+            scene.numInstances
+        );
+        Physics::free (&physics);
+
+        btTransform startTransform;
+        auto t1 = translate (vec3 (0.f, 2.5f, 0.f));
+        auto t2 = translate (vec3 (0.f, 2.5f, -10.f));
+        auto t3 = translate (vec3 (-1.0f, 3.0f, -6.f));
+
+        
+        startTransform.setFromOpenGLMatrix (value_ptr (t1));
+        scene.instances[0].body->setWorldTransform (startTransform);
+        startTransform.setFromOpenGLMatrix (value_ptr (t2));
+        scene.instances[1].body->setWorldTransform (startTransform);
+        startTransform.setFromOpenGLMatrix (value_ptr (t3));
+        scene.instances[2].body->setWorldTransform (startTransform);
+
+        Physics::alloc (&physics);
+        Physics::addInstancesToWorld (
+            &physics, level,
+            scene.instances.data (),
+            scene.numInstances
+        );
+    });
 
     // --------------------------------------------------------------
     // CREATE INSTANCES FOR CURRENT LEVEL END

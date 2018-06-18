@@ -32,8 +32,8 @@ vec2 uvs[6] = vec2[](
 );
 
 void main() {
-	vert.uv = uvs[gl_VertexIndex] * 0.8;
+	vert.uv = uvs[gl_VertexIndex] * 0.5;
 	vert.st = uvs[gl_VertexIndex] / vec2(192.0, 64.0);
-	vert.pos = positions[gl_VertexIndex] * 0.8;
+	vert.pos = positions[gl_VertexIndex] * 0.5 + vec2(0.8);
 	gl_Position = vec4(vert.pos, 0.0, 1.0);
 }

@@ -80,7 +80,7 @@ static void collisionCallback (
         if (coll == nullptr)
             break;
 
-        coll->active;
+        coll->active = true;
         coll->obj = type0 != Scene::PlayerInstance ? inst0 : inst1;
 
         switch (coll->obj->type) {
@@ -152,10 +152,18 @@ void removeInstancesFromWorld (
     Scene::Instance  *instances,
     size_t            numInstances
 ) {
-    auto world = physics->world;
+    const btVector3 zeroVector (0, 0, 0);
+    auto            world = physics->world;
 
-    for (auto i = 0; i < numInstances; i++)
-        world->removeRigidBody (instances[i].body);
+    for (auto i = 0; i < numInstances; i++) {
+        auto body = instances[i].body;
+
+        world->removeRigidBody (body);
+        body->clearForces ();
+        body->setLinearVelocity (zeroVector);
+        body->setAngularVelocity (zeroVector);
+    }
+
     Level::removeRigidBodies (level, world);
 }
 

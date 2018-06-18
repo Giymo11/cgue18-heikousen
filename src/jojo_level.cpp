@@ -296,10 +296,23 @@ void removeRigidBodies (
     JojoLevel               *level,
     btDiscreteDynamicsWorld *world
 ) {
-    const auto numBodies = level->rigidBodies.size ();
-    auto &bodies = level->rigidBodies;
-    for (int i = 0; i < numBodies; i++)
+    const btVector3 zeroVector (0, 0, 0);
+    const auto      numBodies = level->rigidBodies.size ();
+    auto           &bodies    = level->rigidBodies;
+
+    btTransform startTransform;
+    startTransform.setIdentity ();
+    startTransform.setOrigin (btVector3 (0, 0, 0));
+
+    for (int i = 0; i < numBodies; i++) {
         world->removeRigidBody (bodies[i]);
+
+        bodies[i]->clearForces ();
+        bodies[i]->setLinearVelocity (zeroVector);
+        bodies[i]->setAngularVelocity (zeroVector);
+        bodies[i]->setWorldTransform (startTransform);
+    }
+        
 }
 
 }

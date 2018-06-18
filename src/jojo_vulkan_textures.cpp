@@ -315,7 +315,7 @@ void fontTexture (
 
     {
         int texWidth, texHeight, texChannels;
-        texData = stbi_load ("fonts/font.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        texData = stbi_load ("fonts/sheet2.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
         width = (uint32_t)texWidth;
         height = (uint32_t)texHeight;

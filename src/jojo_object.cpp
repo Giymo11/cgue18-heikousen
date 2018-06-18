@@ -398,6 +398,10 @@ static void loadTemplateFromGLB (
             if (scene->templates.data () == templ) {
                 sm.diffuse  = 0.04;
                 sm.specular = 0.01;
+            } else if (scene->templates.data() + 3 == templ) {
+                sm.ambient  = 1.5f;
+                sm.diffuse  = 0.0;
+                sm.specular = 0.0;
             } else {
                 sm.ambient  = 0.08;
                 sm.alpha    = 40;
