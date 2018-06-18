@@ -6,14 +6,13 @@
 
 
 #include <vector>
-
 #include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
 
 #include "jojo_scene.hpp"
 #include "jojo_engine.hpp"
 #include "jojo_pipeline.hpp"
 #include "jojo_vulkan_textures.hpp"
-
 #include "Rendering/DescriptorSets.h"
 
 class JojoVulkanMesh {
@@ -26,8 +25,6 @@ public:
         glm::vec3 attenuation;
         float pad3;
     };
-
-
 
     struct LightBlock {
         /**
@@ -49,41 +46,49 @@ public:
         glm::mat4 normalMatrix;
     };
 
-    struct MaterialInfo {
-        float ambient;
-        float diffuse;
-        float specular;
-        float alpha;
-
-        float texture;
-        float param1;
-        float param2;
-        float param3;
-    };
-
     Scene::SceneTemplates *scene = nullptr;
 
-    size_t dynamicAlignment;
-    size_t materialInfoAlignment;
-    ModelTransformations *alignedTransforms = nullptr;
+    uint32_t alignModelTrans;
+    uint32_t alignMaterialInfo;
 
-    VkBuffer materialInfoBuffer;
-    VkDeviceMemory materialInfoMemory;
+    // Staging always
+    VkBuffer lightInfo;
+    VkBuffer modelTrans;
+    VkBuffer globalTrans;
+    VkBuffer stage_lightInfo;
+    VkBuffer stage_modelTrans;
+    VkBuffer stage_globalTrans;
 
-    VkBuffer lightInfoBuffer;
-    VkDeviceMemory lightInfoMemory;
+    // Staging once
+    VkBuffer vertex;
+    VkBuffer index;
+    VkBuffer materialInfo;
+    VkBuffer stage_vertex;
+    VkBuffer stage_index;
+    VkBuffer stage_materialInfo;
 
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferDeviceMemory;
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexBufferDeviceMemory;
-    VkBuffer uniformBuffer;
-    VkDeviceMemory uniformBufferDeviceMemory;
-    VkBuffer globalTransformationBuffer;
-    VkDeviceMemory globalTransformationMemory;
-    VkDescriptorSet descriptorSet;
+    // Staging always
+    VmaAllocation mem_lightInfo;
+    VmaAllocation mem_modelTrans;
+    VmaAllocation mem_globalTrans;
+    VmaAllocation mems_lightInfo;
+    VmaAllocation mems_modelTrans;
+    VmaAllocation mems_globalTrans;
+    VmaAllocationInfo alli_lightInfo;
+    VmaAllocationInfo alli_modelTrans;
+    VmaAllocationInfo alli_globalTrans;
+
+    // Staging once
+    VmaAllocation mem_vertex;
+    VmaAllocation mem_index;
+    VmaAllocation mem_materialInfo;
+    VmaAllocation mems_vertex;
+    VmaAllocation mems_index;
+    VmaAllocation mems_materialInfo;
 
     Textures::Texture diffuse256;
+
+    VkDescriptorSet descriptorSet;
 
     JojoVulkanMesh();
 
@@ -96,8 +101,6 @@ public:
     void initializeBuffers(JojoEngine *engine, Rendering::Set set);
 
     void destroyBuffers(JojoEngine *engine);
-
-    void updateAlignedUniforms(const glm::mat4 &view);
 
     void drawNode (
         const VkCommandBuffer   cmd,

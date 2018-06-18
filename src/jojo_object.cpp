@@ -155,7 +155,7 @@ static void loadMesh (
         // LOAD INDICES END
         // --------------------------------------------------------------
         
-        primitive.dynamicMaterial = sizeof (Material) /* TODO */;
+        primitive.dynamicMaterial = 0;
         primitive.dynamicMVP      = dynamicMVP;
         primitives->emplace_back (std::move (primitive));
     }
@@ -196,9 +196,9 @@ static void loadNode (
         rotation = mat4 (q);
     }
     if (node.matrix.size () == 16) {
-        sceneNode->baseMatrix = make_mat4 (node.matrix.data ());
+        sceneNode->relative = make_mat4 (node.matrix.data ());
     } else {
-        sceneNode->baseMatrix = glm::translate (translation)
+        sceneNode->relative = glm::translate (translation)
             * rotation
             * glm::scale (scale);
     }
@@ -213,7 +213,11 @@ static void loadNode (
             currentDynamicMVP, vertices, indices,
             &sceneNode->primitives
         );
+  
         *nextDynamicMVP += 1;
+        sceneNode->dynamicTrans = currentDynamicMVP;
+    } else {
+        sceneNode->dynamicTrans = -1;
     }
 
     // --------------------------------------------------------------

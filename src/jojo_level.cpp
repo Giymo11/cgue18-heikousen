@@ -264,9 +264,9 @@ void updateDescriptors (
     const JojoLevel                 *level
 ) {
     auto diffuse512 = Textures::descriptor (&level->texDiffuse);
-    descriptors->update (Rendering::Set::Level, 2, diffuse512);
+    descriptors->update (Rendering::Set::Level, 1, diffuse512);
     auto lightmap = Textures::descriptor (&level->texLightmap);
-    descriptors->update (Rendering::Set::Level, 3, lightmap);
+    descriptors->update (Rendering::Set::Level, 2, lightmap);
 }
 
 void loadRigidBodies (

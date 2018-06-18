@@ -10,6 +10,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/transform.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 #include <btBulletDynamicsCommon.h>
 #include <vulkan/vulkan.h>
 
@@ -43,7 +44,15 @@ struct TransData {
 };
 
 struct Material {
-    uint32_t something;
+    float ambient;
+    float diffuse;
+    float specular;
+    float alpha;
+
+    float texture;
+    float param1;
+    float param2;
+    float param3;
 };
 
 enum CollisionShapeType : uint8_t {
@@ -68,8 +77,8 @@ typedef std::vector<std::pair<
 >> TemplateInfo;
 
 struct Node {
-    mat4                           baseMatrix;
-    mat4                           matrix;
+    mat4                           relative;
+    int64_t                        dynamicTrans;
 
     std::vector<Node>              children;
     std::vector<Object::Primitive> primitives;
@@ -133,6 +142,23 @@ void cmdDrawInstances (
     const Template         *templates,
     const Instance         *instances,
     uint32_t                instanceCount
+);
+
+void updateMatrices (
+    const Template *templates,
+    const Instance *instances,
+    const uint32_t  instanceCount,
+    const uint32_t  transAlignment,
+    uint8_t        *transBuffer
+);
+
+void updateNormalMatrices (
+    const Template *templates,
+    const Instance *instances,
+    const uint32_t  instanceCount,
+    const mat4      view,
+    const uint32_t  transAlignment,
+    uint8_t        *transBuffer
 );
 
 }

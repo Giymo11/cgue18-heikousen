@@ -1,6 +1,7 @@
 //
 // Created by benja on 4/28/2018.
 //
+#include "jojo_physics.hpp"
 #include "jojo_vulkan_data.hpp"
 
 namespace Scene {
@@ -41,11 +42,11 @@ void cmdDrawInstances (
 ) {
     VkDeviceSize offsets = 0;
     vkCmdBindVertexBuffers (
-        cmd, 0, 1, &data->vertexBuffer,
+        cmd, 0, 1, &data->vertex,
         &offsets
     );
     vkCmdBindIndexBuffer (
-        cmd, data->indexBuffer, 0,
+        cmd, data->index, 0,
         VK_INDEX_TYPE_UINT32
     );
 
@@ -62,36 +63,111 @@ void cmdDrawInstances (
     }
 }
 
+static void updateNodeMatrices (
+    const Node     &node,
+    const mat4     &matrix,
+    const uint32_t  instanceId,
+    const uint32_t  transAlignment,
+    uint8_t        *transBuffer
+) {
+    const auto abs = node.relative * matrix;
+
+    // Only update one instance for now
+    if (node.dynamicTrans >= 0 && instanceId == 0) {
+        auto trans = (JojoVulkanMesh::ModelTransformations *)(
+            transBuffer + transAlignment * node.dynamicTrans
+        );
+
+        trans->model = abs;
+    }
+
+    for (const auto &child : node.children) {
+        updateNodeMatrices (
+            child, abs, instanceId,
+            transAlignment, transBuffer
+        );
+    }
 }
 
-//
-//glm::mat4 JojoNode::calculateAbsoluteMatrix() {
-//    if (parent != nullptr) {
-//        return parent->calculateAbsoluteMatrix() * matrix;
-//    }
-//    return matrix;
-//}
-//
-//void JojoNode::setRelativeMatrix(const glm::mat4 &newMatrix) {
-//    matrix = newMatrix;
-//
-//    if (!primitives.empty()) {
-//        auto &primitive = primitives[0];
-//        auto dynOffset = primitive.dynamicOffset;
-//
-//        if (parent) {
-//            root->mvps[dynOffset] = calculateAbsoluteMatrix();
-//        }
-//    }
-//    for (auto *child : children) {
-//        child->setParent(this);
-//    }
-//}
-//
-//void JojoNode::setParent(JojoNode *newParent) {
-//    parent = newParent;
-//    setRelativeMatrix(matrix);
-//}
-//
-//
+void updateMatrices (
+    const Template *templates,
+    const Instance *instances,
+    const uint32_t  instanceCount,
+    const uint32_t  transAlignment,
+    uint8_t        *transBuffer
+) {
+    for (uint32_t i = 0; i < instanceCount; i++) {
+        const auto &inst = instances[i];
+        const auto &temp = templates[inst.templateId];
 
+        // --------------------------------------------------------------
+        // PHYSICS TRANSFORMATION BEGIN
+        // --------------------------------------------------------------
+
+        mat4 physicsMatrix;
+
+        {
+            btTransform trans;
+            inst.body->getMotionState ()->getWorldTransform (trans);
+            trans.getOpenGLMatrix (glm::value_ptr (physicsMatrix));
+        }
+
+        // --------------------------------------------------------------
+        // PHYSICS TRANSFORMATION END
+        // --------------------------------------------------------------
+
+        for (const auto &node : templates->nodes) {
+            updateNodeMatrices (
+                node, physicsMatrix, inst.instanceId,
+                transAlignment, transBuffer
+            );
+        }
+    }
+}
+
+static void updateNodeNormalMatrices (
+    const Node     &node,
+    const mat4     &view,
+    const uint32_t  instanceId,
+    const uint32_t  transAlignment,
+    uint8_t        *transBuffer
+) {
+    // Only update one instance for now
+    if (node.dynamicTrans >= 0 && instanceId == 0) {
+        auto trans = (JojoVulkanMesh::ModelTransformations *)(
+            transBuffer + transAlignment * node.dynamicTrans
+            );
+
+        trans->normalMatrix = mat4 (inverseTranspose (mat3 (view * trans->model)));
+    }
+
+    for (const auto &child : node.children) {
+        updateNodeMatrices (
+            child, view, instanceId,
+            transAlignment, transBuffer
+        );
+    }
+}
+
+void updateNormalMatrices (
+    const Template *templates,
+    const Instance *instances,
+    const uint32_t  instanceCount,
+    const mat4      view,
+    const uint32_t  transAlignment,
+    uint8_t        *transBuffer
+) {
+    for (uint32_t i = 0; i < instanceCount; i++) {
+        const auto &inst = instances[i];
+        const auto &temp = templates[inst.templateId];
+
+        for (const auto &node : templates->nodes) {
+            updateNodeNormalMatrices (
+                node, view, inst.instanceId,
+                transAlignment, transBuffer
+            );
+        }
+    }
+}
+
+}

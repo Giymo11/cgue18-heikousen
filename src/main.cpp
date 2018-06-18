@@ -181,6 +181,72 @@ void drawFrame (
         // Perform data staging
         Level::cmdBuildAndStageIndicesNaively (allocator, device, level, transferCmd);
 
+        {
+            VkMemoryPropertyFlags memFlags   = {};
+            VkBufferCopy          bufferCopy = {};
+            VmaAllocationInfo     allocInfo;
+
+            allocInfo = mesh->alli_modelTrans;
+            vmaGetMemoryTypeProperties (
+                allocator, allocInfo.memoryType,
+                &memFlags
+            );
+            if ((memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+                VkMappedMemoryRange memRange = {
+                    VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE
+                };
+                memRange.memory = allocInfo.deviceMemory;
+                memRange.offset = allocInfo.offset;
+                memRange.size   = allocInfo.size;
+                vkFlushMappedMemoryRanges (device, 1, &memRange);
+            }
+            bufferCopy.size = allocInfo.size;
+            vkCmdCopyBuffer (
+                transferCmd, mesh->stage_modelTrans,
+                mesh->modelTrans, 1, &bufferCopy
+            );
+
+            allocInfo = mesh->alli_globalTrans;
+            vmaGetMemoryTypeProperties (
+                allocator, allocInfo.memoryType,
+                &memFlags
+            );
+            if ((memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+                VkMappedMemoryRange memRange = {
+                    VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE
+                };
+                memRange.memory = allocInfo.deviceMemory;
+                memRange.offset = allocInfo.offset;
+                memRange.size = allocInfo.size;
+                vkFlushMappedMemoryRanges (device, 1, &memRange);
+            }
+            bufferCopy.size = allocInfo.size;
+            vkCmdCopyBuffer (
+                transferCmd, mesh->stage_globalTrans,
+                mesh->globalTrans, 1, &bufferCopy
+            );
+
+            allocInfo = mesh->alli_lightInfo;
+            vmaGetMemoryTypeProperties (
+                allocator, allocInfo.memoryType,
+                &memFlags
+            );
+            if ((memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+                VkMappedMemoryRange memRange = {
+                    VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE
+                };
+                memRange.memory = allocInfo.deviceMemory;
+                memRange.offset = allocInfo.offset;
+                memRange.size = allocInfo.size;
+                vkFlushMappedMemoryRanges (device, 1, &memRange);
+            }
+            bufferCopy.size = allocInfo.size;
+            vkCmdCopyBuffer (
+                transferCmd, mesh->stage_lightInfo,
+                mesh->lightInfo, 1, &bufferCopy
+            );
+        }
+
         result = vkEndCommandBuffer (transferCmd);
         ASSERT_VULKAN (result);
 
@@ -216,7 +282,7 @@ void drawFrame (
             swapchain->commandBuffers[imageIndex],
             swapchain->framebuffers[imageIndex],
             swapchain->swapchainRenderPass,
-            mesh, pipeline, textPipeline,
+            mesh,pipeline, textPipeline,
             levelPipeline, scene, level
         );
 
@@ -268,10 +334,11 @@ auto lastFrameTime = std::chrono::high_resolution_clock::now();
 
 
 void updateMvp (
-    Config           &config,
-    JojoEngine       *engine,
-    Physics::Physics *physics,
-    JojoVulkanMesh   *mesh
+    Config                      &config,
+    JojoEngine                  *engine,
+    Physics::Physics            *physics,
+    JojoVulkanMesh              *mesh,
+    const Scene::SceneTemplates *scene
 ) {
     auto world = physics->world;
 
@@ -294,77 +361,40 @@ void updateMvp (
 
     world->stepSimulation (timeSinceLastFrame);
 
-
-
-    for (JojoPhysicsNode *physicsNode : physics.dynamicNodes) {
-
-        auto index = physicsNode->collisionObjectArrayIndex;
-        JojoNode *node = physicsNode->node;
-
-        // TODO: maybe move this over to the physics class as well
-        btCollisionObject *obj = physics.dynamicsWorld->getCollisionObjectArray()[index];
-        btRigidBody *body = btRigidBody::upcast(obj);
-
-        btTransform trans;
-        if (body && body->getMotionState()) {
-            body->getMotionState()->getWorldTransform(trans);
-        } else {
-            trans = obj->getWorldTransform();
-        }
-        btVector3 origin = trans.getOrigin();
-
-        glm::mat4 matrix;
-        trans.getOpenGLMatrix(glm::value_ptr(matrix));
-        node->setRelativeMatrix(matrix);
-    }
-
-    auto matrix = physics.player->node->calculateAbsoluteMatrix();
-    glm::mat4 view = glm::inverse(matrix);
-
-    JojoVulkanMesh::GlobalTransformations *globalTrans;
-    vkMapMemory (
-        engine->device,
-        mesh->globalTransformationMemory, 0,
-        sizeof (JojoVulkanMesh::GlobalTransformations), 0,
-        (void **)(&globalTrans)
+    Scene::updateMatrices (
+        scene->templates.data (), scene->instances.data (),
+        scene->numInstances, mesh->alignModelTrans,
+        (uint8_t *)mesh->alli_modelTrans.pMappedData
     );
+
+    auto &player     = scene->templates[scene->instances[0].templateId].nodes[0];
+    auto playerTrans = (JojoVulkanMesh::ModelTransformations *) (
+        (uint8_t *)mesh->alli_modelTrans.pMappedData
+        + mesh->alignModelTrans + player.dynamicTrans
+    );
+    glm::mat4 view  /* = glm::inverse (playerTrans->model) */;
+
+    Scene::updateNormalMatrices (
+        scene->templates.data (), scene->instances.data (),
+        scene->numInstances, view, mesh->alignModelTrans,
+        (uint8_t *)mesh->alli_modelTrans.pMappedData
+    );
+
+    auto globalTrans = (JojoVulkanMesh::GlobalTransformations *)
+        mesh->alli_globalTrans.pMappedData;
     globalTrans->projection = projection;
     globalTrans->view = view;
-    vkUnmapMemory (engine->device, mesh->globalTransformationMemory);
 
-    JojoVulkanMesh::LightBlock *lightInfo;
-    vkMapMemory (
-        engine->device,
-        mesh->lightInfoMemory, 0,
-        sizeof (JojoVulkanMesh::LightBlock), 0,
-        (void **)(&lightInfo)
-    );
-    lightInfo->parameters.x = config.gamma; // Gamma
+    auto lightInfo = (JojoVulkanMesh::LightBlock *)
+        mesh->alli_lightInfo.pMappedData;
+    lightInfo->parameters.x = config.gamma;   // Gamma
     lightInfo->parameters.y = config.hdrMode; // HDR enable
-    lightInfo->parameters.z = 1.0f; // HDR exposure
+    lightInfo->parameters.z = 1.0f;           // HDR exposure
     lightInfo->parameters.w = 0.0f;
     lightInfo->sources[1].position = glm::vec3 (view * glm::vec4 (-97.0, 0.0, 0.0, 1.0));
     lightInfo->sources[2].position = glm::vec3 (view * glm::vec4 (97.0, 0.0, 0.0, 1.0));
     lightInfo->sources[3].position = glm::vec3 (view * glm::vec4 (0.0, 0.0, -97.0, 1.0));
     lightInfo->sources[4].position = glm::vec3 (view * glm::vec4 (0.0, 0.0, 97.0, 1.0));
-    vkUnmapMemory (engine->device, mesh->lightInfoMemory);
-
-    mesh->updateAlignedUniforms(view);
-
-    auto bufferSize = mesh->dynamicAlignment * mesh->scene->mvps.size();
-
-    // TODO: copy the model matrices to GPU memory via some kind of flushing / not via coherent memory
-    void *rawData;
-    VkResult result = vkMapMemory(engine->device,
-                                  mesh->uniformBufferDeviceMemory,
-                                  0,
-                                  bufferSize,
-                                  0,
-                                  &rawData);
-    ASSERT_VULKAN(result)
-    memcpy(rawData, mesh->alignedTransforms, bufferSize);
-    vkUnmapMemory(engine->device, mesh->uniformBufferDeviceMemory);
-
 }
 
 
@@ -525,14 +555,14 @@ void gameloop (
 
             updateMvp (
                 config, engine,
-                physics, mesh
+                physics, mesh, scene
             );
         }
 
         drawFrame (
             config, engine, jojoWindow, swapchain,
-            mesh, textPipeline, levelPipeline,
-            pipeline, scene, level
+            mesh, pipeline, textPipeline,
+            levelPipeline, scene, level
         );
     }
 }
@@ -553,9 +583,8 @@ void Rendering::DescriptorSets::createLayouts ()
 
     std::vector<VkDescriptorSetLayoutBinding> level;
     addLayout (level, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-    addLayout (level, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (level, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addLayout (level, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addLayout (level, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (level));
 }
 
@@ -654,6 +683,9 @@ int main(int argc, char *argv[]) {
                 tfile.first, tfile.second, t, &scene
             );
         }
+
+        scene.materials.resize (2, {});
+        scene.nextDynMaterial = 2;
     }
 
     // --------------------------------------------------------------
@@ -690,57 +722,11 @@ int main(int argc, char *argv[]) {
     // --------------------------------------------------------------
 
     Level::JojoLevel *level = nullptr;
-    Level::CleanupQueue levelCleanupQueue;
 
     {
-        const auto cmd       = swapchain.commandBuffers[0];
-        const auto fence     = swapchain.commandBufferFences[0];
         const auto allocator = engine.allocator;
         
         level = Level::alloc (allocator, "1");
-        levelCleanupQueue.reserve (10);
-
-        ASSERT_VULKAN (beginCommandBuffer (cmd));
-        Level::cmdStageVertexData (
-            allocator, level, cmd, &levelCleanupQueue
-        );
-        Level::cmdLoadAndStageTextures (
-            allocator, engine.device, cmd,
-            level, &levelCleanupQueue
-        );
-        Level::cmdBuildAndStageIndicesNaively (
-            allocator, engine.device, level, cmd
-        );
-        ASSERT_VULKAN (vkEndCommandBuffer (cmd));
-
-        VkSubmitInfo submitInfo = {};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &cmd;
-
-        ASSERT_VULKAN (vkResetFences (engine.device, 1, &fence));
-        vkQueueSubmit (engine.queue, 1, &submitInfo, fence);
-
-        // Wait for staging to complete
-        // WARNING: do not reset fence here!
-        //          apparently we get a deadlock otherwise
-        auto result = VK_TIMEOUT;
-        while (result == VK_TIMEOUT) {
-            result = vkWaitForFences (
-                engine.device, 1, &fence, 
-                VK_TRUE, 100000000
-            );
-        }
-        ASSERT_VULKAN (result);
-
-        // Staging cleanup
-        for (const auto &pair : levelCleanupQueue)
-            vmaDestroyBuffer (allocator, pair.first, pair.second);
-
-        // Update descriptors
-        Level::updateDescriptors (engine.descriptors, level);
-
-        // Load rigid bodies
         Level::loadRigidBodies (level);
     }
 
@@ -845,6 +831,90 @@ int main(int argc, char *argv[]) {
             Level::vertexAttributes ()
         );
     });
+
+    // --------------------------------------------------------------
+    // STAGING ONCE BEGIN
+    // --------------------------------------------------------------
+
+    {
+        const auto cmd = swapchain.commandBuffers[0];
+        const auto fence = swapchain.commandBufferFences[0];
+        const auto allocator = engine.allocator;
+        Level::CleanupQueue levelCleanupQueue;
+
+        ASSERT_VULKAN (beginCommandBuffer (cmd));
+        
+        {
+            levelCleanupQueue.reserve (10);
+            Level::cmdStageVertexData (
+                allocator, level, cmd, &levelCleanupQueue
+            );
+            Level::cmdLoadAndStageTextures (
+                allocator, engine.device, cmd,
+                level, &levelCleanupQueue
+            );
+            Level::cmdBuildAndStageIndicesNaively (
+                allocator, engine.device, level, cmd
+            );
+        }
+
+        {
+            VkBufferCopy bufferCopy = {};
+ 
+            bufferCopy.size = scene.vertices.size() * sizeof (Object::Vertex);
+            vkCmdCopyBuffer (
+                cmd, mesh.stage_vertex, mesh.vertex,
+                1, &bufferCopy
+            );
+            bufferCopy.size = scene.indices.size () * sizeof (uint32_t);
+            vkCmdCopyBuffer (
+                cmd, mesh.stage_index, mesh.index,
+                1, &bufferCopy
+            );
+            bufferCopy.size = scene.materials.size () * mesh.alignMaterialInfo;
+            vkCmdCopyBuffer (
+                cmd, mesh.stage_materialInfo, mesh.materialInfo,
+                1, &bufferCopy
+            );
+        }
+
+        ASSERT_VULKAN (vkEndCommandBuffer (cmd));
+
+        {
+            VkSubmitInfo submitInfo = {};
+            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+            submitInfo.commandBufferCount = 1;
+            submitInfo.pCommandBuffers = &cmd;
+
+            ASSERT_VULKAN (vkResetFences (engine.device, 1, &fence));
+            vkQueueSubmit (engine.queue, 1, &submitInfo, fence);
+
+            // Wait for staging to complete
+            // WARNING: do not reset fence here!
+            //          apparently we get a deadlock otherwise
+            auto result = VK_TIMEOUT;
+            while (result == VK_TIMEOUT) {
+                result = vkWaitForFences (
+                    engine.device, 1, &fence,
+                    VK_TRUE, 100000000
+                );
+            }
+            ASSERT_VULKAN (result);
+        }
+
+        {
+            // Staging cleanup
+            for (const auto &pair : levelCleanupQueue)
+                vmaDestroyBuffer (allocator, pair.first, pair.second);
+
+            // Update descriptors
+            Level::updateDescriptors (engine.descriptors, level);
+        }
+    }
+
+    // --------------------------------------------------------------
+    // STAGING ONCE END
+    // --------------------------------------------------------------
 
     gameloop (
         config, &engine, &window, &swapchain, &jojoReplay,
