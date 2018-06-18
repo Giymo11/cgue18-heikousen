@@ -3,6 +3,8 @@
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
 
+#include "jojo_scene.hpp"
+
 namespace Textures {
 
 struct Texture {
@@ -26,6 +28,20 @@ void fontTexture (
     const VkCommandPool             commandPool,
     const VkQueue                   queue,
     Texture                        *outTexture
+);
+
+void cmdTextureArrayFromData (
+    const VmaAllocator              allocator,
+    const VkDevice                  device,
+    const VkCommandBuffer           transferCmd,
+    const std::vector<
+        Scene::TextureData
+    >                              &texData,
+    uint32_t                        width,
+    uint32_t                        height,
+    Texture                        *outTexture,
+    VkBuffer                       *stagingBuffer,
+    VmaAllocation                  *stagingMemory
 );
 
 void cmdTextureArrayFromList (

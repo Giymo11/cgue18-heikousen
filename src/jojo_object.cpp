@@ -18,6 +18,7 @@ static void loadMesh (
     const tinygltf::BufferView   *views,
     const tinygltf::Buffer       *buffers,
     const uint32_t                dynamicMVP,
+    const uint32_t                materialOffset,
     std::vector<Vertex>          *vertices,
     std::vector<uint32_t>        *indices,
     std::vector<Primitive>       *primitives,
@@ -160,7 +161,7 @@ static void loadMesh (
         // LOAD INDICES END
         // --------------------------------------------------------------
         
-        primitive.dynamicMaterial = 0;
+        primitive.dynamicMaterial = materialOffset + p.material;
         primitive.dynamicMVP      = dynamicMVP;
         primitives->emplace_back (std::move (primitive));
     }
@@ -173,12 +174,11 @@ static void loadNode (
     const tinygltf::BufferView   *views,
     const tinygltf::Buffer       *buffers,
     const uint32_t                currentDynamicMVP,
-    const uint32_t                currentDynamicMaterial,
+    const uint32_t                materialOffset,
     const int32_t                 currentNode,
     std::vector<Vertex>          *vertices,
     std::vector<uint32_t>        *indices,
     uint32_t                     *nextDynamicMVP,
-    uint32_t                     *nextDynamicMaterial,
     vec3                         *minExtent,
     vec3                         *maxExtent,
     Scene::Node                  *sceneNode
@@ -217,7 +217,7 @@ static void loadNode (
     if (node.mesh > -1) {
         loadMesh (
             meshes[node.mesh], accessors, views, buffers,
-            currentDynamicMVP, vertices, indices,
+            currentDynamicMVP, materialOffset, vertices, indices,
             &sceneNode->primitives, minExtent, maxExtent
         );
   
@@ -238,11 +238,10 @@ static void loadNode (
         for (auto n = 0; n < nodeCount; ++n) {
             loadNode (
                 nodes, meshes, accessors, views, buffers,
-                *nextDynamicMVP, currentDynamicMaterial,
+                *nextDynamicMVP, materialOffset,
                 node.children[n], vertices, indices,
-                nextDynamicMVP, nextDynamicMaterial,
-                minExtent, maxExtent,
-                &sceneNode->children[n]
+                nextDynamicMVP, minExtent,
+                maxExtent, &sceneNode->children[n]
             );
         }
     }
@@ -255,13 +254,13 @@ static void loadNode (
 static void loadTemplateFromGLB (
     const std::string            &modelName,
     const uint32_t                currentDynamicMVP,
-    const uint32_t                currentDynamicMaterial,
     std::vector<Vertex>          *vertices,
     std::vector<uint32_t>        *indices,
     uint32_t                     *nextDynamicMVP,
-    uint32_t                     *nextDynamicMaterial,
-    Scene::Template              *templ
+    Scene::Template              *templ,
+    Scene::SceneTemplates        *scene
 ) {
+    const auto dynMatBase = (uint32_t)scene->materials.size ();
     tinygltf::Model model;
     tinygltf::TinyGLTF loader;
 
@@ -300,17 +299,111 @@ static void loadTemplateFromGLB (
         for (auto n = 0; n < nodeCount; ++n) {
             loadNode (
                 nodes, meshes, accessors, views, buffers,
-                currentDynamicMVP, currentDynamicMaterial,
+                currentDynamicMVP, dynMatBase,
                 scene.nodes[n], vertices, indices,
-                nextDynamicMVP, nextDynamicMaterial,
-                &templ->minExtent, &templ->maxExtent,
-                &templ->nodes[n]
+                nextDynamicMVP, &templ->minExtent,
+                &templ->maxExtent, &templ->nodes[n]
             );
         }
     }
 
     // --------------------------------------------------------------
     // PARSE SCENE GRAPH END
+    // --------------------------------------------------------------
+
+    // --------------------------------------------------------------
+    // PARSE TEXTURES START
+    // --------------------------------------------------------------
+
+    const auto textureOffset = scene->textureCount;
+
+    {
+        const auto &images   = model.images;
+        const auto numImages = images.size ();
+        auto &sceneTextures  = scene->textures;
+        scene->textureCount += numImages;
+
+        for (uint32_t i = 0; i < numImages; i++) {
+            const auto &texture      = images[i];
+            const auto width         = texture.width;
+            const auto height        = texture.height;
+            auto       &sceneTexture = sceneTextures[textureOffset + i];
+
+            // No other texture sizes allowed
+            if (width != 512 ||height != 512) {
+                CHECK (false);
+            }
+
+            if (texture.component == 3) {
+                for (uint32_t i = 0; i < width * height; ++i) {
+                    sceneTexture[i * 4 + 0] = texture.image[i * 3 + 0];
+                    sceneTexture[i * 4 + 1] = texture.image[i * 3 + 1];
+                    sceneTexture[i * 4 + 2] = texture.image[i * 3 + 2];
+                    sceneTexture[i * 4 + 3] = 0xFF;
+                }
+            } else {
+                std::copy (
+                    texture.image.begin (),
+                    texture.image.end (),
+                    sceneTexture.begin()
+                );
+            }
+        }
+    }
+
+    // --------------------------------------------------------------
+    // PARSE TEXTURES END
+    // --------------------------------------------------------------
+
+    // --------------------------------------------------------------
+    // PARSE MATERIALS START
+    // --------------------------------------------------------------
+
+    {
+        const auto &materials    = model.materials;
+        const auto &textures     = model.textures;
+        const auto numMaterials  = (uint32_t)materials.size ();
+        auto &sceneMaterials     = scene->materials;
+        sceneMaterials.resize (dynMatBase + numMaterials);
+      
+        for (uint32_t i = 0; i < numMaterials; ++i) {
+            const auto &m  = materials[i];
+            const auto &v  = m.values;
+            auto       &sm = sceneMaterials[dynMatBase + i];
+
+            sm.ambient  = 0.08f;
+            sm.diffuse  = 0.6f;
+            sm.specular = 0.2f;
+            sm.alpha    = 2.0f;
+            sm.texture  = 0.0f;
+            sm.normal   = 1.0f;
+
+            const auto baseColorTexture = v.find ("baseColorTexture");
+            const auto normalTexture    = v.find ("normalTexture");
+            const auto roughness        = v.find ("roughnessFactor");
+            const auto metallic         = v.find ("metallicFactor");
+
+            if (baseColorTexture != v.end ()) {
+                sm.texture = textureOffset + textures[
+                    baseColorTexture->second.TextureIndex ()
+                ].source;
+            }
+
+            if (normalTexture != v.end ()) {
+                sm.texture = textureOffset + textures[
+                    baseColorTexture->second.TextureIndex ()
+                ].source;
+            }
+
+            if (roughness != v.end ())
+                sm.alpha = roughness->second.Factor () * 42.f;
+            if (metallic != v.end ())
+                sm.specular = metallic->second.Factor ();  
+        }
+    }
+
+    // --------------------------------------------------------------
+    // PARSE MATERIALS END
     // --------------------------------------------------------------
 }
 
@@ -330,10 +423,10 @@ void loadTemplate (
 
     loadTemplateFromGLB (
         modelName, templates->nextDynTrans,
-        templates->nextDynMaterial, &templates->vertices,
-        &templates->indices, &templates->nextDynTrans,
-        &templates->nextDynMaterial,
-        &templates->templates[templateIndex]
+        &templates->vertices, &templates->indices,
+        &templates->nextDynTrans,
+        &templates->templates[templateIndex],
+        templates
     );
 
     // --------------------------------------------------------------

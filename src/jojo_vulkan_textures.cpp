@@ -5,16 +5,6 @@
 #include "jojo_vulkan_textures.hpp"
 #include "jojo_engine.hpp"
 
-/*
-    TODO: Resources to deal with:
-    * Staging Buffer
-    * Staging Memory
-    * Image
-    * Device Memory
-    * Sampler
-    * ImageView
-*/
-
 static void setImageLayout (
     VkCommandBuffer cmd,
     VkImage image,
@@ -496,6 +486,87 @@ void fontTexture (
     );
 
     vmaDestroyBuffer (allocator, stagingBuffer, stagingMem);
+}
+
+void cmdTextureArrayFromData (
+    const VmaAllocator              allocator,
+    const VkDevice                  device,
+    const VkCommandBuffer           transferCmd,
+    const std::vector<
+        Scene::TextureData
+    >                              &texData,
+    uint32_t                        width,
+    uint32_t                        height,
+    Texture                        *outTexture,
+    VkBuffer                       *stagingBuffer,
+    VmaAllocation                  *stagingMemory
+) {
+    const uint32_t mipLevels = 10;
+    const uint32_t channels = 4;
+    const uint32_t dataOffset = width * height * channels;
+    const uint32_t layers = (uint32_t)texData.size ();
+    std::vector<VkBufferImageCopy> copy (layers);
+
+    create (
+        allocator,
+        dataOffset,
+        VK_FORMAT_R8G8B8A8_UNORM,
+        layers,
+        mipLevels,
+        width,
+        height,
+        stagingBuffer,
+        stagingMemory,
+        &outTexture->image,
+        &outTexture->memory
+    );
+
+    stage (
+        allocator,
+        *stagingMemory,
+        texData[0].data(),
+        dataOffset * layers
+    );
+
+    for (uint32_t layer = 0, offset = 0; layer < layers; layer++) {
+        auto &region = copy[layer];
+        region = {};
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.baseArrayLayer = layer;
+        region.imageSubresource.layerCount = 1;
+        region.imageExtent.width = width;
+        region.imageExtent.height = height;
+        region.imageExtent.depth = 1;
+        region.bufferOffset = offset;
+        region.bufferRowLength = 0;
+        region.bufferImageHeight = 0;
+
+        offset += dataOffset;
+    }
+
+    transfer (
+        transferCmd,
+        *stagingBuffer,
+        outTexture->image,
+        copy.data (),
+        layers,
+        width, height,
+        mipLevels
+    );
+
+    outTexture->sampler = sampler (
+        device,
+        mipLevels
+    );
+
+    outTexture->view = view (
+        device,
+        outTexture->image,
+        VK_FORMAT_R8G8B8A8_UNORM,
+        layers,
+        mipLevels
+    );
 }
 
 void cmdTextureArrayFromList (

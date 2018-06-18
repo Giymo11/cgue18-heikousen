@@ -318,12 +318,6 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, Rendering::Set set) {
     // BUFFER: GLOBAL TRANS END
     // --------------------------------------------------------------
 
-    Textures::generateTextureArray (
-        engine->allocator, engine->device,
-        engine->commandPool, engine->queue,
-        &diffuse256
-    );
-
     VkDescriptorBufferInfo info = {};
     info.buffer = globalTrans;
     info.range = sizeof (GlobalTransformations);
@@ -344,9 +338,6 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, Rendering::Set set) {
     info.buffer = lightInfo;
     info.range = sizeof (LightBlock);
     descriptors->update (set, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, info);
-
-    auto diffuse256desc = Textures::descriptor (&diffuse256);
-    descriptors->update (set, 4, diffuse256desc);
 }
 
 void JojoVulkanMesh::destroyBuffers (
@@ -354,7 +345,7 @@ void JojoVulkanMesh::destroyBuffers (
 ) {
     auto allocator = engine->allocator;
 
-    Textures::freeTexture (allocator, engine->device, &diffuse256);
+    Textures::freeTexture (allocator, engine->device, &textures);
     vmaDestroyBuffer (allocator, stage_globalTrans, mems_globalTrans);
     vmaDestroyBuffer (allocator, globalTrans, mem_globalTrans);
     vmaDestroyBuffer (allocator, stage_modelTrans, mems_modelTrans);

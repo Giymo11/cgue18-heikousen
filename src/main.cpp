@@ -665,7 +665,36 @@ int main(int argc, char *argv[]) {
     Scene::SceneTemplates scene     = {};
 
     // --------------------------------------------------------------
-    // TEMPLATE LOADING START
+    // ALLOCATE TEXTURE SPACE BEGIN
+    // --------------------------------------------------------------
+
+    {
+        uint32_t *tex_ptr;
+
+        scene.textures.resize (64);
+        scene.textureCount = 2;
+
+        tex_ptr = (uint32_t *)scene.textures[0].data ();
+        for (int i = 0; i < 512; i++, tex_ptr += 512) {
+            for (int j = 0; j < 512; j++) {
+                tex_ptr[j] = -((i ^ j) >> 5 & 1) | 0xFFFF00FF;
+            }
+        }
+
+        tex_ptr = (uint32_t *)scene.textures[1].data ();
+        for (int i = 0; i < 512; i++, tex_ptr += 512) {
+            for (int j = 0; j < 512; j++) {
+                tex_ptr[j] = 0xFFFF0000;
+            }
+        }
+    }
+
+    // --------------------------------------------------------------
+    // ALLOCATE TEXTURE SPACE END
+    // --------------------------------------------------------------
+
+    // --------------------------------------------------------------
+    // TEMPLATE LOADING BEGIN
     // --------------------------------------------------------------
 
     {
@@ -682,9 +711,6 @@ int main(int argc, char *argv[]) {
                 tfile.first, tfile.second, t, &scene
             );
         }
-
-        scene.materials.resize (2, {});
-        scene.nextDynMaterial = 2;
     }
 
     // --------------------------------------------------------------
@@ -856,6 +882,22 @@ int main(int argc, char *argv[]) {
             Level::cmdBuildAndStageIndicesNaively (
                 allocator, engine.device, level, cmd
             );
+        }
+
+        {
+            VkBuffer      staging;
+            VmaAllocation stagingMem;
+
+            Textures::cmdTextureArrayFromData (
+                allocator, engine.device, cmd,
+                scene.textures, 512, 512, &mesh.textures,
+                &staging, &stagingMem
+            );
+
+            auto tex = Textures::descriptor (&mesh.textures);
+            engine.descriptors->update (Rendering::Set::Phong, 4, tex);
+
+            levelCleanupQueue.emplace_back (staging, stagingMem);
         }
 
         {

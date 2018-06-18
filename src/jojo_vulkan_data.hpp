@@ -86,7 +86,7 @@ public:
     VmaAllocation mems_index;
     VmaAllocation mems_materialInfo;
 
-    Textures::Texture diffuse256;
+    Textures::Texture textures;
 
     VkDescriptorSet descriptorSet;
 

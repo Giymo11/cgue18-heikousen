@@ -50,7 +50,7 @@ struct Material {
     float alpha;
 
     float texture;
-    float param1;
+    float normal;
     float param2;
     float param3;
 };
@@ -75,6 +75,11 @@ typedef std::vector<std::pair<
     const std::string,
     const Object::CollisionShapeInfo
 >> TemplateInfo;
+
+typedef std::array<
+    uint8_t,
+    512 * 512 * 4
+> TextureData;
 
 struct Node {
     mat4                           relative;
@@ -115,12 +120,12 @@ struct SceneTemplates {
 
     uint32_t                      numInstances;
     uint32_t                      nextDynTrans;
-    uint32_t                      nextDynMaterial;
+    uint32_t                      textureCount;
 
     std::vector<uint32_t>         indices;
     std::vector<Object::Vertex>   vertices;
     std::vector<Object::Material> materials;
-    std::vector<std::string>      textures;
+    std::vector<TextureData>      textures;
 };
 
 void loadTemplate (
