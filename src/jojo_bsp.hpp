@@ -2,12 +2,15 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <glm/glm.hpp>
 
 namespace Level {
 struct Vertex;
 }
 
 namespace BSP {
+
+using namespace glm;
 
 enum LumpType : int32_t {
     Entities,
@@ -131,6 +134,7 @@ struct BSPData {
         std::vector<std::string> &&normals,
         std::vector<std::string> &&lightmaps,
         std::vector<int32_t>     &&lightmapLookup,
+        std::vector<vec3>        &&lightPos,
         uint32_t indexCount
     );
 
@@ -139,6 +143,7 @@ struct BSPData {
     const std::vector<std::string> normals;
     const std::vector<std::string> lightmaps;
     const std::vector<int32_t> lightmapLookup;
+    const std::vector<glm::vec3> lightPos;
 
     const Header     *header;
     const Node       *nodes;

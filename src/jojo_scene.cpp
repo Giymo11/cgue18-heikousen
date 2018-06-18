@@ -8,7 +8,8 @@ namespace Scene {
 
 void instantiate (
     const mat4           &transform,
-    uint32_t              templateIndex,
+    const float           mass,
+    const uint32_t        templateIndex,
     InstanceType          type,
     SceneTemplates       *scene,
     Instance             *instance
@@ -29,8 +30,8 @@ void instantiate (
     instance->motionState = new btDefaultMotionState (startTransform);
 
     btVector3 localInertia (0, 1, 0);
-    btScalar mass (1.0f);
-    templ.shape->calculateLocalInertia (mass, localInertia);
+    btScalar bmass (mass);
+    templ.shape->calculateLocalInertia (bmass, localInertia);
 
     auto info = btRigidBody::btRigidBodyConstructionInfo (
         mass,

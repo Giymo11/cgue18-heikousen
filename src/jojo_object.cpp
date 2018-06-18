@@ -407,6 +407,137 @@ static void loadTemplateFromGLB (
     // --------------------------------------------------------------
 }
 
+static void loadConvexNode (
+    const tinygltf::Node            *nodes,
+    const tinygltf::Mesh            *meshes,
+    const tinygltf::Accessor        *accessors,
+    const tinygltf::BufferView      *views,
+    const tinygltf::Buffer          *buffers,
+    const int32_t                    currentNode,
+    btAlignedObjectArray<btVector3> &vertices
+) {
+    const auto &node = nodes[currentNode];
+
+    if (node.mesh > -1) {
+        const auto &mesh = meshes[node.mesh];
+
+        for (const auto &p : mesh.primitives) {
+            if (p.indices < 0)
+                continue;
+
+            // --------------------------------------------------------------
+            // LOAD VERTICES START
+            // --------------------------------------------------------------
+            {
+                const uint32_t currentNum = (uint32_t)vertices.size();
+                const vec3    *pos = nullptr;
+                uint32_t       num = 0;
+
+                {
+                    const auto &posIt = p.attributes.find ("POSITION");
+                    const auto &end = p.attributes.end ();
+                    if (posIt == end)
+                        continue;
+
+                    const auto &posAccessor = accessors[posIt->second];
+                    const auto &posView = views[posAccessor.bufferView];
+
+                    pos = (const vec3 *)(
+                        buffers[posView.buffer].data.data ()
+                        + posAccessor.byteOffset
+                        + posView.byteOffset
+                        );
+
+                    num = (uint32_t)posAccessor.count;
+                }
+
+                vertices.resize (currentNum + num);
+                for (uint32_t i = 0; i < num; ++i) {
+                    const auto &curPos = pos[i];
+                    auto       &vert   = vertices[i + currentNum];
+
+                    vert.setX (curPos.x);
+                    vert.setY (-curPos.y);
+                    vert.setZ (curPos.z);
+                }
+            }
+
+            // --------------------------------------------------------------
+            // LOAD VERTICES END
+            // --------------------------------------------------------------
+        }
+    }
+
+    // --------------------------------------------------------------
+    // PARSE SCENE GRAPH START
+    // --------------------------------------------------------------
+
+    {
+        const auto nodeCount = node.children.size ();
+        for (auto n = 0; n < nodeCount; ++n) {
+            loadConvexNode (
+                nodes, meshes, accessors, views, buffers,
+                currentNode, vertices
+            );
+        }
+    }
+
+    // --------------------------------------------------------------
+    // PARSE SCENE GRAPH END
+    // --------------------------------------------------------------
+}
+
+static void loadConvexMeshFromGLB (
+    const std::string               &modelName,
+    btAlignedObjectArray<btVector3> &vertices
+) {
+    tinygltf::Model model;
+    tinygltf::TinyGLTF loader;
+
+    // --------------------------------------------------------------
+    // LOAD BINARY START
+    // --------------------------------------------------------------
+
+    {
+        auto loaded = loader.LoadBinaryFromFile (
+            &model, nullptr,
+            "models/" + modelName + ".glb"
+        );
+        CHECK (loaded);
+    }
+
+    // --------------------------------------------------------------
+    // LOAD BINARY END
+    // --------------------------------------------------------------
+
+    // --------------------------------------------------------------
+    // PARSE SCENE GRAPH START
+    // --------------------------------------------------------------
+
+    {
+        const auto  nodes = model.nodes.data ();
+        const auto  meshes = model.meshes.data ();
+        const auto  accessors = model.accessors.data ();
+        const auto  views = model.bufferViews.data ();
+        const auto  buffers = model.buffers.data ();
+        const auto &scene = model.scenes[model.defaultScene];
+        const auto  nodeCount = scene.nodes.size ();
+
+        for (auto n = 0; n < nodeCount; ++n) {
+            loadConvexNode (
+                model.nodes.data(), model.meshes.data(),
+                model.accessors.data(), model.bufferViews.data(),
+                model.buffers.data(),
+                n, vertices
+            );
+        }
+    }
+
+    // --------------------------------------------------------------
+    // PARSE SCENE GRAPH END
+    // --------------------------------------------------------------
+}
+
 }
 
 namespace Scene {
@@ -437,17 +568,25 @@ void loadTemplate (
     // INITIALIZE COLLISION SHAPE START
     // --------------------------------------------------------------
 
+    auto &temp = templates->templates[templateIndex];
+
     switch (collisionInfo.type) {
     case Object::Box:
     {
-       auto &temp = templates->templates[templateIndex];
        vec3 extent = (temp.maxExtent - temp.minExtent) * 0.5f;
-        temp.shape = new btBoxShape (btVector3(
-            extent.x,
-            extent.y,
-            extent.z
-        ));
+       temp.shape = new btBoxShape (btVector3(
+           extent.x,
+           extent.y,
+           extent.z
+       ));
     }
+        break;
+    case Object::Player:
+        temp.shape = new btBoxShape (btVector3 (
+            1.5f,
+            0.8f,
+            1.8f
+        ));
         break;
     case Object::Convex:
     default:

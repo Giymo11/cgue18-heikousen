@@ -57,7 +57,8 @@ struct Material {
 
 enum CollisionShapeType : uint8_t {
     Box,
-    Convex
+    Convex,
+    Player
 };
 
 struct CollisionShapeInfo {
@@ -137,6 +138,7 @@ void loadTemplate (
 
 void instantiate (
     const mat4           &transform,
+    float                 mass,
     uint32_t              templateIndex,
     InstanceType          type,
     SceneTemplates       *scene,

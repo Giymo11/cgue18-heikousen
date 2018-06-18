@@ -699,7 +699,7 @@ int main(int argc, char *argv[]) {
 
     {
         const Scene::TemplateInfo templateFiles = {
-            { "ship", { Object::Box }},
+            { "ship", { Object::Player }},
             { "roundcube", { Object::Box }},
             { "roundcube", { Object::Box }},
             { "roundcube", { Object::Box }},
@@ -774,19 +774,19 @@ int main(int argc, char *argv[]) {
 
         // Create player instance
         Scene::instantiate (
-            translate(vec3(0.f, 2.5f, 0.f)),
+            translate(vec3(0.f, 2.5f, 0.f)), 2.0f,
             0, Scene::PlayerInstance,
             &scene, &scene.instances[0]
         );
 
         // Create a few boxes
         Scene::instantiate (
-            translate (vec3 (0.f, 2.5f, -10.f)),
+            translate (vec3 (0.f, 2.5f, -10.f)), 0.3f,
             1, Scene::NonLethalInstance,
             &scene, &scene.instances[1]
         );
         Scene::instantiate (
-            translate (vec3 (-1.0f, 3.0f, -6.f)),
+            translate (vec3 (-1.0f, 3.0f, -6.f)), 0.3f,
             2, Scene::NonLethalInstance,
             &scene, &scene.instances[2]
         );

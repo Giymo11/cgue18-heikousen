@@ -1,6 +1,8 @@
 #include <fstream>
 #include <string>
 #include <unordered_map>
+#include <iostream>
+#include <sstream>
 
 #include <LinearMath/btVector3.h>
 #include <LinearMath/btAlignedObjectArray.h>
@@ -9,6 +11,8 @@
 #include "jojo_level.hpp"
 
 namespace BSP {
+
+using namespace glm;
 
 const float GEOMSCALE = 0.03f;
 
@@ -223,7 +227,7 @@ void buildColliders (
                 btGeometryUtil::getVerticesFromPlaneEquations (planeEquations, vertices);
 
                 if (vertices.size () > 0) {
-                    auto shape = new btConvexHullShape (&(vertices[0].getX ()), vertices.size ());
+                    auto shape = new btConvexHullShape (&vertices[0].getX (), vertices.size ());
                     collisionShapes->push_back (shape);
 
                     btTransform startTransform;
@@ -247,6 +251,7 @@ BSPData::BSPData (
     std::vector<std::string> &&normalsIn,
     std::vector<std::string> &&lightmapsIn,
     std::vector<int32_t>     &&lightmapLookupIn,
+    std::vector<vec3>        &&lightPos,
     uint32_t                   indexCount
 ) :
     raw            (std::move (data)),
@@ -254,6 +259,7 @@ BSPData::BSPData (
     normals        (std::move (normalsIn)),
     lightmaps      (std::move (lightmapsIn)),
     lightmapLookup (std::move (lightmapLookupIn)),
+    lightPos       (std::move (lightPos)),
     header         ((const Header *)     (raw.data () + 0)),
     nodes          ((const Node *)       (raw.data () + header->direntries[Nodes].offset)),
     leafs          ((const Leaf *)       (raw.data () + header->direntries[Leafs].offset)),
@@ -295,6 +301,55 @@ std::unique_ptr<BSPData> loadBSP (
     auto indexNum  = indexCount (header, leafs, leafFaces, faces);
 
     // --------------------------------------------------------------
+    // ENTITY INSPECTION BEGIN
+    // --------------------------------------------------------------
+
+    /* TODO: Currently only extracting lights */
+    std::vector<vec3> lightPositions;
+
+    {
+        const auto entityInfo = header->direntries[Entities];
+        const auto entities   = buffer.data () + entityInfo.offset;
+        std::vector<char> entityString (entityInfo.length + 1, 0);
+        std::copy (
+            entities,
+            entities + entityInfo.length,
+            entityString.begin ()
+        );
+
+        std::stringstream ss (entityString.data ());
+        std::string line, key, value, x, y, z;
+
+        while (std::getline (ss, line, '\n')) {
+            std::stringstream lparser (line);
+            lparser >> key >> value;
+
+            if (key == "\"origin\"") {
+                std::cout << line << "\n"; 
+                lparser.str (line);
+
+                lparser >> key >> x >> y >> z;
+                x = x.substr (1);
+                z = z.substr (0, z.length () - 1);
+
+                float xval = std::strtof (x.c_str (), nullptr);
+                float yval = std::strtof (y.c_str (), nullptr);
+                float zval = std::strtof (z.c_str (), nullptr);
+                std::cout << xval << " " << yval << " " << zval << "\n";
+                lightPositions.emplace_back (
+                    xval * GEOMSCALE,
+                    zval * GEOMSCALE,
+                    -yval * GEOMSCALE
+                );
+            }
+        }
+    }
+
+    // --------------------------------------------------------------
+    // ENTITY INSPECTION END
+    // --------------------------------------------------------------
+
+    // --------------------------------------------------------------
     // TEXTURE FIX BEGIN
     // --------------------------------------------------------------
 
@@ -302,7 +357,10 @@ std::unique_ptr<BSPData> loadBSP (
     std::unordered_map<std::string, int32_t> nameLookup;
 
     {
-        const auto textures    = (const Texture *) (buffer.data () + header->direntries[Textures].offset);
+        const auto textures    = (const Texture *) (
+            buffer.data ()
+            + header->direntries[Textures].offset
+        );
         const auto numTextures = header->direntries[Textures].length / sizeof (Texture);
         std::vector<int32_t> lookup (numTextures, 0);
 
@@ -374,6 +432,7 @@ std::unique_ptr<BSPData> loadBSP (
         std::move(normals),
         std::move(lightmaps),
         std::move(lightmapLookup),
+        std::move(lightPositions),
         indexNum
     );
 }

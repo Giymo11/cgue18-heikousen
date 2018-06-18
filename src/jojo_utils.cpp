@@ -10,7 +10,6 @@
 
 
 std::vector<char> readFile(const std::string &filename) {
-    std::cout << "Reading file " << std::endl;
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
     if (file) {
         size_t fileSize = file.tellg();

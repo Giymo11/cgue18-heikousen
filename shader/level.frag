@@ -41,7 +41,7 @@ void main() {
 	vec3 lightmap = texture(lightmap, vec3(vert.lightUv.xy, 1.0)).rgb;
 	vec3 v = normalize(-vert.position);
 
-    outColor = vec4(objColor.rgb * lightmap * 1.4, objColor.w);
+    outColor = vec4(objColor.rgb * lightmap, objColor.w);
 	outColor.xyz = tonemaping_exposure(outColor.xyz, exposure);
 	outColor.xyz = gamma_adjust(outColor.xyz, gamma);
 }
