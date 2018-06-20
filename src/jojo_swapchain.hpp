@@ -33,11 +33,20 @@ public:
 
     void createCommandBuffers(JojoEngine *engine);
 
-    void createSwapchainAndChildren(Config &config, JojoEngine *engine);
+    void createSwapchainAndChildren (
+        Config     &config,
+        JojoEngine *engine,
+        VkFormat   *depthFormat
+    );
 
     void destroySwapchainChildren(JojoEngine *engine);
 
-    void recreateSwapchain(Config &config, JojoEngine *engine, JojoWindow *window);
+    void recreateSwapchain (
+        Config     &config,
+        JojoEngine *engine,
+        JojoWindow *window,
+        VkFormat   *depthFormat
+    );
 
     void destroyCommandBuffers(JojoEngine *engine);
 };

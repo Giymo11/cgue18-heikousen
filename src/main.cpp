@@ -25,6 +25,7 @@
 #include "Rendering/DescriptorSets.h"
 #include "jojo_vulkan_textures.hpp"
 #include "jojo_level.hpp"
+#include "jojo_vulkan_pass.hpp"
 
 
 void recordCommandBuffer (
@@ -133,6 +134,7 @@ void drawFrame (
     JojoEngine                  *engine,
     JojoWindow                  *window,
     JojoSwapchain               *swapchain,
+    Pass::PassStorage           *passes,
     JojoVulkanMesh              *mesh,
     const JojoPipeline          *pipeline,
     const JojoPipeline          *textPipeline,
@@ -151,7 +153,21 @@ void drawFrame (
         swapchain->semaphoreImageAvailable, VK_NULL_HANDLE, &imageIndex
     );
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        swapchain->recreateSwapchain(config, engine, window);
+        Pass::freePasses (
+            engine->device,
+            engine->allocator,
+            passes
+        );
+        swapchain->recreateSwapchain (
+            config, engine,
+            window, &passes->depthFormat
+        );
+        Pass::allocPasses (
+            engine->device,
+            engine->allocator,
+            config.width, config.height,
+            passes
+        );
         return;
         // throw away this frame, because after recreating the swapchain, the vkAcquireNexImageKHR is
         // not signaling the semaphoreImageAvailable anymore
@@ -317,7 +333,21 @@ void drawFrame (
 
         result = vkQueuePresentKHR (drawQueue, &presentInfo);
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-            swapchain->recreateSwapchain (config, engine, window);
+            Pass::freePasses (
+                engine->device,
+                engine->allocator,
+                passes
+            );
+            swapchain->recreateSwapchain (
+                config, engine,
+                window, &passes->depthFormat
+            );
+            Pass::allocPasses (
+                engine->device,
+                engine->allocator,
+                config.width, config.height,
+                passes
+            );
             return;
             // same as with vkAcquireNextImageKHR
         }
@@ -400,10 +430,11 @@ static void updateMvp (
 
 
 void gameloop (
-    Config &config,
-    JojoEngine *engine,
-    JojoWindow *jojoWindow,
-    JojoSwapchain *swapchain,
+    Config                      &config,
+    JojoEngine                  *engine,
+    JojoWindow                  *jojoWindow,
+    JojoSwapchain               *swapchain,
+    Pass::PassStorage           *passes,
     Replay::Recorder            *jojoReplay,
     JojoVulkanMesh              *mesh,
     const JojoPipeline          *pipeline,
@@ -583,7 +614,7 @@ void gameloop (
 
         drawFrame (
             config, engine, jojoWindow, swapchain,
-            mesh, pipeline, textPipeline,
+            passes, mesh, pipeline, textPipeline,
             levelPipeline, scene, level
         );
     }
@@ -613,6 +644,7 @@ void Rendering::DescriptorSets::createLayouts ()
 int main(int argc, char *argv[]) {
     Physics::Physics      physics   = {};
     Scene::SceneTemplates scene     = {};
+    Pass::PassStorage     passes    = {};
 
     // --------------------------------------------------------------
     // ALLOCATE TEXTURE SPACE BEGIN
@@ -687,8 +719,16 @@ int main(int argc, char *argv[]) {
 
     JojoSwapchain swapchain;
     swapchain.createCommandBuffers(&engine);
-    swapchain.createSwapchainAndChildren(config, &engine);
+    swapchain.createSwapchainAndChildren (
+        config, &engine, &passes.depthFormat
+    );
 
+    Pass::allocPasses (
+        engine.device,
+        engine.allocator,
+        config.width, config.height,
+        &passes
+    );
 
     JojoPipeline pipeline;
     JojoPipeline levelPipeline;
@@ -989,7 +1029,7 @@ int main(int argc, char *argv[]) {
     // --------------------------------------------------------------
 
     gameloop (
-        config, &engine, &window, &swapchain, &jojoReplay,
+        config, &engine, &window, &swapchain, &passes, &jojoReplay,
         &mesh, &pipeline, &textPipeline, &levelPipeline,
         &scene, level, &physics
     );
@@ -1029,6 +1069,12 @@ int main(int argc, char *argv[]) {
     // --------------------------------------------------------------
     // PHYSICS CLEANUP END
     // --------------------------------------------------------------
+
+    Pass::freePasses (
+        engine.device,
+        engine.allocator,
+        &passes
+    );
 
     swapchain.destroyCommandBuffers(&engine);
 

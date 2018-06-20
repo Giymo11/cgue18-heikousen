@@ -11,7 +11,11 @@
 #include "jojo_window.hpp"
 
 
-void JojoSwapchain::createSwapchainAndChildren(Config &config, JojoEngine *engine) {
+void JojoSwapchain::createSwapchainAndChildren (
+    Config     &config,
+    JojoEngine *engine,
+    VkFormat   *depthFormat
+) {
     VkResult result;
     auto chosenImageFormat = VK_FORMAT_B8G8R8A8_UNORM;   // TODO: check if valid via surfaceFormats[i].format
 
@@ -41,36 +45,58 @@ void JojoSwapchain::createSwapchainAndChildren(Config &config, JojoEngine *engin
         ASSERT_VULKAN(result)
     }
 
-    VkFormat depthFormat = findSupportedFormat(engine->chosenDevice,
-                                               {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT,
-                                                VK_FORMAT_D24_UNORM_S8_UINT},
-                                               VK_IMAGE_TILING_OPTIMAL,
-                                               VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+    *depthFormat = findSupportedFormat (
+        engine->chosenDevice,
+        {
+            VK_FORMAT_D32_SFLOAT,
+            VK_FORMAT_D32_SFLOAT_S8_UINT,
+            VK_FORMAT_D24_UNORM_S8_UINT
+        },
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
     );
-    createImage(engine->device,
-                engine->chosenDevice,
-                config.width,
-                config.height,
-                depthFormat,
-                VK_IMAGE_TILING_OPTIMAL,
-                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                depthImage,
-                &depthImageMemory);
+
+    createImage (
+        engine->device,
+        engine->chosenDevice,
+        config.width,
+        config.height,
+        *depthFormat,
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        depthImage,
+        &depthImageMemory
+    );
+
     ASSERT_VULKAN(result)
-    result = createImageView(engine->device, depthImage, &depthImageView, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+    result = createImageView (
+        engine->device,
+        depthImage,
+        &depthImageView,
+        *depthFormat,
+        VK_IMAGE_ASPECT_DEPTH_BIT
+    );
+
     ASSERT_VULKAN(result)
 
-    changeImageLayout(engine->device,
-                      engine->commandPool,
-                      engine->queue,
-                      depthImage,
-                      depthFormat,
-                      VK_IMAGE_LAYOUT_UNDEFINED,
-                      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    changeImageLayout (
+        engine->device,
+        engine->commandPool,
+        engine->queue,
+        depthImage,
+        *depthFormat,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+    );
 
 
-    result = createRenderpass(engine->device, &swapchainRenderPass, chosenImageFormat, depthFormat);
+    result = createRenderpass(
+        engine->device,
+        &swapchainRenderPass,
+        chosenImageFormat,
+        *depthFormat
+    );
     ASSERT_VULKAN(result)
 
 
@@ -125,7 +151,12 @@ void JojoSwapchain::destroySwapchainChildren(JojoEngine *engine) {
     }
 }
 
-void JojoSwapchain::recreateSwapchain(Config &config, JojoEngine *engine, JojoWindow *window) {
+void JojoSwapchain::recreateSwapchain (
+    Config     &config,
+    JojoEngine *engine,
+    JojoWindow *window,
+    VkFormat   *depthFormat
+) {
     VkResult result;
 
     result = vkDeviceWaitIdle(engine->device);
@@ -148,7 +179,7 @@ void JojoSwapchain::recreateSwapchain(Config &config, JojoEngine *engine, JojoWi
 
     VkSwapchainKHR oldSwapchain = swapchain;
 
-    createSwapchainAndChildren(config, engine);
+    createSwapchainAndChildren (config, engine, depthFormat);
 
     vkDestroySwapchainKHR(engine->device, oldSwapchain, nullptr);
 }
