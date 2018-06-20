@@ -501,8 +501,6 @@ static void updateMvp (
     lightInfo->parameters.z = 1.0f;           // HDR exposure
     lightInfo->parameters.w = (float)numlights;
     lightInfo->playerPos = view * glm::vec4 (0.f, 0.f, 0.f, 1.);
-    for (size_t i = 1; i < numlights; i++)
-        lightInfo->sources[i].position = glm::vec3 (view * glm::vec4(lpos[i], 1.0f));
 }
 
 
@@ -1025,7 +1023,7 @@ int main(int argc, char *argv[]) {
             lblock->sources[i].position    = lpos[i];
             if (lblock->sources[i].position.z < -17.0f) {
                 lblock->sources[i].color = glm::vec3 (0.0, 0.0, 1.5);
-                std::cout << lblock->sources[i].position.z << "\n";
+                std::cout << lblock->sources[i].position.x << " " << lblock->sources[i].position.y << " " << lblock->sources[i].position.z << "\n";
             }
         }
     }
