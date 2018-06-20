@@ -163,14 +163,5 @@ void updateMatrices (
     uint8_t        *transBuffer
 );
 
-void updateNormalMatrices (
-    const Template *templates,
-    const Instance *instances,
-    const uint32_t  instanceCount,
-    const mat4      view,
-    const uint32_t  transAlignment,
-    uint8_t        *transBuffer
-);
-
 }
 

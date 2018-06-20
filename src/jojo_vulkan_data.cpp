@@ -333,11 +333,6 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, Rendering::Set set) {
     info.buffer = materialInfo;
     info.range = sizeof (Object::Material);
     descriptors->update (set, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, info);
-
-    info = {};
-    info.buffer = lightInfo;
-    info.range = sizeof (LightBlock);
-    descriptors->update (set, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, info);
 }
 
 void JojoVulkanMesh::destroyBuffers (

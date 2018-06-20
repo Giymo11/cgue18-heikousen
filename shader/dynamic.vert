@@ -26,11 +26,11 @@ out gl_PerVertex {
 };
 
 void main() {
-	vec4 viewSpace = globalTrans.view * modelTrans.model * vec4(inPosition, 1.);
+	vec4 worldSpace = modelTrans.model * vec4(inPosition, 1.);
 
-	vert.position = viewSpace.xyz;
-	vert.normal = normalize(mat3(modelTrans.normalMatrix) * inNormal);
-	vert.uv = inUv;
+	vert.position = worldSpace.xyz;
+	vert.normal   = normalize(mat3(modelTrans.normalMatrix) * inNormal);
+	vert.uv       = inUv;
 
-	gl_Position = globalTrans.projection * viewSpace;
+	gl_Position = globalTrans.projection * globalTrans.view * worldSpace;
 }

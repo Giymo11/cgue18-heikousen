@@ -52,7 +52,7 @@ void JojoPipeline::createPipelineHelper (
     ASSERT_VULKAN (result);
 
     VkPipelineColorBlendAttachmentState cbas = {};
-    cbas.blendEnable         = VK_TRUE;
+    cbas.blendEnable         = VK_FALSE;
     cbas.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
     cbas.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     cbas.colorBlendOp        = VK_BLEND_OP_ADD;

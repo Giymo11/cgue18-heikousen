@@ -6,9 +6,10 @@
 namespace Rendering {
 
 enum class Set : uint8_t {
-  Phong,
+  Dynamic,
   Text,
   Level,
+  Deferred,
   Count
 };
 

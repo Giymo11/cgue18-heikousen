@@ -90,7 +90,6 @@ void JojoSwapchain::createSwapchainAndChildren (
         VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
     );
 
-
     result = createRenderpass(
         engine->device,
         &swapchainRenderPass,

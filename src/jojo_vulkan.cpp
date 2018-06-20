@@ -217,21 +217,6 @@ VkResult createRenderpass(const VkDevice device, VkRenderPass *renderPass, const
     colorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 
-    VkAttachmentDescription depthAttachmentDescription = {};
-    depthAttachmentDescription.format = chosenDepthFormat;
-    depthAttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
-    depthAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    depthAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    depthAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentReference depthAttachmentReference = {};
-    depthAttachmentReference.attachment = 1;
-    depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-
     VkSubpassDescription subpassDescription;
     subpassDescription.flags = 0;
     subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -240,7 +225,7 @@ VkResult createRenderpass(const VkDevice device, VkRenderPass *renderPass, const
     subpassDescription.colorAttachmentCount = 1;
     subpassDescription.pColorAttachments = &colorAttachmentReference;
     subpassDescription.pResolveAttachments = nullptr;
-    subpassDescription.pDepthStencilAttachment = &depthAttachmentReference;
+    subpassDescription.pDepthStencilAttachment = nullptr;
     subpassDescription.preserveAttachmentCount = 0;
     subpassDescription.pPreserveAttachments = nullptr;
 
@@ -256,7 +241,7 @@ VkResult createRenderpass(const VkDevice device, VkRenderPass *renderPass, const
     subpassDependency.dependencyFlags = 0;
 
 
-    std::array<VkAttachmentDescription, 2> attachments = {colorAttachmentDescription, depthAttachmentDescription};
+    std::array<VkAttachmentDescription, 1> attachments = {colorAttachmentDescription};
 
     VkRenderPassCreateInfo renderPassCreateInfo;
     renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -460,9 +445,8 @@ VkResult createFramebuffer(const VkDevice device, const VkRenderPass renderPass,
                            VkFramebuffer *framebuffer,
                            uint32_t width, uint32_t height) {
 
-    std::array<VkImageView, 2> attachments = {
-            swapChainImageView,
-            depthImageView
+    std::array<VkImageView, 1> attachments = {
+            swapChainImageView
     };
 
     VkFramebufferCreateInfo framebufferCreateInfo;

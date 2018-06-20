@@ -2,6 +2,7 @@
 #include "jojo_vulkan_pass.hpp"
 #include "jojo_vulkan_utils.hpp"
 #include "jojo_vulkan.hpp"
+#include "Rendering/DescriptorSets.h"
 
 namespace Pass {
 
@@ -247,12 +248,12 @@ void allocPassStorage (
 ) {
     ASSERT_VULKAN (allocateCommandBuffers (
         device, commandPool,
-        passes->deferredCmd,
+        passes->gCmd,
         numCmdBuffers
     ));
 
     ASSERT_VULKAN (createSemaphore (
-        device, &passes->deferredSema
+        device, &passes->gSema
     ));
 }
 
@@ -263,29 +264,45 @@ void freePassStorage (
 ) {
     vkFreeCommandBuffers (
         device, commandPool,
-        (uint32_t)passes->deferredCmd.size (),
-        passes->deferredCmd.data ()
+        (uint32_t)passes->gCmd.size (),
+        passes->gCmd.data ()
     );
 
     vkDestroySemaphore (
-        device, passes->deferredSema,
+        device, passes->gSema,
         nullptr
     );
 }
 
 void allocPasses (
-    const VkDevice      device,
-    const VmaAllocator  allocator,
-    const uint32_t      width,
-    const uint32_t      height,
-    PassStorage        *passes
+    const VkDevice                   device,
+    const VmaAllocator               allocator,
+    const Rendering::DescriptorSets *descriptors,
+    const uint32_t                   width,
+    const uint32_t                   height,
+    PassStorage                     *passes
 ) {
-    createDeferredPass (
-        device, allocator,
-        passes->depthFormat,
-        width, height,
-        &passes->deferredPass
-    );
+    {
+        const auto set            = Rendering::Set::Deferred;
+        auto       pass           = &passes->gPass;
+
+        createDeferredPass (
+            device, allocator,
+            passes->depthFormat,
+            width, height,
+            pass
+        );
+
+        VkDescriptorImageInfo info;
+        info.sampler = pass->sampler;
+        info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        const auto numCatt = (uint32_t)pass->attachments.size () - 1;
+        for (uint32_t i = 0; i < numCatt; i++) {
+            info.imageView = pass->attachments[i].imageView;
+            descriptors->update (set, i + 1, info);
+        }
+    }
 }
 
 void freePasses (
@@ -293,7 +310,7 @@ void freePasses (
     const VmaAllocator  allocator,
     PassStorage        *passes
 ) {
-    freePass (device, allocator, &passes->deferredPass);
+    freePass (device, allocator, &passes->gPass);
 }
 
 }

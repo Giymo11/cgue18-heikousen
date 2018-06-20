@@ -3,6 +3,10 @@
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
 
+namespace Rendering {
+class DescriptorSets;
+}
+
 namespace Pass {
 
 struct Attachment {
@@ -23,9 +27,9 @@ struct RenderPass {
 struct PassStorage {
     VkFormat                     depthFormat;
 
-    RenderPass                   deferredPass;
-    std::vector<VkCommandBuffer> deferredCmd;
-    VkSemaphore                  deferredSema;
+    RenderPass                   gPass;
+    std::vector<VkCommandBuffer> gCmd;
+    VkSemaphore                  gSema;
 };
 
 void allocPassStorage (
@@ -42,11 +46,12 @@ void freePassStorage (
 );
 
 void allocPasses (
-    const VkDevice      device,
-    const VmaAllocator  allocator,
-    uint32_t            width,
-    uint32_t            height,
-    PassStorage        *passes
+    const VkDevice                   device,
+    const VmaAllocator               allocator,
+    const Rendering::DescriptorSets *descriptors,
+    uint32_t                         width,
+    uint32_t                         height,
+    PassStorage                     *passes
 );
 
 void freePasses (

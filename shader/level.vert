@@ -1,5 +1,6 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inNormal;
@@ -23,12 +24,10 @@ out gl_PerVertex {
 };
 
 void main() {
-	vec4 viewSpace = globalTrans.view * vec4(inPosition, 1.);
-
-	vert.position = viewSpace.xyz;
-	vert.normal   = normalize(transpose(inverse(mat3(globalTrans.view))) * inNormal);
+	vert.position = inPosition;
+	vert.normal   = normalize(inNormal);
 	vert.uv       = inUv;
     vert.lightUv  = inLightUv;
 
-	gl_Position = globalTrans.projection * viewSpace;
+	gl_Position = globalTrans.projection * globalTrans.view * vec4(inPosition, 1.);
 }

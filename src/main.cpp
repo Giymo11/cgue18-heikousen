@@ -72,6 +72,7 @@ void drawFrame (
         Pass::allocPasses (
             engine->device,
             engine->allocator,
+            engine->descriptors,
             config.width, config.height,
             passes
         );
@@ -91,7 +92,7 @@ void drawFrame (
     // --------------------------------------------------------------
 
     const auto drawCmd     = swapchain->commandBuffers[imageIndex];
-    const auto deferredCmd = passes->deferredCmd[imageIndex];
+    const auto gCmd        = passes->gCmd[imageIndex];
     const auto transferCmd = drawCmd;
     const auto fence       = swapchain->commandBufferFences[imageIndex];
 
@@ -255,7 +256,7 @@ void drawFrame (
     // --------------------------------------------------------------
 
     {
-        ASSERT_VULKAN (beginCommandBuffer (deferredCmd));
+        ASSERT_VULKAN (beginCommandBuffer (gCmd));
 
         std::array<VkClearValue, 4> defClear;
         defClear[0].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
@@ -263,17 +264,17 @@ void drawFrame (
         defClear[2].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
         defClear[3].depthStencil = { 1.0f, 0 };
 
-        passInfo.renderPass      = passes->deferredPass.pass;
-        passInfo.framebuffer     = passes->deferredPass.fb;
+        passInfo.renderPass      = passes->gPass.pass;
+        passInfo.framebuffer     = passes->gPass.fb;
         passInfo.clearValueCount = (uint32_t)defClear.size ();
         passInfo.pClearValues    = defClear.data ();
 
         vkCmdBeginRenderPass (
-            deferredCmd, &passInfo,
+            gCmd, &passInfo,
             VK_SUBPASS_CONTENTS_INLINE
         );
-        vkCmdSetViewport (deferredCmd, 0, 1, &viewport);
-        vkCmdSetScissor (deferredCmd, 0, 1, &scissor);
+        vkCmdSetViewport (gCmd, 0, 1, &viewport);
+        vkCmdSetScissor (gCmd, 0, 1, &scissor);
 
         // --------------------------------------------------------------
         // LEVEL DRAWING BEGIN
@@ -283,11 +284,11 @@ void drawFrame (
             auto descriptor = engine->descriptors->set (Rendering::Set::Level);
 
             vkCmdBindPipeline (
-                deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                gCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                 levelPipeline->pipeline
             );
             vkCmdBindDescriptorSets (
-                deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                gCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                 levelPipeline->pipelineLayout,
                 0, 1, &descriptor, 0, nullptr
             );
@@ -295,15 +296,15 @@ void drawFrame (
             VkBuffer vertexBuffers[] = { level->vertex };
             VkDeviceSize offsets[] = { 0 };
             vkCmdBindVertexBuffers (
-                deferredCmd, 0, 1,
+                gCmd, 0, 1,
                 vertexBuffers, offsets
             );
             vkCmdBindIndexBuffer (
-                deferredCmd, level->index, 0,
+                gCmd, level->index, 0,
                 VK_INDEX_TYPE_UINT32
             );
             vkCmdDrawIndexed (
-                deferredCmd, level->bsp->indexCount,
+                gCmd, level->bsp->indexCount,
                 1, 0, 0, 0
             );
         }
@@ -313,21 +314,21 @@ void drawFrame (
         // --------------------------------------------------------------
 
         vkCmdBindPipeline (
-            deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+            gCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
             pipeline->pipeline
         );
         Scene::cmdDrawInstances (
-            deferredCmd, pipeline->pipelineLayout, mesh,
+            gCmd, pipeline->pipelineLayout, mesh,
             scene->templates.data (), scene->instances.data (),
             scene->numInstances
         );
 
-        vkCmdEndRenderPass (deferredCmd);
-        ASSERT_VULKAN (vkEndCommandBuffer (deferredCmd));
+        vkCmdEndRenderPass (gCmd);
+        ASSERT_VULKAN (vkEndCommandBuffer (gCmd));
 
         submitInfo.pWaitSemaphores   = &swapchain->semaphoreImageAvailable;
-        submitInfo.pSignalSemaphores = &passes->deferredSema;
-        submitInfo.pCommandBuffers   = &deferredCmd;
+        submitInfo.pSignalSemaphores = &passes->gSema;
+        submitInfo.pCommandBuffers   = &gCmd;
 
         ASSERT_VULKAN (vkQueueSubmit (
             drawQueue,
@@ -368,7 +369,16 @@ void drawFrame (
                 drawCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                 textPipeline->pipeline
             );
-            auto textDescriptor = engine->descriptors->set (Rendering::Set::Text);
+            /*auto textDescriptor = engine->descriptors->set (Rendering::Set::Text);
+            vkCmdBindDescriptorSets (
+                drawCmd,
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                textPipeline->pipelineLayout,
+                0,
+                1, &textDescriptor,
+                0, nullptr
+            );*/
+            auto textDescriptor = engine->descriptors->set (Rendering::Set::Deferred);
             vkCmdBindDescriptorSets (
                 drawCmd,
                 VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -383,7 +393,7 @@ void drawFrame (
         vkCmdEndRenderPass (drawCmd);
         ASSERT_VULKAN (vkEndCommandBuffer (drawCmd));
 
-        submitInfo.pWaitSemaphores   = &passes->deferredSema;
+        submitInfo.pWaitSemaphores   = &passes->gSema;
         submitInfo.pSignalSemaphores = &swapchain->semaphoreRenderingDone;
         submitInfo.pCommandBuffers   = &drawCmd;
 
@@ -417,6 +427,7 @@ void drawFrame (
         Pass::allocPasses (
             engine->device,
             engine->allocator,
+            engine->descriptors,
             config.width, config.height,
             passes
         );
@@ -474,12 +485,6 @@ static void updateMvp (
         + mesh->alignModelTrans * player.dynamicTrans
     );
     glm::mat4 view = glm::inverse (playerTrans->model);
-
-    Scene::updateNormalMatrices (
-        scene->templates.data (), scene->instances.data (),
-        scene->numInstances, view, mesh->alignModelTrans,
-        (uint8_t *)mesh->alli_modelTrans.pMappedData
-    );
 
     auto globalTrans = (JojoVulkanMesh::GlobalTransformations *)
         mesh->alli_globalTrans.pMappedData;
@@ -692,13 +697,12 @@ void gameloop (
 
 void Rendering::DescriptorSets::createLayouts ()
 {
-    std::vector<VkDescriptorSetLayoutBinding> phong;
-    addLayout (phong, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-    addLayout (phong, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT);
-    addLayout (phong, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addLayout (phong, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addLayout (phong, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    layouts.push_back (createLayout (phong));
+    std::vector<VkDescriptorSetLayoutBinding> dynamic;
+    addLayout (dynamic, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    addLayout (dynamic, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT);
+    addLayout (dynamic, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (dynamic, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    layouts.push_back (createLayout (dynamic));
 
     std::vector<VkDescriptorSetLayoutBinding> text;
     addLayout (text, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -709,6 +713,13 @@ void Rendering::DescriptorSets::createLayouts ()
     addLayout (level, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addLayout (level, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (level));
+
+    std::vector<VkDescriptorSetLayoutBinding> deferred;
+    addLayout (deferred, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (deferred, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (deferred, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (deferred, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    layouts.push_back (createLayout (deferred));
 }
 
 int main(int argc, char *argv[]) {
@@ -803,6 +814,7 @@ int main(int argc, char *argv[]) {
     Pass::allocPasses (
         engine.device,
         engine.allocator,
+        engine.descriptors,
         config.width, config.height,
         &passes
     );
@@ -810,6 +822,7 @@ int main(int argc, char *argv[]) {
     JojoPipeline pipeline;
     JojoPipeline levelPipeline;
     JojoPipeline textPipeline;
+    JojoPipeline deferredPipeline;
 
     // --------------------------------------------------------------
     // LEVEL LOADING START
@@ -913,26 +926,33 @@ int main(int argc, char *argv[]) {
     {
         pipeline.createPipelineHelper (
             config, &engine,
-            passes.deferredPass.pass, "phong",
-            engine.descriptors->layout (Rendering::Set::Phong),
-            (uint32_t)passes.deferredPass.attachments.size () - 1,
+            passes.gPass.pass, "dynamic",
+            engine.descriptors->layout (Rendering::Set::Dynamic),
+            (uint32_t)passes.gPass.attachments.size () - 1,
             { mesh.getVertexInputBindingDescription () },
             mesh.getVertexInputAttributeDescriptions ()
         );
 
         levelPipeline.createPipelineHelper (
             config, &engine,
-            passes.deferredPass.pass, "level",
+            passes.gPass.pass, "level",
             engine.descriptors->layout (Rendering::Set::Level),
-            (uint32_t)passes.deferredPass.attachments.size () - 1,
+            (uint32_t)passes.gPass.attachments.size () - 1,
             { Level::vertexInputBinding () },
             Level::vertexAttributes ()
         );
 
-        textPipeline.createPipelineHelper (
+        /*textPipeline.createPipelineHelper (
             config, &engine,
             swapchain.swapchainRenderPass, "text",
             engine.descriptors->layout (Rendering::Set::Text),
+            1
+        );*/
+
+        textPipeline.createPipelineHelper (
+            config, &engine,
+            swapchain.swapchainRenderPass, "deferred",
+            engine.descriptors->layout (Rendering::Set::Deferred),
             1
         );
     }
@@ -941,9 +961,7 @@ int main(int argc, char *argv[]) {
     // PIPELINE CREATION END
     // --------------------------------------------------------------
 
-    mesh.initializeBuffers(&engine, Rendering::Set::Phong);
-
-    // initializeMaterialsAndLights (config, &engine, &scene, &mesh);
+    mesh.initializeBuffers(&engine, Rendering::Set::Dynamic);
 
     Textures::Texture font;
 
@@ -964,9 +982,9 @@ int main(int argc, char *argv[]) {
         pipeline.destroyPipeline(&engine);
         pipeline.createPipelineHelper (
             config, &engine,
-            passes.deferredPass.pass, "phong",
-            engine.descriptors->layout (Rendering::Set::Phong),
-            (uint32_t)passes.deferredPass.attachments.size () - 1,
+            passes.gPass.pass, "dynamic",
+            engine.descriptors->layout (Rendering::Set::Dynamic),
+            (uint32_t)passes.gPass.attachments.size () - 1,
             { mesh.getVertexInputBindingDescription () },
             mesh.getVertexInputAttributeDescriptions ()
         );
@@ -974,9 +992,9 @@ int main(int argc, char *argv[]) {
         levelPipeline.destroyPipeline (&engine);
         levelPipeline.createPipelineHelper (
             config, &engine,
-            passes.deferredPass.pass, "level",
+            passes.gPass.pass, "level",
             engine.descriptors->layout (Rendering::Set::Level),
-            (uint32_t)passes.deferredPass.attachments.size () - 1,
+            (uint32_t)passes.gPass.attachments.size () - 1,
             { Level::vertexInputBinding () },
             Level::vertexAttributes ()
         );
@@ -1007,6 +1025,27 @@ int main(int argc, char *argv[]) {
  
     // --------------------------------------------------------------
     // INITIALIZE LIGHTSOURCES END
+    // --------------------------------------------------------------
+
+    // --------------------------------------------------------------
+    // STATIC DESCRIPTOR SET BINDINGS BEGIN
+    // --------------------------------------------------------------
+
+    {
+        const auto desc = engine.descriptors;
+        VkDescriptorBufferInfo bufferInfo = {};
+
+        bufferInfo.buffer = mesh.lightInfo;
+        bufferInfo.range = mesh.alli_lightInfo.size;
+        desc->update (
+            Rendering::Set::Deferred,
+            0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            bufferInfo
+        );
+    }
+
+    // --------------------------------------------------------------
+    // STATIC DESCRIPTOR SET BINDINGS END
     // --------------------------------------------------------------
 
     // --------------------------------------------------------------
@@ -1047,7 +1086,7 @@ int main(int argc, char *argv[]) {
             );
 
             auto tex = Textures::descriptor (&mesh.textures);
-            engine.descriptors->update (Rendering::Set::Phong, 4, tex);
+            engine.descriptors->update (Rendering::Set::Dynamic, 3, tex);
 
             levelCleanupQueue.emplace_back (staging, stagingMem);
         }

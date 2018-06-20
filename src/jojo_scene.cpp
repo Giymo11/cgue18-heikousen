@@ -102,6 +102,7 @@ static void updateNodeMatrices (
         );
 
         trans->model = abs;
+        trans->normalMatrix = mat4 (inverseTranspose (mat3 (abs)));
     }
 
     for (const auto &child : node.children) {
@@ -143,51 +144,6 @@ void updateMatrices (
         for (const auto &node : temp.nodes) {
             updateNodeMatrices (
                 node, physicsMatrix, inst.instanceId,
-                transAlignment, transBuffer
-            );
-        }
-    }
-}
-
-static void updateNodeNormalMatrices (
-    const Node     &node,
-    const mat4     &view,
-    const uint32_t  instanceId,
-    const uint32_t  transAlignment,
-    uint8_t        *transBuffer
-) {
-    // Only update one instance for now
-    if (node.dynamicTrans >= 0 && instanceId == 0) {
-        auto trans = (JojoVulkanMesh::ModelTransformations *)(
-            transBuffer + transAlignment * node.dynamicTrans
-            );
-
-        trans->normalMatrix = mat4 (inverseTranspose (mat3 (view * trans->model)));
-    }
-
-    for (const auto &child : node.children) {
-        updateNodeMatrices (
-            child, view, instanceId,
-            transAlignment, transBuffer
-        );
-    }
-}
-
-void updateNormalMatrices (
-    const Template *templates,
-    const Instance *instances,
-    const uint32_t  instanceCount,
-    const mat4      view,
-    const uint32_t  transAlignment,
-    uint8_t        *transBuffer
-) {
-    for (uint32_t i = 0; i < instanceCount; i++) {
-        const auto &inst = instances[i];
-        const auto &temp = templates[inst.templateId];
-
-        for (const auto &node : templates->nodes) {
-            updateNodeNormalMatrices (
-                node, view, inst.instanceId,
                 transAlignment, transBuffer
             );
         }
