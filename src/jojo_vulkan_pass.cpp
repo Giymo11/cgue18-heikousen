@@ -1,6 +1,7 @@
 #include <array>
 #include "jojo_vulkan_pass.hpp"
 #include "jojo_vulkan_utils.hpp"
+#include "jojo_vulkan.hpp"
 
 namespace Pass {
 
@@ -236,6 +237,40 @@ static void freePass (
 
     for (auto &att : pass->attachments)
         freeAttachment (device, allocator, &att);
+}
+
+void allocPassStorage (
+    const VkDevice       device,
+    const VkCommandPool  commandPool,
+    const uint32_t       numCmdBuffers,
+    PassStorage         *passes
+) {
+    ASSERT_VULKAN (allocateCommandBuffers (
+        device, commandPool,
+        passes->deferredCmd,
+        numCmdBuffers
+    ));
+
+    ASSERT_VULKAN (createSemaphore (
+        device, &passes->deferredSema
+    ));
+}
+
+void freePassStorage (
+    const VkDevice       device,
+    const VkCommandPool  commandPool,
+    PassStorage         *passes
+) {
+    vkFreeCommandBuffers (
+        device, commandPool,
+        (uint32_t)passes->deferredCmd.size (),
+        passes->deferredCmd.data ()
+    );
+
+    vkDestroySemaphore (
+        device, passes->deferredSema,
+        nullptr
+    );
 }
 
 void allocPasses (

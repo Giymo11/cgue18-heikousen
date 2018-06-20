@@ -16,7 +16,9 @@ layout(location = 0) in VertexData {
 	vec3 lightUv;
 } vert;
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec4 outPosition;
+layout(location = 1) out vec4 outNormal;
+layout(location = 2) out vec4 outColor;
 
 const float ambient  = 0.2;
 const float diffuse  = 0.95;
@@ -44,4 +46,7 @@ void main() {
     outColor = vec4(objColor.rgb * lightmap, objColor.w);
 	outColor.xyz = tonemaping_exposure(outColor.xyz, exposure);
 	outColor.xyz = gamma_adjust(outColor.xyz, gamma);
+
+	outPosition = vec4(vert.position, vert.uv.z);
+	outNormal   = vec4(vert.normal, 1.0);
 }

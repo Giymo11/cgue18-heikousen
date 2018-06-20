@@ -307,16 +307,17 @@ VkResult createPipelineLayout(const VkDevice device, const VkDescriptorSetLayout
 }
 
 VkResult createPipeline (
-    const VkDevice device,
-    const VkPipelineShaderStageCreateInfo *shaderStages,
-    const VkRenderPass renderPass,
-    const VkPipelineLayout pipelineLayout,
-    VkPipeline *pipeline,
-    const int width,
-    const int height,
-    const std::vector<VkVertexInputBindingDescription> &vertexBindingDescriptions,
-    const std::vector<VkVertexInputAttributeDescription> &vertexAttributeDescriptions,
-    bool isWireframeEnabled
+    const VkDevice                          device,
+    const VkPipelineShaderStageCreateInfo  *shaderStages,
+    const VkRenderPass                      renderPass,
+    const VkPipelineLayout                  pipelineLayout,
+    VkPipeline                             *pipeline,
+    const int                               width,
+    const int                               height,
+    const std::vector<VkVertexInputBindingDescription>     &vertexBindingDescriptions,
+    const std::vector<VkVertexInputAttributeDescription>   &vertexAttributeDescriptions,
+    const std::vector<VkPipelineColorBlendAttachmentState> &blendAttachments, 
+    const bool                              isWireframeEnabled
 ) {
     VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo;
     vertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -387,26 +388,14 @@ VkResult createPipeline (
     multisampleStateCreateInfo.alphaToCoverageEnable = VK_FALSE;
     multisampleStateCreateInfo.alphaToOneEnable = VK_FALSE;
 
-    VkPipelineColorBlendAttachmentState colorBlendAttachmentState;
-    colorBlendAttachmentState.blendEnable = VK_TRUE;
-    colorBlendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    colorBlendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    colorBlendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
-    colorBlendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    colorBlendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    colorBlendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
-    colorBlendAttachmentState.colorWriteMask =
-            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-
-
     VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo;
     colorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colorBlendStateCreateInfo.pNext = nullptr;
     colorBlendStateCreateInfo.flags = 0;
     colorBlendStateCreateInfo.logicOpEnable = VK_FALSE;
     colorBlendStateCreateInfo.logicOp = VK_LOGIC_OP_NO_OP;
-    colorBlendStateCreateInfo.attachmentCount = 1;
-    colorBlendStateCreateInfo.pAttachments = &colorBlendAttachmentState;
+    colorBlendStateCreateInfo.attachmentCount = (uint32_t)blendAttachments.size();
+    colorBlendStateCreateInfo.pAttachments = blendAttachments.data();
     colorBlendStateCreateInfo.blendConstants[0] = 0.0f;
     colorBlendStateCreateInfo.blendConstants[1] = 0.0f;
     colorBlendStateCreateInfo.blendConstants[2] = 0.0f;
@@ -503,9 +492,12 @@ VkResult createCommandPool(const VkDevice device, VkCommandPool *commandPool, co
 }
 
 
-VkResult allocateCommandBuffers(const VkDevice device, const VkCommandPool commandPool,
-                                std::vector<VkCommandBuffer> &commandBuffers,
-                                const uint32_t numberOfImagesInSwapchain) {
+VkResult allocateCommandBuffers (
+    const VkDevice                device,
+    const VkCommandPool           commandPool,
+    std::vector<VkCommandBuffer> &commandBuffers,
+    const uint32_t                numberOfImagesInSwapchain
+) {
     VkCommandBufferAllocateInfo commandBufferAllocateInfo;
     commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     commandBufferAllocateInfo.pNext = nullptr;

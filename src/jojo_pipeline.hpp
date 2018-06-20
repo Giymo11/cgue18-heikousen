@@ -24,11 +24,12 @@ public:
     void destroyPipeline(JojoEngine *engine);
 
     void createPipelineHelper (
-        Config &config,
-        JojoEngine *engine,
-        VkRenderPass renderPass,
-        const std::string &shaderName,
-        VkDescriptorSetLayout descriptorLayout,
+        Config                &config,
+        JojoEngine            *engine,
+        VkRenderPass           renderPass,
+        const std::string     &shaderName,
+        VkDescriptorSetLayout  descriptorLayout,
+        uint32_t               attachmentCount,
         const std::vector<VkVertexInputBindingDescription> &vertexBindingDescriptions = {},
         const std::vector<VkVertexInputAttributeDescription> &vertexAttributeDescriptions = {}
     );

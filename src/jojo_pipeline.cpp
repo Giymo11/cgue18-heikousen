@@ -15,32 +15,59 @@ void JojoPipeline::destroyPipeline(JojoEngine *engine) {
 }
 
 void JojoPipeline::createPipelineHelper (
-    Config &config,
-    JojoEngine *engine,
-    VkRenderPass renderPass,
-    const std::string &shaderName,
-    VkDescriptorSetLayout descriptorLayout,
+    Config                &config,
+    JojoEngine            *engine,
+    VkRenderPass           renderPass,
+    const std::string     &shaderName,
+    VkDescriptorSetLayout  descriptorLayout,
+    const uint32_t         attachmentCount,
     const std::vector<VkVertexInputBindingDescription> &vertexBindingDescriptions,
     const std::vector<VkVertexInputAttributeDescription> &vertexAttributeDescriptions
 ) {
     descriptorSetLayout = descriptorLayout;
 
     VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert;
-    VkResult result = createShaderStageCreateInfo(engine->device, "shader/" + shaderName + ".vert.spv",
-                                                  VK_SHADER_STAGE_VERTEX_BIT,
-                                                  &shaderStageCreateInfoVert, &shaderModuleVert);
-    ASSERT_VULKAN(result)
+    VkResult result = createShaderStageCreateInfo (
+        engine->device,
+        "shader/" + shaderName + ".vert.spv",
+        VK_SHADER_STAGE_VERTEX_BIT,
+        &shaderStageCreateInfoVert,
+        &shaderModuleVert
+    );
+    ASSERT_VULKAN (result);
 
     VkPipelineShaderStageCreateInfo shaderStageCreateInfoFrag;
-    result = createShaderStageCreateInfo(engine->device, "shader/" + shaderName + ".frag.spv",
-                                         VK_SHADER_STAGE_FRAGMENT_BIT,
-                                         &shaderStageCreateInfoFrag, &shaderModuleFrag);
-    ASSERT_VULKAN(result)
+    result = createShaderStageCreateInfo (
+        engine->device,
+        "shader/" + shaderName + ".frag.spv",
+        VK_SHADER_STAGE_FRAGMENT_BIT,
+        &shaderStageCreateInfoFrag,
+        &shaderModuleFrag
+    );
+    ASSERT_VULKAN (result);
 
     VkPipelineShaderStageCreateInfo shaderStages[] = {shaderStageCreateInfoVert, shaderStageCreateInfoFrag};
 
     result = createPipelineLayout(engine->device, &descriptorSetLayout, &pipelineLayout);
-    ASSERT_VULKAN(result)
+    ASSERT_VULKAN (result);
+
+    VkPipelineColorBlendAttachmentState cbas = {};
+    cbas.blendEnable         = VK_TRUE;
+    cbas.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    cbas.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    cbas.colorBlendOp        = VK_BLEND_OP_ADD;
+    cbas.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    cbas.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    cbas.alphaBlendOp        = VK_BLEND_OP_ADD;
+    cbas.colorWriteMask      =
+        VK_COLOR_COMPONENT_R_BIT
+        | VK_COLOR_COMPONENT_G_BIT
+        | VK_COLOR_COMPONENT_B_BIT
+        | VK_COLOR_COMPONENT_A_BIT;
+
+    std::vector<VkPipelineColorBlendAttachmentState> blendAttStates (
+        attachmentCount, cbas
+    );
 
     result = createPipeline (
         engine->device,
@@ -52,6 +79,7 @@ void JojoPipeline::createPipelineHelper (
         config.height,
         vertexBindingDescriptions,
         vertexAttributeDescriptions,
+        blendAttStates,
         config.isWireframeEnabled
     );
 

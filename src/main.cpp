@@ -28,107 +28,6 @@
 #include "jojo_vulkan_pass.hpp"
 
 
-void recordCommandBuffer (
-    Config                      &config,
-    JojoEngine                  *engine,
-    const VkCommandBuffer        cmd,
-    const VkFramebuffer          framebuffer,
-    const VkRenderPass           renderPass,
-    JojoVulkanMesh              *mesh,
-    const JojoPipeline          *pipeline,
-    const JojoPipeline          *textPipeline,
-    const JojoPipeline          *levelPipeline,
-    const Scene::SceneTemplates *scene,
-    const Level::JojoLevel      *level
-) {
-
-    std::array<VkClearValue, 2> clearValues = {};
-    clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
-    clearValues[1].depthStencil = {1.0f, 0};
-
-    VkRenderPassBeginInfo renderPassBeginInfo;
-    renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassBeginInfo.pNext = nullptr;
-    renderPassBeginInfo.renderPass = renderPass;
-    renderPassBeginInfo.framebuffer = framebuffer;
-    renderPassBeginInfo.renderArea.offset = {0, 0};
-    renderPassBeginInfo.renderArea.extent = {config.width, config.height};
-    renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-    renderPassBeginInfo.pClearValues = clearValues.data();
-
-    // _INLINE means to only use primary command buffers
-    vkCmdBeginRenderPass(cmd, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    VkViewport viewport;
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(config.width);
-    viewport.height = static_cast<float>(config.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-    VkRect2D scissor;
-    scissor.offset = {0, 0};
-    scissor.extent = {config.width, config.height};
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
-
-    // --------------------------------------------------------------
-    // LEVEL DRAWING BEGIN
-    // --------------------------------------------------------------
-
-    {
-        auto descriptor = engine->descriptors->set (Rendering::Set::Level);
-
-        vkCmdBindPipeline (
-            cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-            levelPipeline->pipeline
-        );
-        vkCmdBindDescriptorSets (
-            cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, levelPipeline->pipelineLayout,
-            0, 1, &descriptor, 0, nullptr
-        );
-
-        VkBuffer vertexBuffers[] = { level->vertex };
-        VkDeviceSize offsets[] = { 0 };
-        vkCmdBindVertexBuffers (cmd, 0, 1, vertexBuffers, offsets);
-        vkCmdBindIndexBuffer (cmd, level->index, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed (cmd, level->bsp->indexCount, 1, 0, 0, 0);
-    }
-    
-    // --------------------------------------------------------------
-    // LEVEL DRAWING END
-    // --------------------------------------------------------------
-
-    vkCmdBindPipeline (
-        cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-        pipeline->pipeline
-    );
-    Scene::cmdDrawInstances (
-        cmd, pipeline->pipelineLayout, mesh,
-        scene->templates.data(), scene->instances.data(),
-        scene->numInstances
-    );
-
-    vkCmdBindPipeline (
-        cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-        textPipeline->pipeline
-    );
-    auto textDescriptor = engine->descriptors->set (Rendering::Set::Text);
-    vkCmdBindDescriptorSets (
-        cmd,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        textPipeline->pipelineLayout,
-        0,
-        1, &textDescriptor,
-        0, nullptr
-    );
-    vkCmdDraw (cmd, 6, 1, 0, 0);
-
-    vkCmdEndRenderPass(cmd);
-}
-
-
 void drawFrame (
     Config                      &config,
     JojoEngine                  *engine,
@@ -148,10 +47,18 @@ void drawFrame (
     const auto transferQueue = engine->queue;
 
     uint32_t imageIndex;
-    VkResult result = vkAcquireNextImageKHR(
-        device, swapchain->swapchain, std::numeric_limits<uint64_t>::max(),
-        swapchain->semaphoreImageAvailable, VK_NULL_HANDLE, &imageIndex
+    VkResult result = vkAcquireNextImageKHR (
+        device, swapchain->swapchain,
+        std::numeric_limits<uint64_t>::max(),
+        swapchain->semaphoreImageAvailable,
+        VK_NULL_HANDLE,
+        &imageIndex
     );
+
+    // --------------------------------------------------------------
+    // CHECK SWAPCHAIN REBUILD BEGIN
+    // --------------------------------------------------------------
+
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         Pass::freePasses (
             engine->device,
@@ -168,15 +75,25 @@ void drawFrame (
             config.width, config.height,
             passes
         );
+
+        /*
+            throw away this frame, because after recreating the
+            swapchain, the vkAcquireNexImageKHR is not signaling
+            the semaphoreImageAvailable anymore
+        */
         return;
-        // throw away this frame, because after recreating the swapchain, the vkAcquireNexImageKHR is
-        // not signaling the semaphoreImageAvailable anymore
+        
     }
     ASSERT_VULKAN (result);
 
-    const auto drawCmd = swapchain->commandBuffers[imageIndex];
+    // --------------------------------------------------------------
+    // CHECK SWAPCHAIN REBUILD END
+    // --------------------------------------------------------------
+
+    const auto drawCmd     = swapchain->commandBuffers[imageIndex];
+    const auto deferredCmd = passes->deferredCmd[imageIndex];
     const auto transferCmd = drawCmd;
-    const auto fence = swapchain->commandBufferFences[imageIndex];
+    const auto fence       = swapchain->commandBufferFences[imageIndex];
 
     // --------------------------------------------------------------
     // DATA STAGING BEGIN
@@ -278,84 +195,237 @@ void drawFrame (
     // --------------------------------------------------------------
 
     // --------------------------------------------------------------
-    // DRAWING BEGIN
+    // INITIALIZE COMMON STRUCT VALUES BEGIN
     // --------------------------------------------------------------
 
+    VkRenderPassBeginInfo passInfo        = {};
+    VkSubmitInfo          submitInfo      = {};
+    VkPipelineStageFlags  waitStageMask[] = {
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+    };
+    VkPresentInfoKHR      presentInfo     = {};
+    VkViewport            viewport        = {};
+    VkRect2D              scissor         = {};
+
     {
-        // Wait for data staging to be finished
-        result = VK_TIMEOUT;
-        while (result == VK_TIMEOUT)
-            result = vkWaitForFences (device, 1, &fence, VK_TRUE, 100000000);
-        ASSERT_VULKAN (result);
-        result = vkResetFences (device, 1, &fence);
-        ASSERT_VULKAN (result);
-
-        result = beginCommandBuffer (drawCmd);
-        ASSERT_VULKAN (result);
-
-        recordCommandBuffer (
-            config, engine,
-            swapchain->commandBuffers[imageIndex],
-            swapchain->framebuffers[imageIndex],
-            swapchain->swapchainRenderPass,
-            mesh,pipeline, textPipeline,
-            levelPipeline, scene, level
-        );
-
-        result = vkEndCommandBuffer (drawCmd);
-        ASSERT_VULKAN (result);
-
-        VkPipelineStageFlags waitStageMask[] = {
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-        };
-        VkSubmitInfo submitInfo = {};
+        passInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        passInfo.pNext                    = nullptr;
+        passInfo.renderArea.extent.width  = config.width;
+        passInfo.renderArea.extent.height = config.height;
+        
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pWaitSemaphores = &swapchain->semaphoreImageAvailable;
         submitInfo.pWaitDstStageMask = waitStageMask;
         submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &drawCmd;
         submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = &swapchain->semaphoreRenderingDone;
-
-        result = vkQueueSubmit (drawQueue, 1, &submitInfo, fence);
-        ASSERT_VULKAN (result);
-
-        VkPresentInfoKHR presentInfo;
+        
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        presentInfo.pNext = nullptr;
         presentInfo.waitSemaphoreCount = 1;
         presentInfo.pWaitSemaphores = &swapchain->semaphoreRenderingDone;
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = &swapchain->swapchain;
         presentInfo.pImageIndices = &imageIndex;
-        presentInfo.pResults = nullptr;
 
-        result = vkQueuePresentKHR (drawQueue, &presentInfo);
-        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-            Pass::freePasses (
-                engine->device,
-                engine->allocator,
-                passes
-            );
-            swapchain->recreateSwapchain (
-                config, engine,
-                window, &passes->depthFormat
-            );
-            Pass::allocPasses (
-                engine->device,
-                engine->allocator,
-                config.width, config.height,
-                passes
-            );
-            return;
-            // same as with vkAcquireNextImageKHR
-        }
-        ASSERT_VULKAN (result);
+        viewport.x        = 0.0f;
+        viewport.y        = 0.0f;
+        viewport.width    = (float )config.width;
+        viewport.height   = (float)config.height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+
+        scissor.offset.x      = 0.0f;
+        scissor.offset.y      = 0.0f;
+        scissor.extent.width  = (float)config.width;
+        scissor.extent.height = (float)config.height;
     }
 
     // --------------------------------------------------------------
-    // DRAWING END
+    // INITIALIZE COMMON STRUCT VALUES END
+    // --------------------------------------------------------------
+
+    /* Wait for data staging to be finished */
+    result = VK_TIMEOUT;
+    while (result == VK_TIMEOUT)
+        result = vkWaitForFences (device, 1, &fence, VK_TRUE, 100000000);
+    ASSERT_VULKAN (result);
+    ASSERT_VULKAN (vkResetFences (device, 1, &fence));
+
+    // --------------------------------------------------------------
+    // DEFERRED PASS BEGIN
+    // --------------------------------------------------------------
+
+    {
+        ASSERT_VULKAN (beginCommandBuffer (deferredCmd));
+
+        std::array<VkClearValue, 4> defClear;
+        defClear[0].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+        defClear[1].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+        defClear[2].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+        defClear[3].depthStencil = { 1.0f, 0 };
+
+        passInfo.renderPass      = passes->deferredPass.pass;
+        passInfo.framebuffer     = passes->deferredPass.fb;
+        passInfo.clearValueCount = (uint32_t)defClear.size ();
+        passInfo.pClearValues    = defClear.data ();
+
+        vkCmdBeginRenderPass (
+            deferredCmd, &passInfo,
+            VK_SUBPASS_CONTENTS_INLINE
+        );
+        vkCmdSetViewport (deferredCmd, 0, 1, &viewport);
+        vkCmdSetScissor (deferredCmd, 0, 1, &scissor);
+
+        // --------------------------------------------------------------
+        // LEVEL DRAWING BEGIN
+        // --------------------------------------------------------------
+
+        {
+            auto descriptor = engine->descriptors->set (Rendering::Set::Level);
+
+            vkCmdBindPipeline (
+                deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                levelPipeline->pipeline
+            );
+            vkCmdBindDescriptorSets (
+                deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                levelPipeline->pipelineLayout,
+                0, 1, &descriptor, 0, nullptr
+            );
+
+            VkBuffer vertexBuffers[] = { level->vertex };
+            VkDeviceSize offsets[] = { 0 };
+            vkCmdBindVertexBuffers (
+                deferredCmd, 0, 1,
+                vertexBuffers, offsets
+            );
+            vkCmdBindIndexBuffer (
+                deferredCmd, level->index, 0,
+                VK_INDEX_TYPE_UINT32
+            );
+            vkCmdDrawIndexed (
+                deferredCmd, level->bsp->indexCount,
+                1, 0, 0, 0
+            );
+        }
+
+        // --------------------------------------------------------------
+        // LEVEL DRAWING END
+        // --------------------------------------------------------------
+
+        vkCmdBindPipeline (
+            deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipeline->pipeline
+        );
+        Scene::cmdDrawInstances (
+            deferredCmd, pipeline->pipelineLayout, mesh,
+            scene->templates.data (), scene->instances.data (),
+            scene->numInstances
+        );
+
+        vkCmdEndRenderPass (deferredCmd);
+        ASSERT_VULKAN (vkEndCommandBuffer (deferredCmd));
+
+        submitInfo.pWaitSemaphores   = &swapchain->semaphoreImageAvailable;
+        submitInfo.pSignalSemaphores = &passes->deferredSema;
+        submitInfo.pCommandBuffers   = &deferredCmd;
+
+        ASSERT_VULKAN (vkQueueSubmit (
+            drawQueue,
+            1, &submitInfo,
+            VK_NULL_HANDLE
+        ));
+    }
+
+    // --------------------------------------------------------------
+    // DEFERRED PASS END
+    // --------------------------------------------------------------
+
+    // --------------------------------------------------------------
+    // TEXT PASS BEGIN
+    // --------------------------------------------------------------
+
+    {
+        ASSERT_VULKAN (beginCommandBuffer (drawCmd));
+
+        std::array<VkClearValue, 2> defClear;
+        defClear[0].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+        defClear[1].depthStencil = { 1.0f, 0 };
+
+        passInfo.renderPass = swapchain->swapchainRenderPass;
+        passInfo.framebuffer = swapchain->framebuffers[imageIndex];
+        passInfo.clearValueCount = (uint32_t)defClear.size ();
+        passInfo.pClearValues = defClear.data ();
+
+        vkCmdBeginRenderPass (
+            drawCmd, &passInfo,
+            VK_SUBPASS_CONTENTS_INLINE
+        );
+        vkCmdSetViewport (drawCmd, 0, 1, &viewport);
+        vkCmdSetScissor (drawCmd, 0, 1, &scissor);
+
+        {
+            vkCmdBindPipeline (
+                drawCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                textPipeline->pipeline
+            );
+            auto textDescriptor = engine->descriptors->set (Rendering::Set::Text);
+            vkCmdBindDescriptorSets (
+                drawCmd,
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                textPipeline->pipelineLayout,
+                0,
+                1, &textDescriptor,
+                0, nullptr
+            );
+            vkCmdDraw (drawCmd, 6, 1, 0, 0);
+        }
+        
+        vkCmdEndRenderPass (drawCmd);
+        ASSERT_VULKAN (vkEndCommandBuffer (drawCmd));
+
+        submitInfo.pWaitSemaphores   = &passes->deferredSema;
+        submitInfo.pSignalSemaphores = &swapchain->semaphoreRenderingDone;
+        submitInfo.pCommandBuffers   = &drawCmd;
+
+        ASSERT_VULKAN (vkQueueSubmit (
+            drawQueue,
+            1, &submitInfo,
+            fence
+        ));
+    }
+
+    // --------------------------------------------------------------
+    // TEXT PASS END
+    // --------------------------------------------------------------
+
+    result = vkQueuePresentKHR (drawQueue, &presentInfo);
+
+    // --------------------------------------------------------------
+    // CHECK SWAPCHAIN REBUILD BEGIN
+    // --------------------------------------------------------------
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+        Pass::freePasses (
+            engine->device,
+            engine->allocator,
+            passes
+        );
+        swapchain->recreateSwapchain (
+            config, engine,
+            window, &passes->depthFormat
+        );
+        Pass::allocPasses (
+            engine->device,
+            engine->allocator,
+            config.width, config.height,
+            passes
+        );
+        return;
+    }
+    ASSERT_VULKAN (result);
+
+    // --------------------------------------------------------------
+    // CHECK SWAPCHAIN REBUILD END
     // --------------------------------------------------------------
 }
 
@@ -723,6 +793,13 @@ int main(int argc, char *argv[]) {
         config, &engine, &passes.depthFormat
     );
 
+    Pass::allocPassStorage (
+        engine.device,
+        engine.commandPool,
+        swapchain.numberOfCommandBuffers,
+        &passes
+    );
+
     Pass::allocPasses (
         engine.device,
         engine.allocator,
@@ -836,16 +913,18 @@ int main(int argc, char *argv[]) {
     {
         pipeline.createPipelineHelper (
             config, &engine,
-            swapchain.swapchainRenderPass, "phong",
+            passes.deferredPass.pass, "phong",
             engine.descriptors->layout (Rendering::Set::Phong),
+            (uint32_t)passes.deferredPass.attachments.size () - 1,
             { mesh.getVertexInputBindingDescription () },
             mesh.getVertexInputAttributeDescriptions ()
         );
 
         levelPipeline.createPipelineHelper (
             config, &engine,
-            swapchain.swapchainRenderPass, "level",
+            passes.deferredPass.pass, "level",
             engine.descriptors->layout (Rendering::Set::Level),
+            (uint32_t)passes.deferredPass.attachments.size () - 1,
             { Level::vertexInputBinding () },
             Level::vertexAttributes ()
         );
@@ -853,7 +932,8 @@ int main(int argc, char *argv[]) {
         textPipeline.createPipelineHelper (
             config, &engine,
             swapchain.swapchainRenderPass, "text",
-            engine.descriptors->layout (Rendering::Set::Text)
+            engine.descriptors->layout (Rendering::Set::Text),
+            1
         );
     }
 
@@ -883,18 +963,20 @@ int main(int argc, char *argv[]) {
         std::cout << "Pipeline rebuilt" << std::endl;
         pipeline.destroyPipeline(&engine);
         pipeline.createPipelineHelper (
-                config, &engine,
-                swapchain.swapchainRenderPass, "phong",
-                engine.descriptors->layout (Rendering::Set::Phong),
-                { mesh.getVertexInputBindingDescription () },
-                mesh.getVertexInputAttributeDescriptions()
+            config, &engine,
+            passes.deferredPass.pass, "phong",
+            engine.descriptors->layout (Rendering::Set::Phong),
+            (uint32_t)passes.deferredPass.attachments.size () - 1,
+            { mesh.getVertexInputBindingDescription () },
+            mesh.getVertexInputAttributeDescriptions ()
         );
 
         levelPipeline.destroyPipeline (&engine);
         levelPipeline.createPipelineHelper (
             config, &engine,
-            swapchain.swapchainRenderPass, "level",
+            passes.deferredPass.pass, "level",
             engine.descriptors->layout (Rendering::Set::Level),
+            (uint32_t)passes.deferredPass.attachments.size () - 1,
             { Level::vertexInputBinding () },
             Level::vertexAttributes ()
         );
@@ -1073,6 +1155,12 @@ int main(int argc, char *argv[]) {
     Pass::freePasses (
         engine.device,
         engine.allocator,
+        &passes
+    );
+
+    Pass::freePassStorage (
+        engine.device,
+        engine.commandPool,
         &passes
     );
 

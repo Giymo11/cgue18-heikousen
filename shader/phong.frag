@@ -15,7 +15,9 @@ layout(location = 0) in VertexData {
 	vec2 uv;
 } vert;
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec4 outPosition;
+layout(location = 1) out vec4 outNormal;
+layout(location = 2) out vec4 outColor;
 
 layout(binding = 2) uniform MaterialInfo {
 	float ambient;
@@ -24,7 +26,7 @@ layout(binding = 2) uniform MaterialInfo {
 	float alpha;
 
 	float texture;
-	float param1;
+	float normal;
 	float param2;
 	float param3;
 } materialInfo;
@@ -69,6 +71,8 @@ vec3 gamma_adjust(vec3 color, float gamma) {
 
 void main() {
 	vec4 objColor = texture(diffuseTex1, vec3(vert.uv, materialInfo.texture));
+	if (objColor.a < 0.99)
+		discard;
 
 	vec3 v = normalize(-vert.position);
 
@@ -91,4 +95,7 @@ void main() {
 
 	// Gamma correction
 	outColor.xyz = gamma_adjust(outColor.xyz, gamma);
+
+	outPosition = vec4(vert.position, materialInfo.texture);
+	outNormal   = vec4(vert.normal, 1.0);
 }

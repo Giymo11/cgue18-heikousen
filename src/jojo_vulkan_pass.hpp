@@ -21,10 +21,25 @@ struct RenderPass {
 };
 
 struct PassStorage {
-    VkFormat   depthFormat;
+    VkFormat                     depthFormat;
 
-    RenderPass deferredPass;
+    RenderPass                   deferredPass;
+    std::vector<VkCommandBuffer> deferredCmd;
+    VkSemaphore                  deferredSema;
 };
+
+void allocPassStorage (
+    const VkDevice       device,
+    const VkCommandPool  commandPool,
+    uint32_t             numCmdBuffers,
+    PassStorage         *passes
+);
+
+void freePassStorage (
+    const VkDevice       device,
+    const VkCommandPool  commandPool,
+    PassStorage         *passes
+);
 
 void allocPasses (
     const VkDevice      device,

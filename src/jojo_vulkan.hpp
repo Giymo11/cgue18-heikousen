@@ -53,17 +53,18 @@ VkResult createDescriptorSetLayout(const VkDevice device, VkDescriptorSetLayout 
 VkResult createPipelineLayout(const VkDevice device, const VkDescriptorSetLayout *descriptorSetLayout,
                               VkPipelineLayout *pipelineLayout);
 
-VkResult createPipeline(
-    const VkDevice device,
-    const VkPipelineShaderStageCreateInfo *shaderStages,
-    const VkRenderPass renderPass,
-    const VkPipelineLayout pipelineLayout,
-    VkPipeline *pipeline,
-    const int width,
-    const int height,
-    const std::vector<VkVertexInputBindingDescription> &vertexBindingDescriptions,
-    const std::vector<VkVertexInputAttributeDescription> &vertexAttributeDescriptions,
-    bool isWireframeEnabled
+VkResult createPipeline (
+    const VkDevice                          device,
+    const VkPipelineShaderStageCreateInfo  *shaderStages,
+    const VkRenderPass                      renderPass,
+    const VkPipelineLayout                  pipelineLayout,
+    VkPipeline                             *pipeline,
+    int                                     width,
+    int                                     height,
+    const std::vector<VkVertexInputBindingDescription>     &vertexBindingDescriptions,
+    const std::vector<VkVertexInputAttributeDescription>   &vertexAttributeDescriptions,
+    const std::vector<VkPipelineColorBlendAttachmentState> &blendAttachments,
+    bool                                    isWireframeEnabled
 );
 
 
