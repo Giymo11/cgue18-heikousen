@@ -2,6 +2,7 @@
 // Created by benja on 4/27/2018.
 //
 #pragma once
+#include <array>
 #include <string>
 #include <vector>
 #include <debug_trap.h>

@@ -1023,9 +1023,10 @@ int main(int argc, char *argv[]) {
             lblock->sources[i].color       = glm::vec3 (0.3, 0.0, 0.0);
             lblock->sources[i].attenuation = glm::vec3 (0.5f, 0.05f, 0.01f);
             lblock->sources[i].position    = lpos[i];
-            std::cout << lblock->sources[i].position.z << "\n";
-            if (lblock->sources[i].position.z < 17.0f)
-                lblock->sources[i].color = glm::vec3 (0.0, 0.0, 0.5);
+            if (lblock->sources[i].position.z < -17.0f) {
+                lblock->sources[i].color = glm::vec3 (0.0, 0.0, 1.5);
+                std::cout << lblock->sources[i].position.z << "\n";
+            }
         }
     }
  

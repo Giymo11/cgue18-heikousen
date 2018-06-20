@@ -79,7 +79,7 @@ void main() {
     vec3 color = col.rgb * mat.x;
 
     /* Viewer to fragment */
-    vec3 v = pos.xyz - lightInfo.playerPos.xyz;
+    vec3 v = lightInfo.playerPos.xyz - pos.xyz;
     v = normalize(v);
 
     int lightNum = int (lightInfo.parameters.w);
