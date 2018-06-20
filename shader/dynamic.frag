@@ -11,6 +11,7 @@ layout(location = 0) in VertexData {
 layout(location = 0) out vec4 outPosition;
 layout(location = 1) out vec4 outNormal;
 layout(location = 2) out vec4 outColor;
+layout(location = 3) out vec4 outMaterial;
 
 layout(binding = 2) uniform MaterialInfo {
     float ambient;
@@ -36,4 +37,10 @@ void main() {
     outPosition = vec4(vert.position, materialInfo.specular);
     outNormal   = vec4(vert.normal, materialInfo.alpha);
     outColor    = vec4(objColor.rgb, materialInfo.diffuse);
+    outMaterial = vec4 (
+        materialInfo.ambient,
+        materialInfo.diffuse,
+        materialInfo.specular,
+        materialInfo.alpha
+    );
 }

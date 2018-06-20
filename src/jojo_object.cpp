@@ -396,8 +396,8 @@ static void loadTemplateFromGLB (
             }
 
             if (scene->templates.data () == templ) {
-                sm.diffuse  = 0.04;
-                sm.specular = 0.01;
+                sm.diffuse  = 0.2;
+                sm.specular = 0.3;
             } else if (scene->templates.data() + 3 == templ) {
                 sm.ambient  = 1.5f;
                 sm.diffuse  = 0.0;
@@ -406,7 +406,7 @@ static void loadTemplateFromGLB (
                 sm.ambient  = 0.08;
                 sm.alpha    = 40;
                 sm.diffuse  = 0.6;
-                sm.specular = 0.2;
+                sm.specular = 0.3;
             }
 
 

@@ -12,6 +12,7 @@ layout(location = 0) in VertexData {
 layout(location = 0) out vec4 outPosition;
 layout(location = 1) out vec4 outNormal;
 layout(location = 2) out vec4 outColor;
+layout(location = 3) out vec4 outMaterial;
 
 layout(binding = 1) uniform sampler2DArray diffuseTex1;
 layout(binding = 2) uniform sampler2DArray lightmap;
@@ -24,7 +25,8 @@ void main() {
 	if (objColor.a < 0.99)
         discard;
 
-    outPosition  = vec4(vert.position, 0.);
-    outNormal    = vec4(vert.normal, 0.);
+    outPosition  = vec4(vert.position, 1.);
+    outNormal    = vec4(vert.normal, 1.);
     outColor     = vec4(objColor.rgb * lightmap, 1.);
+    outMaterial  = vec4(1.4, 0., 0., 1.);
 }

@@ -33,6 +33,7 @@ public:
          * z = HDR exposure (1.0 default)
          */
         glm::vec4 parameters;
+        glm::vec4 playerPos;
         LightSource sources[16];
     };
 

@@ -82,8 +82,8 @@ static void createDeferredPass (
     const uint32_t      height,
     RenderPass         *pass
 ) {
-    const uint32_t numAtt = 4;
-    const uint32_t numCol = 3;
+    const uint32_t numAtt = 5;
+    const uint32_t numCol = 4;
     const uint32_t numDep = 1;
 
     std::array<VkAttachmentDescription, numAtt> att   = {};
@@ -98,7 +98,7 @@ static void createDeferredPass (
     VkSamplerCreateInfo                samplerInfo    = {};
 
     auto &attachments = pass->attachments;
-    pass->attachments.resize (4);
+    pass->attachments.resize (numAtt);
 
     /* POSITIONS */
     allocAttachment (
@@ -119,7 +119,6 @@ static void createDeferredPass (
     );
 
     /* ALBEDO */
-    /* TODO: HDR */
     allocAttachment (
         device, allocator,
         VK_FORMAT_R8G8B8A8_UNORM,
@@ -128,12 +127,21 @@ static void createDeferredPass (
         &attachments[2]
     );
 
+    /* MATERIAL PARAMETERS */
+    allocAttachment (
+        device, allocator,
+        VK_FORMAT_R16G16B16A16_SFLOAT,
+        width, height,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        &attachments[3]
+    );
+
     /* DEPTH */
     allocAttachment (
         device, allocator,
         depthFormat, width, height,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        &attachments[3]
+        &attachments[4]
     );
 
     for (uint32_t i = 0; i < numAtt; i++) {
@@ -158,7 +166,9 @@ static void createDeferredPass (
     color[1].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     color[2].attachment = 2;
     color[2].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    depth.attachment    = 3;
+    color[3].attachment = 3;
+    color[3].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    depth.attachment    = 4;
     depth.layout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;

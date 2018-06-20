@@ -252,17 +252,18 @@ void drawFrame (
     ASSERT_VULKAN (vkResetFences (device, 1, &fence));
 
     // --------------------------------------------------------------
-    // DEFERRED PASS BEGIN
+    // GBUFFER PASS BEGIN
     // --------------------------------------------------------------
 
     {
         ASSERT_VULKAN (beginCommandBuffer (gCmd));
 
-        std::array<VkClearValue, 4> defClear;
+        std::array<VkClearValue, 5> defClear;
         defClear[0].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
         defClear[1].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
         defClear[2].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-        defClear[3].depthStencil = { 1.0f, 0 };
+        defClear[3].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+        defClear[4].depthStencil = { 1.0f, 0 };
 
         passInfo.renderPass      = passes->gPass.pass;
         passInfo.framebuffer     = passes->gPass.fb;
@@ -338,11 +339,11 @@ void drawFrame (
     }
 
     // --------------------------------------------------------------
-    // DEFERRED PASS END
+    // GBUFFER PASS END
     // --------------------------------------------------------------
 
     // --------------------------------------------------------------
-    // TEXT PASS BEGIN
+    // DEFERRED PASS BEGIN
     // --------------------------------------------------------------
 
     {
@@ -405,7 +406,7 @@ void drawFrame (
     }
 
     // --------------------------------------------------------------
-    // TEXT PASS END
+    // DEFERRED PASS END
     // --------------------------------------------------------------
 
     result = vkQueuePresentKHR (drawQueue, &presentInfo);
@@ -499,6 +500,7 @@ static void updateMvp (
     lightInfo->parameters.y = config.hdrMode; // HDR enable
     lightInfo->parameters.z = 1.0f;           // HDR exposure
     lightInfo->parameters.w = (float)numlights;
+    lightInfo->playerPos = view * glm::vec4 (0.f, 0.f, 0.f, 1.);
     for (size_t i = 1; i < numlights; i++)
         lightInfo->sources[i].position = glm::vec3 (view * glm::vec4(lpos[i], 1.0f));
 }
@@ -719,6 +721,7 @@ void Rendering::DescriptorSets::createLayouts ()
     addLayout (deferred, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addLayout (deferred, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addLayout (deferred, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (deferred, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (deferred));
 }
 
@@ -1012,14 +1015,17 @@ int main(int argc, char *argv[]) {
         const auto  numlights = lpos.size () + 1;
 
         lblock->parameters.w           = (float)numlights;
-        lblock->sources[0].color       = glm::vec3 (0.9f);
-        lblock->sources[0].attenuation = glm::vec3 (0.3f, 0.05f, 0.01f);
-        lblock->sources[0].position    = glm::vec3 (0.f, 0.f, -3.f);
+        lblock->sources[0].color       = glm::vec3 (0.4f);
+        lblock->sources[0].attenuation = glm::vec3 (0.6f, 0.05f, 0.01f);
+        lblock->sources[0].position    = glm::vec3 (0.f, 0.f, -4.f);
 
         for (size_t i = 1; i < numlights; i++) {
-            lblock->sources[i].color       = glm::vec3 (2.0, 0.0, 0.0);
-            lblock->sources[i].attenuation = glm::vec3 (0.4f, 0.05f, 0.01f);
+            lblock->sources[i].color       = glm::vec3 (0.3, 0.0, 0.0);
+            lblock->sources[i].attenuation = glm::vec3 (0.5f, 0.05f, 0.01f);
             lblock->sources[i].position    = lpos[i];
+            std::cout << lblock->sources[i].position.z << "\n";
+            if (lblock->sources[i].position.z < 17.0f)
+                lblock->sources[i].color = glm::vec3 (0.0, 0.0, 0.5);
         }
     }
  
