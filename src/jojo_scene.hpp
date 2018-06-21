@@ -116,7 +116,7 @@ struct Instance {
     btDefaultMotionState *motionState;
 };
 
-struct SceneTemplates {
+struct Scene {
     std::vector<Template>         templates;
     std::vector<Instance>         instances;
 
@@ -134,7 +134,7 @@ void loadTemplate (
     const std::string                 &modelName,
     const Object::CollisionShapeInfo  &collisionInfo,
     uint32_t                           templateIndex,
-    SceneTemplates                    *templates
+    Scene                             *templates
 );
 
 void instantiate (
@@ -142,7 +142,7 @@ void instantiate (
     float                 mass,
     uint32_t              templateIndex,
     InstanceType          type,
-    SceneTemplates       *scene,
+    Scene                *scene,
     Instance             *instance
 );
 

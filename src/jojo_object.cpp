@@ -258,7 +258,7 @@ static void loadTemplateFromGLB (
     std::vector<uint32_t>        *indices,
     uint32_t                     *nextDynamicMVP,
     Scene::Template              *templ,
-    Scene::SceneTemplates        *scene
+    Scene::Scene        *scene
 ) {
     const auto dynMatBase = (uint32_t)scene->materials.size ();
     tinygltf::Model model;
@@ -561,7 +561,7 @@ void loadTemplate (
     const std::string                &modelName,
     const Object::CollisionShapeInfo &collisionInfo,
     const uint32_t                    templateIndex,
-    Scene::SceneTemplates            *templates
+    Scene::Scene            *templates
 ) {
     // --------------------------------------------------------------
     // LOAD MODEL START

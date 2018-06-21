@@ -47,7 +47,7 @@ public:
         glm::mat4 normalMatrix;
     };
 
-    Scene::SceneTemplates *scene = nullptr;
+    Scene::Scene *scene = nullptr;
 
     uint32_t alignModelTrans;
     uint32_t alignMaterialInfo;

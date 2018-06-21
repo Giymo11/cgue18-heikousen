@@ -38,7 +38,7 @@ void drawFrame (
     const JojoPipeline          *pipeline,
     const JojoPipeline          *textPipeline,
     const JojoPipeline          *levelPipeline,
-    const Scene::SceneTemplates *scene,
+    const Scene::Scene *scene,
     const Level::JojoLevel      *level
 ) {
     const auto allocator     = engine->allocator;
@@ -229,15 +229,15 @@ void drawFrame (
 
         viewport.x        = 0.0f;
         viewport.y        = 0.0f;
-        viewport.width    = (float )config.width;
+        viewport.width    = (float)config.width;
         viewport.height   = (float)config.height;
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
 
-        scissor.offset.x      = 0.0f;
-        scissor.offset.y      = 0.0f;
-        scissor.extent.width  = (float)config.width;
-        scissor.extent.height = (float)config.height;
+        scissor.offset.x      = 0;
+        scissor.offset.y      = 0;
+        scissor.extent.width  = config.width;
+        scissor.extent.height = config.height;
     }
 
     // --------------------------------------------------------------
@@ -450,7 +450,7 @@ static void updateMvp (
     JojoEngine                  *engine,
     Physics::Physics            *physics,
     JojoVulkanMesh              *mesh,
-    const Scene::SceneTemplates *scene,
+    const Scene::Scene *scene,
     const Level::JojoLevel      *level
 ) {
     auto world = physics->world;
@@ -515,7 +515,7 @@ void gameloop (
     const JojoPipeline          *pipeline,
     const JojoPipeline          *textPipeline,
     const JojoPipeline          *levelPipeline,
-    const Scene::SceneTemplates *scene,
+    const Scene::Scene *scene,
     const Level::JojoLevel      *level,
     Physics::Physics            *physics
 ) {
@@ -726,7 +726,7 @@ void Rendering::DescriptorSets::createLayouts ()
 
 int main(int argc, char *argv[]) {
     Physics::Physics      physics   = {};
-    Scene::SceneTemplates scene     = {};
+    Scene::Scene scene     = {};
     Pass::PassStorage     passes    = {};
 
     // --------------------------------------------------------------

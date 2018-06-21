@@ -11,7 +11,7 @@ void instantiate (
     const float           mass,
     const uint32_t        templateIndex,
     InstanceType          type,
-    SceneTemplates       *scene,
+    Scene       *scene,
     Instance             *instance
 ) {
     const auto &templ = scene->templates[templateIndex];

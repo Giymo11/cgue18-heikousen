@@ -52,25 +52,28 @@ start replay: spacebar
 
 0. [x] configuration
 1. [x] hello world vulkan
-1. [/] val layers? (works in linux I guess)
+1. [x] val layers? (works in linux I guess)
 1. [x] refactor for hotkey use
 1. [x] pipeline rebuild (wireframe etc)
-1. [/] bullet colldet/collresp test 
-1. [ ] bullet based game over condition
-1. [/] script engine
-1. [/] movement in planning phase
-1. [ ] bullet based win condition
-1. [ ] movement tracking / replay system
-1. [/] model loading
-1. [ ] textures (multiple maps)
-1. [ ] level design (= moving objects)
+1. [x] bullet colldet/collresp test 
+1. [x] bullet based game over condition
+1. [-] script engine
+1. [x] movement in planning phase
+1. [x] bullet based win condition
+1. [/] movement tracking / replay system
+1. [x] model loading
+1. [x] textures (multiple maps)
+1. [x] level design (= moving objects)
 1. [ ] GAME DAY
 1. [ ] Frustum Culling
-1. [ ] Hierarchical Animation Using Physics Engine
-1. [ ] HDR
-1. [ ] HUD
-1. [ ] EFFECTS
+1. [/] Hierarchical Animation Using Physics Engine
+1. [/] HDR
+1. [/] HUD
+1. [/] BSP
+1. [ ] DoF
+1. [ ] normal maps
 1. [ ] level design
+1. [ ] GAME DAY
 1. [ ] sound design
 1. [ ] polishing
 
