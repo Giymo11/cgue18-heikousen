@@ -70,6 +70,18 @@ vec3 point (
     ) * (1 / attenuation);
 }
 
+vec3 tonemaping_exposure(vec3 hdrColor, float hdrExposure) {
+     return vec3(1.0) - exp(-hdrColor * hdrExposure);
+}
+
+vec3 tonemaping_reinhard(vec3 hdrColor) {
+    return hdrColor / (hdrColor + vec3(1.0));
+}
+
+vec3 gamma_adjust(vec3 color, float gamma) {
+    return pow(color, vec3(1.0 / gamma));
+}
+
 void main() {
     vec4 pos = texture(position, vert.uv);
     vec2 nml = texture(normal, vert.uv).xy;
@@ -95,5 +107,15 @@ void main() {
         );
     }
 
-    outColor = vec4(color, 1.);
+    float gamma       = lightInfo.parameters.x;
+    float hdrMode     = lightInfo.parameters.y;
+    float hdrExposure = lightInfo.parameters.z;
+
+    if(hdrMode > 1.5) {
+        outColor = vec4(tonemaping_exposure(color, hdrExposure), 1.);
+    } else if (hdrMode > 0.5) {
+        outColor = vec4(tonemaping_reinhard(color), 1.);
+    } else {
+        outColor = vec4(color, 1.);
+    }
 }
