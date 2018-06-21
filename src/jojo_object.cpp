@@ -561,7 +561,7 @@ void loadTemplate (
     const std::string                &modelName,
     const Object::CollisionShapeInfo &collisionInfo,
     const uint32_t                    templateIndex,
-    Scene::Scene            *templates
+    Scene                            *templates
 ) {
     // --------------------------------------------------------------
     // LOAD MODEL START
