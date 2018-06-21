@@ -20,7 +20,7 @@ static void allocAttachment (
     if (usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
         aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     if (usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
-        aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+        aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
     VkImageCreateInfo iinfo = {};
     iinfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -112,7 +112,7 @@ static void createDeferredPass (
     /* NORMALS */
     allocAttachment (
         device, allocator,
-        VK_FORMAT_R16G16B16A16_SFLOAT,
+        VK_FORMAT_R16G16_SFLOAT,
         width, height,
         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         &attachments[1]
@@ -130,7 +130,7 @@ static void createDeferredPass (
     /* MATERIAL PARAMETERS */
     allocAttachment (
         device, allocator,
-        VK_FORMAT_R16G16B16A16_SFLOAT,
+        VK_FORMAT_R8G8B8A8_UNORM,
         width, height,
         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         &attachments[3]
@@ -307,8 +307,8 @@ void allocPasses (
         info.sampler = pass->sampler;
         info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        const auto numCatt = (uint32_t)pass->attachments.size () - 1;
-        for (uint32_t i = 0; i < numCatt; i++) {
+        const auto numAtt = (uint32_t)pass->attachments.size ();
+        for (uint32_t i = 0; i < numAtt; i++) {
             info.imageView = pass->attachments[i].imageView;
             descriptors->update (set, i + 1, info);
         }

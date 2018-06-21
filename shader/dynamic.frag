@@ -9,7 +9,7 @@ layout(location = 0) in VertexData {
 } vert;
 
 layout(location = 0) out vec4 outPosition;
-layout(location = 1) out vec4 outNormal;
+layout(location = 1) out vec2 outNormal;
 layout(location = 2) out vec4 outColor;
 layout(location = 3) out vec4 outMaterial;
 
@@ -35,7 +35,7 @@ void main() {
         discard;
 
     outPosition = vec4(vert.position, materialInfo.specular);
-    outNormal   = vec4(vert.normal, materialInfo.alpha);
+    outNormal   = normalize(vert.normal).xy;
     outColor    = vec4(objColor.rgb, materialInfo.diffuse);
     outMaterial = vec4 (
         materialInfo.ambient,

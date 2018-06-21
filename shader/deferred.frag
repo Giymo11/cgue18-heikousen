@@ -26,6 +26,7 @@ layout (binding = 1) uniform sampler2D position;
 layout (binding = 2) uniform sampler2D normal;
 layout (binding = 3) uniform sampler2D albedo;
 layout (binding = 4) uniform sampler2D material;
+layout (binding = 5) uniform sampler2D depth;
 
 vec3 phong (
     vec3 objColor,
@@ -71,9 +72,13 @@ vec3 point (
 
 void main() {
     vec4 pos = texture(position, vert.uv);
-    vec4 nml = texture(normal, vert.uv);
+    vec2 nml = texture(normal, vert.uv).xy;
     vec4 col = texture(albedo, vert.uv);
     vec4 mat = texture(material, vert.uv);
+
+    /* Unpack normal */
+    vec3 nor = vec3(nml, 1.);
+    nor.z    = sqrt(1. + dot(nor.xy, -nor.xy));
 
     /* Ambient */
     vec3 color = col.rgb * mat.x;
@@ -86,9 +91,9 @@ void main() {
     for (int i = 0; i < lightNum; ++i) {
         color += point (
             col.rgb, lightInfo.lights[i],
-            pos.xyz, nml.xyz, v, mat
+            pos.xyz, nor, v, mat
         );
     }
 
-    outColor = vec4(color, 1.0);  
+    outColor = vec4(color, 1.);
 }
