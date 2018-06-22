@@ -27,6 +27,13 @@
 #include "jojo_level.hpp"
 #include "jojo_vulkan_pass.hpp"
 
+struct Pipelines {
+    JojoPipeline dynamic;
+    JojoPipeline level;
+    JojoPipeline text;
+    JojoPipeline deferred;
+    JojoPipeline depth;
+};
 
 void drawFrame (
     Config                      &config,
@@ -35,10 +42,8 @@ void drawFrame (
     JojoSwapchain               *swapchain,
     Pass::PassStorage           *passes,
     JojoVulkanMesh              *mesh,
-    const JojoPipeline          *pipeline,
-    const JojoPipeline          *textPipeline,
-    const JojoPipeline          *levelPipeline,
-    const Scene::Scene *scene,
+    const Pipelines             *pipelines,
+    const Scene::Scene          *scene,
     const Level::JojoLevel      *level
 ) {
     const auto allocator     = engine->allocator;
@@ -91,10 +96,55 @@ void drawFrame (
     // CHECK SWAPCHAIN REBUILD END
     // --------------------------------------------------------------
 
-    const auto drawCmd     = swapchain->commandBuffers[imageIndex];
-    const auto gCmd        = passes->gCmd[imageIndex];
-    const auto transferCmd = drawCmd;
+    const auto gCmd        = passes->mrtCmd[imageIndex];
+    const auto transferCmd = swapchain->commandBuffers[imageIndex];
+    const auto deferredCmd = passes->deferredCmd[imageIndex];
     const auto fence       = swapchain->commandBufferFences[imageIndex];
+
+    // --------------------------------------------------------------
+    // INITIALIZE COMMON STRUCT VALUES BEGIN
+    // --------------------------------------------------------------
+
+    VkRenderPassBeginInfo passInfo = {};
+    VkSubmitInfo          submitInfo = {};
+    VkPresentInfoKHR      presentInfo = {};
+    VkViewport            viewport = {};
+    VkRect2D              scissor = {};
+
+    {
+        passInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        passInfo.pNext = nullptr;
+        passInfo.renderArea.extent.width = config.width;
+        passInfo.renderArea.extent.height = config.height;
+
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.waitSemaphoreCount = 1;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.signalSemaphoreCount = 1;
+
+        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        presentInfo.waitSemaphoreCount = 1;
+        presentInfo.pWaitSemaphores = &swapchain->semaphoreRenderingDone;
+        presentInfo.swapchainCount = 1;
+        presentInfo.pSwapchains = &swapchain->swapchain;
+        presentInfo.pImageIndices = &imageIndex;
+
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = (float)config.width;
+        viewport.height = (float)config.height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+
+        scissor.offset.x = 0;
+        scissor.offset.y = 0;
+        scissor.extent.width = config.width;
+        scissor.extent.height = config.height;
+    }
+
+    // --------------------------------------------------------------
+    // INITIALIZE COMMON STRUCT VALUES END
+    // --------------------------------------------------------------
 
     // --------------------------------------------------------------
     // DATA STAGING BEGIN
@@ -179,77 +229,53 @@ void drawFrame (
                 transferCmd, mesh->stage_lightInfo,
                 mesh->lightInfo, 1, &bufferCopy
             );
+
+            allocInfo = mesh->alli_dofInfo;
+            vmaGetMemoryTypeProperties (
+                allocator, allocInfo.memoryType,
+                &memFlags
+            );
+            if ((memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+                VkMappedMemoryRange memRange = {
+                    VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE
+                };
+                memRange.memory = allocInfo.deviceMemory;
+                memRange.offset = allocInfo.offset;
+                memRange.size = allocInfo.size;
+                vkFlushMappedMemoryRanges (device, 1, &memRange);
+            }
+            bufferCopy.size = allocInfo.size;
+            vkCmdCopyBuffer (
+                transferCmd, mesh->stage_dofInfo,
+                mesh->dofInfo, 1, &bufferCopy
+            );
         }
 
         result = vkEndCommandBuffer (transferCmd);
         ASSERT_VULKAN (result);
 
-        VkSubmitInfo submitInfo = {};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
+        VkPipelineStageFlags  waitStageMask[] = {
+            VK_PIPELINE_STAGE_TRANSFER_BIT
+        };
+
+        submitInfo.pWaitDstStageMask = waitStageMask;
+        submitInfo.pWaitSemaphores = &swapchain->semaphoreImageAvailable;
+        submitInfo.pSignalSemaphores = &passes->transferSema;
         submitInfo.pCommandBuffers = &transferCmd;
-        vkQueueSubmit (transferQueue, 1, &submitInfo, fence);
+
+        vkQueueSubmit (transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
      }
 
     // --------------------------------------------------------------
     // DATA STAGING END
     // --------------------------------------------------------------
 
-    // --------------------------------------------------------------
-    // INITIALIZE COMMON STRUCT VALUES BEGIN
-    // --------------------------------------------------------------
-
-    VkRenderPassBeginInfo passInfo        = {};
-    VkSubmitInfo          submitInfo      = {};
-    VkPipelineStageFlags  waitStageMask[] = {
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-    };
-    VkPresentInfoKHR      presentInfo     = {};
-    VkViewport            viewport        = {};
-    VkRect2D              scissor         = {};
-
-    {
-        passInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        passInfo.pNext                    = nullptr;
-        passInfo.renderArea.extent.width  = config.width;
-        passInfo.renderArea.extent.height = config.height;
-        
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pWaitDstStageMask = waitStageMask;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.signalSemaphoreCount = 1;
-        
-        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = &swapchain->semaphoreRenderingDone;
-        presentInfo.swapchainCount = 1;
-        presentInfo.pSwapchains = &swapchain->swapchain;
-        presentInfo.pImageIndices = &imageIndex;
-
-        viewport.x        = 0.0f;
-        viewport.y        = 0.0f;
-        viewport.width    = (float)config.width;
-        viewport.height   = (float)config.height;
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-
-        scissor.offset.x      = 0;
-        scissor.offset.y      = 0;
-        scissor.extent.width  = config.width;
-        scissor.extent.height = config.height;
-    }
-
-    // --------------------------------------------------------------
-    // INITIALIZE COMMON STRUCT VALUES END
-    // --------------------------------------------------------------
-
-    /* Wait for data staging to be finished */
-    result = VK_TIMEOUT;
-    while (result == VK_TIMEOUT)
-        result = vkWaitForFences (device, 1, &fence, VK_TRUE, 100000000);
-    ASSERT_VULKAN (result);
-    ASSERT_VULKAN (vkResetFences (device, 1, &fence));
+    ///* Wait for data staging to be finished */
+    //result = VK_TIMEOUT;
+    //while (result == VK_TIMEOUT)
+    //    result = vkWaitForFences (device, 1, &fence, VK_TRUE, 100000000);
+    //ASSERT_VULKAN (result);
+    //ASSERT_VULKAN (vkResetFences (device, 1, &fence));
 
     // --------------------------------------------------------------
     // GBUFFER PASS BEGIN
@@ -265,8 +291,8 @@ void drawFrame (
         defClear[3].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
         defClear[4].depthStencil = { 1.0f, 0 };
 
-        passInfo.renderPass      = passes->gPass.pass;
-        passInfo.framebuffer     = passes->gPass.fb;
+        passInfo.renderPass      = passes->mrtPass.pass;
+        passInfo.framebuffer     = passes->mrtPass.fb;
         passInfo.clearValueCount = (uint32_t)defClear.size ();
         passInfo.pClearValues    = defClear.data ();
 
@@ -286,11 +312,11 @@ void drawFrame (
 
             vkCmdBindPipeline (
                 gCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                levelPipeline->pipeline
+                pipelines->level.pipeline
             );
             vkCmdBindDescriptorSets (
                 gCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                levelPipeline->pipelineLayout,
+                pipelines->level.pipelineLayout,
                 0, 1, &descriptor, 0, nullptr
             );
 
@@ -316,10 +342,10 @@ void drawFrame (
 
         vkCmdBindPipeline (
             gCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-            pipeline->pipeline
+            pipelines->dynamic.pipeline
         );
         Scene::cmdDrawInstances (
-            gCmd, pipeline->pipelineLayout, mesh,
+            gCmd, pipelines->dynamic.pipelineLayout, mesh,
             scene->templates.data (), scene->instances.data (),
             scene->numInstances
         );
@@ -327,8 +353,13 @@ void drawFrame (
         vkCmdEndRenderPass (gCmd);
         ASSERT_VULKAN (vkEndCommandBuffer (gCmd));
 
-        submitInfo.pWaitSemaphores   = &swapchain->semaphoreImageAvailable;
-        submitInfo.pSignalSemaphores = &passes->gSema;
+        VkPipelineStageFlags  waitStageMask[] = {
+            VK_PIPELINE_STAGE_VERTEX_INPUT_BIT
+        };
+
+        submitInfo.pWaitDstStageMask = waitStageMask;
+        submitInfo.pWaitSemaphores   = &passes->transferSema;
+        submitInfo.pSignalSemaphores = &passes->mrtSema;
         submitInfo.pCommandBuffers   = &gCmd;
 
         ASSERT_VULKAN (vkQueueSubmit (
@@ -347,56 +378,84 @@ void drawFrame (
     // --------------------------------------------------------------
 
     {
-        ASSERT_VULKAN (beginCommandBuffer (drawCmd));
-
-        std::array<VkClearValue, 2> defClear;
-        defClear[0].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-        defClear[1].depthStencil = { 1.0f, 0 };
-
-        passInfo.renderPass = swapchain->swapchainRenderPass;
-        passInfo.framebuffer = swapchain->framebuffers[imageIndex];
-        passInfo.clearValueCount = (uint32_t)defClear.size ();
-        passInfo.pClearValues = defClear.data ();
-
-        vkCmdBeginRenderPass (
-            drawCmd, &passInfo,
-            VK_SUBPASS_CONTENTS_INLINE
-        );
-        vkCmdSetViewport (drawCmd, 0, 1, &viewport);
-        vkCmdSetScissor (drawCmd, 0, 1, &scissor);
+        ASSERT_VULKAN (beginCommandBuffer (deferredCmd));
 
         {
-            vkCmdBindPipeline (
-                drawCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                textPipeline->pipeline
-            );
-            /*auto textDescriptor = engine->descriptors->set (Rendering::Set::Text);
-            vkCmdBindDescriptorSets (
-                drawCmd,
-                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                textPipeline->pipelineLayout,
-                0,
-                1, &textDescriptor,
-                0, nullptr
-            );*/
-            auto textDescriptor = engine->descriptors->set (Rendering::Set::Deferred);
-            vkCmdBindDescriptorSets (
-                drawCmd,
-                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                textPipeline->pipelineLayout,
-                0,
-                1, &textDescriptor,
-                0, nullptr
-            );
-            vkCmdDraw (drawCmd, 6, 1, 0, 0);
-        }
-        
-        vkCmdEndRenderPass (drawCmd);
-        ASSERT_VULKAN (vkEndCommandBuffer (drawCmd));
+            std::array<VkClearValue, 1> defClear;
+            defClear[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
-        submitInfo.pWaitSemaphores   = &passes->gSema;
+            passInfo.renderPass = passes->deferredPass.pass;
+            passInfo.framebuffer = passes->deferredPass.fb;
+            passInfo.clearValueCount = (uint32_t)defClear.size ();
+            passInfo.pClearValues = defClear.data ();
+
+            vkCmdBeginRenderPass (
+                deferredCmd, &passInfo,
+                VK_SUBPASS_CONTENTS_INLINE
+            );
+            vkCmdSetViewport (deferredCmd, 0, 1, &viewport);
+            vkCmdSetScissor (deferredCmd, 0, 1, &scissor);
+
+            vkCmdBindPipeline (
+                deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                pipelines->deferred.pipeline
+            );
+            auto desc = engine->descriptors->set (Rendering::Set::Deferred);
+            vkCmdBindDescriptorSets (
+                deferredCmd,
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                pipelines->deferred.pipelineLayout,
+                0,
+                1, &desc,
+                0, nullptr
+            );
+            vkCmdDraw (deferredCmd, 6, 1, 0, 0);
+            vkCmdEndRenderPass (deferredCmd);
+        }
+
+        {
+            std::array<VkClearValue, 1> defClear;
+            defClear[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+
+            passInfo.renderPass = swapchain->swapchainRenderPass;
+            passInfo.framebuffer = swapchain->framebuffers[imageIndex];
+            passInfo.clearValueCount = (uint32_t)defClear.size ();
+            passInfo.pClearValues = defClear.data ();
+
+            vkCmdBeginRenderPass (
+                deferredCmd, &passInfo,
+                VK_SUBPASS_CONTENTS_INLINE
+            );
+            vkCmdSetViewport (deferredCmd, 0, 1, &viewport);
+            vkCmdSetScissor (deferredCmd, 0, 1, &scissor);
+
+            vkCmdBindPipeline (
+                deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                pipelines->depth.pipeline
+            );
+            auto desc = engine->descriptors->set (Rendering::Set::Dof);
+            vkCmdBindDescriptorSets (
+                deferredCmd,
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                pipelines->depth.pipelineLayout,
+                0,
+                1, &desc,
+                0, nullptr
+            );
+
+            vkCmdDraw (deferredCmd, 6, 1, 0, 0);
+            vkCmdEndRenderPass (deferredCmd);
+        }
+
+        ASSERT_VULKAN (vkEndCommandBuffer (deferredCmd));
+
+        VkPipelineStageFlags  waitStageMask[] = {
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
+        };
+
+        submitInfo.pWaitSemaphores   = &passes->mrtSema;
         submitInfo.pSignalSemaphores = &swapchain->semaphoreRenderingDone;
-        submitInfo.pCommandBuffers   = &drawCmd;
+        submitInfo.pCommandBuffers   = &deferredCmd;
 
         ASSERT_VULKAN (vkQueueSubmit (
             drawQueue,
@@ -467,7 +526,7 @@ static void updateMvp (
     glm::mat4 projection = glm::perspective (
         glm::radians(60.0f),
         config.width / (float) config.height,
-        0.001f, 3000.0f
+        0.1f, 1000.0f
     );
     projection[1][1] *= -1;  // openGL has the z dir flipped
 
@@ -501,6 +560,17 @@ static void updateMvp (
     lightInfo->parameters.z = 1.0f;           // HDR exposure
     lightInfo->parameters.w = (float)numlights;
     lightInfo->playerPos = view * glm::vec4 (0.f, 0.f, 0.f, 1.);
+
+    auto dofInfo = (JojoVulkanMesh::DepthOfField *)
+        mesh->alli_dofInfo.pMappedData;
+    dofInfo->px.x          = 1.f / (float)config.width;
+    dofInfo->px.y          = 1.f / (float)config.height;
+    dofInfo->far           = 1000.f;
+    dofInfo->proj.x        = 1000.f / (1000.f - 0.1f);
+    dofInfo->proj.y        = (-1000.f * 0.1f) / (1000.f - 0.1f);
+    dofInfo->dofEnable     = config.dofEnabled;
+    dofInfo->focalDistance = config.dofFocalDistance;
+    dofInfo->focalWidth    = config.dofFocalWidth;
 }
 
 
@@ -512,10 +582,8 @@ void gameloop (
     Pass::PassStorage           *passes,
     Replay::Recorder            *jojoReplay,
     JojoVulkanMesh              *mesh,
-    const JojoPipeline          *pipeline,
-    const JojoPipeline          *textPipeline,
-    const JojoPipeline          *levelPipeline,
-    const Scene::Scene *scene,
+    const Pipelines             *pipelines,
+    const Scene::Scene          *scene,
     const Level::JojoLevel      *level,
     Physics::Physics            *physics
 ) {
@@ -689,8 +757,7 @@ void gameloop (
 
         drawFrame (
             config, engine, jojoWindow, swapchain,
-            passes, mesh, pipeline, textPipeline,
-            levelPipeline, scene, level
+            passes, mesh, pipelines, scene, level
         );
     }
 }
@@ -722,12 +789,19 @@ void Rendering::DescriptorSets::createLayouts ()
     addLayout (deferred, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addLayout (deferred, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (deferred));
+
+    std::vector<VkDescriptorSetLayoutBinding> depth;
+    addLayout (depth, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (depth, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (depth, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    layouts.push_back (createLayout (depth));
 }
 
 int main(int argc, char *argv[]) {
     Physics::Physics      physics   = {};
-    Scene::Scene scene     = {};
+    Scene::Scene scene              = {};
     Pass::PassStorage     passes    = {};
+    Pipelines             pipelines = {};
 
     // --------------------------------------------------------------
     // ALLOCATE TEXTURE SPACE BEGIN
@@ -820,11 +894,6 @@ int main(int argc, char *argv[]) {
         config.width, config.height,
         &passes
     );
-
-    JojoPipeline pipeline;
-    JojoPipeline levelPipeline;
-    JojoPipeline textPipeline;
-    JojoPipeline deferredPipeline;
 
     // --------------------------------------------------------------
     // LEVEL LOADING START
@@ -926,35 +995,42 @@ int main(int argc, char *argv[]) {
     // --------------------------------------------------------------
 
     {
-        pipeline.createPipelineHelper (
+        pipelines.dynamic.createPipelineHelper (
             config, &engine,
-            passes.gPass.pass, "dynamic",
+            passes.mrtPass.pass, "dynamic",
             engine.descriptors->layout (Rendering::Set::Dynamic),
-            (uint32_t)passes.gPass.attachments.size () - 1,
+            (uint32_t)passes.mrtPass.attachments.size () - 1,
             { mesh.getVertexInputBindingDescription () },
             mesh.getVertexInputAttributeDescriptions ()
         );
 
-        levelPipeline.createPipelineHelper (
+        pipelines.level.createPipelineHelper (
             config, &engine,
-            passes.gPass.pass, "level",
+            passes.mrtPass.pass, "level",
             engine.descriptors->layout (Rendering::Set::Level),
-            (uint32_t)passes.gPass.attachments.size () - 1,
+            (uint32_t)passes.mrtPass.attachments.size () - 1,
             { Level::vertexInputBinding () },
             Level::vertexAttributes ()
         );
 
-        /*textPipeline.createPipelineHelper (
+        pipelines.text.createPipelineHelper (
             config, &engine,
             swapchain.swapchainRenderPass, "text",
             engine.descriptors->layout (Rendering::Set::Text),
             1
-        );*/
+        );
 
-        textPipeline.createPipelineHelper (
+        pipelines.deferred.createPipelineHelper (
             config, &engine,
-            swapchain.swapchainRenderPass, "deferred",
+            passes.deferredPass.pass, "deferred",
             engine.descriptors->layout (Rendering::Set::Deferred),
+            (uint32_t)passes.deferredPass.attachments.size ()
+        );
+
+        pipelines.depth.createPipelineHelper (
+            config, &engine,
+            swapchain.swapchainRenderPass, "dof",
+            engine.descriptors->layout (Rendering::Set::Dof),
             1
         );
     }
@@ -981,22 +1057,22 @@ int main(int argc, char *argv[]) {
     config.rebuildPipelines = ([&]() {
         vkDeviceWaitIdle(engine.device);
         std::cout << "Pipeline rebuilt" << std::endl;
-        pipeline.destroyPipeline(&engine);
-        pipeline.createPipelineHelper (
+        pipelines.dynamic.destroyPipeline(&engine);
+        pipelines.dynamic.createPipelineHelper (
             config, &engine,
-            passes.gPass.pass, "dynamic",
+            passes.mrtPass.pass, "dynamic",
             engine.descriptors->layout (Rendering::Set::Dynamic),
-            (uint32_t)passes.gPass.attachments.size () - 1,
+            (uint32_t)passes.mrtPass.attachments.size () - 1,
             { mesh.getVertexInputBindingDescription () },
             mesh.getVertexInputAttributeDescriptions ()
         );
 
-        levelPipeline.destroyPipeline (&engine);
-        levelPipeline.createPipelineHelper (
+        pipelines.level.destroyPipeline (&engine);
+        pipelines.level.createPipelineHelper (
             config, &engine,
-            passes.gPass.pass, "level",
+            passes.mrtPass.pass, "level",
             engine.descriptors->layout (Rendering::Set::Level),
-            (uint32_t)passes.gPass.attachments.size () - 1,
+            (uint32_t)passes.mrtPass.attachments.size () - 1,
             { Level::vertexInputBinding () },
             Level::vertexAttributes ()
         );
@@ -1045,6 +1121,14 @@ int main(int argc, char *argv[]) {
         bufferInfo.range = mesh.alli_lightInfo.size;
         desc->update (
             Rendering::Set::Deferred,
+            0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            bufferInfo
+        );
+
+        bufferInfo.buffer = mesh.dofInfo;
+        bufferInfo.range = mesh.alli_dofInfo.size;
+        desc->update (
+            Rendering::Set::Dof,
             0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             bufferInfo
         );
@@ -1157,8 +1241,7 @@ int main(int argc, char *argv[]) {
 
     gameloop (
         config, &engine, &window, &swapchain, &passes, &jojoReplay,
-        &mesh, &pipeline, &textPipeline, &levelPipeline,
-        &scene, level, &physics
+        &mesh, &pipelines, &scene, level, &physics
     );
 
     VkResult result = vkDeviceWaitIdle(engine.device);
@@ -1211,7 +1294,12 @@ int main(int argc, char *argv[]) {
 
     swapchain.destroyCommandBuffers(&engine);
 
-    pipeline.destroyPipeline(&engine);
+    {
+        pipelines.deferred.destroyPipeline (&engine);
+        pipelines.text.destroyPipeline (&engine);
+        pipelines.level.destroyPipeline (&engine);
+        pipelines.dynamic.destroyPipeline (&engine);
+    }
 
     swapchain.destroySwapchainChildren(&engine);
     vkDestroySwapchainKHR(engine.device, swapchain.swapchain, nullptr);

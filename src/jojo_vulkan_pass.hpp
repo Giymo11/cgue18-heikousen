@@ -27,9 +27,15 @@ struct RenderPass {
 struct PassStorage {
     VkFormat                     depthFormat;
 
-    RenderPass                   gPass;
-    std::vector<VkCommandBuffer> gCmd;
-    VkSemaphore                  gSema;
+    VkSemaphore                  transferSema;
+
+    RenderPass                   mrtPass;
+    std::vector<VkCommandBuffer> mrtCmd;
+    VkSemaphore                  mrtSema;
+
+    RenderPass                   deferredPass;
+    std::vector<VkCommandBuffer> deferredCmd;
+    VkSemaphore                  deferredSema;
 };
 
 void allocPassStorage (

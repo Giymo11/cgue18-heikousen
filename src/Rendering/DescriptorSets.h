@@ -10,6 +10,7 @@ enum class Set : uint8_t {
   Text,
   Level,
   Deferred,
+  Dof,
   Count
 };
 

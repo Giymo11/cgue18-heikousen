@@ -42,5 +42,5 @@ void main() {
         materialInfo.diffuse,
         materialInfo.specular,
         materialInfo.alpha
-    );
+    ) / 50.;
 }

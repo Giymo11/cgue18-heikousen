@@ -318,6 +318,45 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, Rendering::Set set) {
     // BUFFER: GLOBAL TRANS END
     // --------------------------------------------------------------
 
+    // --------------------------------------------------------------
+    // BUFFER: DOF INFO BEGIN
+    // --------------------------------------------------------------
+
+    {
+        const auto size = sizeof (DepthOfField);
+        allocInfo = {};
+
+        binfo.size = size;
+        binfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
+            | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        binfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+        ASSERT_VULKAN (vmaCreateBuffer (
+            allocator, &binfo, &allocInfo,
+            &dofInfo, &mem_dofInfo,
+            nullptr
+        ));
+
+        binfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        binfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+        allocInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+            | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+
+        ASSERT_VULKAN (vmaCreateBuffer (
+            allocator, &binfo, &allocInfo,
+            &stage_dofInfo, &mems_dofInfo,
+            &alli_dofInfo
+        ));
+    }
+
+    // --------------------------------------------------------------
+    // BUFFER: DOF INFO END
+    // --------------------------------------------------------------
+
     VkDescriptorBufferInfo info = {};
     info.buffer = globalTrans;
     info.range = sizeof (GlobalTransformations);

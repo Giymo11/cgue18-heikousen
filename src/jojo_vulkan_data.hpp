@@ -47,6 +47,15 @@ public:
         glm::mat4 normalMatrix;
     };
 
+    struct DepthOfField {
+        glm::vec2 proj;
+        glm::vec2 px;
+        float far;
+        float focalDistance;
+        float focalWidth;
+        float dofEnable;
+    };
+
     Scene::Scene *scene = nullptr;
 
     uint32_t alignModelTrans;
@@ -56,9 +65,11 @@ public:
     VkBuffer lightInfo;
     VkBuffer modelTrans;
     VkBuffer globalTrans;
+    VkBuffer dofInfo;
     VkBuffer stage_lightInfo;
     VkBuffer stage_modelTrans;
     VkBuffer stage_globalTrans;
+    VkBuffer stage_dofInfo;
 
     // Staging once
     VkBuffer vertex;
@@ -72,12 +83,15 @@ public:
     VmaAllocation mem_lightInfo;
     VmaAllocation mem_modelTrans;
     VmaAllocation mem_globalTrans;
+    VmaAllocation mem_dofInfo;
     VmaAllocation mems_lightInfo;
     VmaAllocation mems_modelTrans;
     VmaAllocation mems_globalTrans;
+    VmaAllocation mems_dofInfo;
     VmaAllocationInfo alli_lightInfo;
     VmaAllocationInfo alli_modelTrans;
     VmaAllocationInfo alli_globalTrans;
+    VmaAllocationInfo alli_dofInfo;
 
     // Staging once
     VmaAllocation mem_vertex;

@@ -86,7 +86,7 @@ void main() {
     vec4 pos = texture(position, vert.uv);
     vec2 nml = texture(normal, vert.uv).xy;
     vec4 col = texture(albedo, vert.uv);
-    vec4 mat = texture(material, vert.uv);
+    vec4 mat = texture(material, vert.uv) * 50.;
 
     /* Unpack normal */
     vec3 nor = vec3(nml, 1.);

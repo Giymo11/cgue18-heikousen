@@ -57,10 +57,31 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
         }
     }
 
-    if (key == GLFW_KEY_F4 && action == GLFW_PRESS) {
-
+    if (action == GLFW_PRESS) {
+        switch (key) {
+        case GLFW_KEY_F5:
+            config->dofEnabled = 1.f - config->dofEnabled;
+            if (config->dofEnabled > 0.5f)
+                std::cout << "DOF enabled" << std::endl;
+            else
+                std::cout << "DOF disabled" << std::endl;
+            break;
+        case GLFW_KEY_F9:
+            config->dofFocalDistance += 1.f;
+            break;
+        case GLFW_KEY_F10:
+            config->dofFocalDistance -= 1.f;
+            break;
+        case GLFW_KEY_F11:
+            config->dofFocalWidth += 2.f;
+            break;
+        case GLFW_KEY_F8:
+            config->dofFocalWidth -= 2.f;
+            break;
+        default:
+            break;
+        }
     }
-
 }
 
 void JojoWindow::startGlfw(Config &config) {

@@ -28,5 +28,5 @@ void main() {
     outPosition  = vec4(vert.position, 1.);
     outNormal    = normalize(vert.normal).xy;
     outColor     = vec4(objColor.rgb * lightmap, 1.);
-    outMaterial  = vec4(1.4, 0., 0., 1.);
+    outMaterial  = vec4(1.4, 0., 0., 1.) / 50.;
 }
