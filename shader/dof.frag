@@ -20,6 +20,7 @@ layout(binding = 0) uniform DepthOfField {
 
 layout (binding = 1) uniform sampler2D lightImage;
 layout (binding = 2) uniform sampler2D depth;
+layout (binding = 3) uniform sampler2D coc;
 
 const float GOLDEN_ANGLE  = 2.39996323;
 const float MAX_BLUR_SIZE = 20.0;
@@ -29,37 +30,31 @@ float linearizeDepth(float depth) {
     return dofInfo.proj.y / (depth - dofInfo.proj.x);
 }
 
-float getBlurSize(float depth) {
-    return smoothstep(0, dofInfo.focusScale, abs(dofInfo.focusPoint - depth)) * MAX_BLUR_SIZE;
-}
-
-vec4 depthOfField(vec2 texCoord) {
-    float centerDepth = linearizeDepth(texture(depth, texCoord).r);
-    float centerSize = getBlurSize(centerDepth);
-
-    vec3 color = texture(lightImage, texCoord).rgb;
+vec3 depthOfField(vec2 texCoord) {
+	vec4 color = texture(lightImage, texCoord);
+    float centerDepth = texture(depth, texCoord).r;
+    float centerSize = color.a * MAX_BLUR_SIZE;
+    
     float tot = 1.0;
     float radius = RAD_SCALE;
-    float alpha = 0.0f;
 
     for (float ang = 0.0; radius < MAX_BLUR_SIZE; ang += GOLDEN_ANGLE) {
         vec2 tc = texCoord + vec2(cos(ang), sin(ang)) * dofInfo.px * radius;
 
-        vec3 sampleColor = texture(lightImage, tc).rgb;
-        float sampleDepth = linearizeDepth(texture(depth, tc).r);
-        float sampleSize = getBlurSize(sampleDepth);
+        vec4 sampleColor = texture(lightImage, tc);
+        float sampleDepth = texture(depth, tc).r;
+        float sampleSize = sampleColor.a * MAX_BLUR_SIZE;
 
         if (sampleDepth > centerDepth)
             sampleSize = clamp(sampleSize, 0.0, centerSize*2.0);
 
         float m = smoothstep(radius-0.5, radius+0.5, sampleSize);
-        color += mix(color/tot, sampleColor, m);
+        color.rgb += mix(color.rgb/tot, sampleColor.rgb, m);
         tot += 1.0;
         radius += RAD_SCALE/radius;
-        alpha += sampleSize;
     }
 
-    return vec4(color, alpha) / tot;
+    return color.rgb / tot;
 }
 
 void main () {
@@ -68,6 +63,6 @@ void main () {
     } else {
         // float centerDepth = linearizeDepth(texture(depth, vert.uv).r);
         // float centerSize = getBlurFactor(centerDepth);
-        outColor = vec4(depthOfField(vert.uv).rgb, 1.);
+        outColor = vec4(depthOfField(vert.uv), 1.);
     }
 }

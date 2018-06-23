@@ -6,6 +6,7 @@ layout(location = 0) in VertexData {
     vec3 position;
     vec3 normal;
     vec2 uv;
+	float linearDepth;
 } vert;
 
 layout(location = 0) out vec4 outPosition;
@@ -27,6 +28,19 @@ layout(binding = 2) uniform MaterialInfo {
 
 layout(binding = 3) uniform sampler2DArray tex;
 
+layout(binding = 4) uniform DepthOfField {
+    vec2 proj;
+    vec2 px;
+    float far;
+    float focusPoint;
+    float focusScale;
+    float dofEnable;
+} dofInfo;
+
+float coc(float depth) {
+    return smoothstep(0, dofInfo.focusScale, abs(dofInfo.focusPoint - depth));
+}
+
 void main() {
     vec4 objColor = texture(tex, vec3(vert.uv, materialInfo.texture));
 
@@ -34,7 +48,7 @@ void main() {
     if (objColor.a < 0.99)
         discard;
 
-    outPosition = vec4(vert.position, materialInfo.specular);
+    outPosition = vec4(vert.position, coc(vert.linearDepth));
     outNormal   = normalize(vert.normal).xy;
     outColor    = vec4(objColor.rgb, materialInfo.diffuse);
     outMaterial = vec4 (

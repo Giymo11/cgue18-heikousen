@@ -33,6 +33,7 @@ struct Pipelines {
     JojoPipeline text;
     JojoPipeline deferred;
     JojoPipeline depth;
+    JojoPipeline hdr;
 };
 
 void drawFrame (
@@ -769,6 +770,7 @@ void Rendering::DescriptorSets::createLayouts ()
     addLayout (dynamic, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT);
     addLayout (dynamic, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT);
     addLayout (dynamic, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (dynamic, 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (dynamic));
 
     std::vector<VkDescriptorSetLayoutBinding> text;
@@ -779,6 +781,7 @@ void Rendering::DescriptorSets::createLayouts ()
     addLayout (level, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
     addLayout (level, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addLayout (level, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (level, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (level));
 
     std::vector<VkDescriptorSetLayoutBinding> deferred;
@@ -1130,6 +1133,16 @@ int main(int argc, char *argv[]) {
         desc->update (
             Rendering::Set::Dof,
             0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            bufferInfo
+        );
+        desc->update (
+            Rendering::Set::Dynamic,
+            4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            bufferInfo
+        );
+        desc->update (
+            Rendering::Set::Level,
+            3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             bufferInfo
         );
     }

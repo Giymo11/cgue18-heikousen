@@ -7,6 +7,7 @@ layout(location = 0) in VertexData {
 	vec3 normal;
 	vec3 uv;
 	vec3 lightUv;
+	float linearDepth;
 } vert;
 
 layout(location = 0) out vec4 outPosition;
@@ -17,6 +18,19 @@ layout(location = 3) out vec4 outMaterial;
 layout(binding = 1) uniform sampler2DArray diffuseTex1;
 layout(binding = 2) uniform sampler2DArray lightmap;
 
+layout(binding = 3) uniform DepthOfField {
+    vec2 proj;
+    vec2 px;
+    float far;
+    float focusPoint;
+    float focusScale;
+    float dofEnable;
+} dofInfo;
+
+float coc(float depth) {
+    return smoothstep(0, dofInfo.focusScale, abs(dofInfo.focusPoint - depth));
+}
+
 void main() {
 	vec4 objColor = texture(diffuseTex1, vert.uv);
 	vec3 lightmap = texture(lightmap, vec3(vert.lightUv.xy, 1.0)).rgb;
@@ -25,7 +39,7 @@ void main() {
 	if (objColor.a < 0.99)
         discard;
 
-    outPosition  = vec4(vert.position, 1.);
+    outPosition  = vec4(vert.position, coc(vert.linearDepth));
     outNormal    = normalize(vert.normal).xy;
     outColor     = vec4(objColor.rgb * lightmap, 1.);
     outMaterial  = vec4(1.4, 0., 0., 1.) / 50.;

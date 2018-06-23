@@ -112,10 +112,10 @@ void main() {
     float hdrExposure = lightInfo.parameters.z;
 
     if(hdrMode > 1.5) {
-        outColor = vec4(tonemaping_exposure(color, hdrExposure), 1.);
+        outColor = vec4(tonemaping_exposure(color, hdrExposure), pos.w);
     } else if (hdrMode > 0.5) {
-        outColor = vec4(tonemaping_reinhard(color), 1.);
+        outColor = vec4(tonemaping_reinhard(color), pos.w);
     } else {
-        outColor = vec4(color, 1.);
+        outColor = vec4(color, pos.w);
     }
 }

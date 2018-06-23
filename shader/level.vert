@@ -12,6 +12,7 @@ layout(location = 0) out VertexData {
 	vec3 normal;
 	vec3 uv;
     vec3 lightUv;
+	float linearDepth;
 } vert;
 
 layout(binding = 0) uniform GlobalTransformations {
@@ -24,10 +25,13 @@ out gl_PerVertex {
 };
 
 void main() {
-	vert.position = inPosition;
-	vert.normal   = normalize(inNormal);
-	vert.uv       = inUv;
-    vert.lightUv  = inLightUv;
+	vec4 viewPos  = globalTrans.view * vec4(inPosition, 1.);
 
-	gl_Position = globalTrans.projection * globalTrans.view * vec4(inPosition, 1.);
+	vert.position    = inPosition;
+	vert.normal      = normalize(inNormal);
+	vert.uv          = inUv;
+    vert.lightUv     = inLightUv;
+	vert.linearDepth = -viewPos.z;
+
+	gl_Position = globalTrans.projection * viewPos;
 }
