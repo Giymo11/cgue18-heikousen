@@ -45,8 +45,8 @@ vec3 depthOfField(vec2 texCoord) {
         float sampleDepth = texture(depth, tc).r;
         float sampleSize = sampleColor.a * MAX_BLUR_SIZE;
 
-        if (sampleDepth > centerDepth)
-            sampleSize = clamp(sampleSize, 0.0, centerSize*2.0);
+        /*if (sampleDepth > centerDepth)
+            sampleSize = clamp(sampleSize, 0.0, centerSize*2.0); */
 
         float m = smoothstep(radius-0.5, radius+0.5, sampleSize);
         color.rgb += mix(color.rgb/tot, sampleColor.rgb, m);
