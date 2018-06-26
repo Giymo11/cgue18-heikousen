@@ -33,11 +33,15 @@ struct Leaf {
 
     vec3     min;
     vec3     max;
+    int      cluster;
 };
 
 struct JojoLevel {
     std::unique_ptr<BSP::BSPData> bsp;
     std::vector<Leaf>             leafs;
+
+    std::vector<int>              drawQueue;
+    int                           drawQueueSize;
 
     VkBuffer          vertex;
     VkBuffer          index;

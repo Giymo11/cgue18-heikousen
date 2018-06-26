@@ -58,6 +58,11 @@ struct Texture {
     int32_t    contents;
 };
 
+struct Plane {
+    vec3       normal;
+    float      dist;
+};
+
 struct Node {
     int32_t    plane;
     int32_t    children[2];
@@ -93,11 +98,6 @@ struct Brush {
 struct BrushSide {
     int32_t    plane;
     int32_t    texture;
-};
-
-struct Plane {
-    float      normal[3];
-    float      dist;
 };
 
 struct Face {
@@ -165,6 +165,12 @@ struct BSPData {
 
 std::unique_ptr<BSPData> loadBSP (
     const std::string &name
+);
+
+int32_t findCameraLeaf (
+    const Node  *nodes,
+    const Plane *planes,
+    const vec3  &pos
 );
 
 size_t vertexCount (

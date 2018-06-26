@@ -16,6 +16,63 @@ using namespace glm;
 
 const float GEOMSCALE = 0.03f;
 
+int32_t findCameraLeaf (
+    const Node  *nodes,
+    const Plane *planes,
+    const vec3  &pos
+) {
+    int32_t index = 0;
+
+    while (index >= 0) {
+        const Node  &node  = nodes[index];
+        const Plane &plane = planes[node.plane];
+        const float dist   = dot(plane.normal, pos) - plane.dist;
+
+        if (dist >= 0.f)
+            index = node.children[0];
+        else
+            index = node.children[1];
+    }
+
+    return -index - 1;
+}
+
+void traverseTreeRecursive (
+    const Node  *nodes,
+    const Plane *planes,
+    const vec3  &pos,
+    int32_t      nodeIndex
+) {
+    if (nodeIndex < 0) {
+        /* TODO: Handle leaf */
+        return;
+    }
+
+    const auto &node  = nodes[nodeIndex];
+    const auto &plane = planes[node.plane];
+    const float dist  = dot(plane.normal, pos) - plane.dist;
+
+    if (dist >= 0.f) {
+        traverseTreeRecursive (
+            nodes, planes, pos,
+            node.children[0]
+        );
+        traverseTreeRecursive (
+            nodes, planes, pos,
+            node.children[1]
+        );
+    } else {
+        traverseTreeRecursive (
+            nodes, planes, pos,
+            node.children[1]
+        );
+        traverseTreeRecursive (
+            nodes, planes, pos,
+            node.children[0]
+        );
+    }
+}
+
 size_t vertexCount (
     const Header *bspHeader
 ) {
@@ -92,6 +149,7 @@ void fillVertexBuffer (
 }
 
 static void buildIndicesNaiveLeaf (
+    const int32_t             leafIndex,
     const Leaf               *leaf,
     const LeafFace           *leafFaces,
     const Face               *faces,
@@ -106,7 +164,7 @@ static void buildIndicesNaiveLeaf (
 
     const auto baseFace  = leaf->leafface;
     const auto maxFace   = baseFace + leaf->n_leaffaces;
-    Level::Leaf drawLeaf = {};
+    auto      &drawLeaf  = drawLeafs[leafIndex];
 
     auto index = *nextIndex;
     drawLeaf.indexOffset = index;
@@ -132,9 +190,6 @@ static void buildIndicesNaiveLeaf (
     // Store next index
     drawLeaf.indexCount = index - drawLeaf.indexOffset;
     *nextIndex = index;
-
-    // Store leaf for drawing
-    drawLeafs.emplace_back(std::move(drawLeaf));
 }
 
 static void buildIndicesNaiveRecursive (
@@ -150,8 +205,10 @@ static void buildIndicesNaiveRecursive (
     size_t *nextIndex
 ) {
     if (nodeIndex < 0) {
+        auto index = -(nodeIndex + 1);
+
         buildIndicesNaiveLeaf (
-            &leafs[-(nodeIndex + 1)], leafFaces, faces,
+            index, &leafs[index], leafFaces, faces,
             meshVerts, drawLeafs, indices, nextIndex
         );
         return;

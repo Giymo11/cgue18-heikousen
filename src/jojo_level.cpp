@@ -172,7 +172,7 @@ void cmdBuildAndStageIndicesNaively (
     const auto bsp           = level->bsp.get ();
     const auto indexCount    = bsp->indexCount;
     const auto indexDataSize = (uint32_t)(sizeof (uint32_t) * indexCount);
-    level->leafs.reserve (bsp->leafCount);
+    level->leafs.resize (bsp->leafCount);
 
     VkBuffer staging;
     VmaAllocation stagingMemory;
