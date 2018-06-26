@@ -167,9 +167,6 @@ void drawFrame (
         result = beginCommandBuffer (transferCmd);
         ASSERT_VULKAN (result);
 
-        // Perform data staging
-        Level::cmdBuildAndStageIndicesNaively (allocator, device, level, transferCmd);
-
         {
             VkMemoryPropertyFlags memFlags   = {};
             VkBufferCopy          bufferCopy = {};
@@ -1175,7 +1172,7 @@ int main(int argc, char *argv[]) {
                 level, &levelCleanupQueue
             );
             Level::cmdBuildAndStageIndicesNaively (
-                allocator, engine.device, level, cmd
+                allocator, cmd, level, &levelCleanupQueue
             );
         }
 

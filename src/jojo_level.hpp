@@ -27,15 +27,22 @@ struct Vertex {
     vec3 normal;
 };
 
+struct Leaf {
+    uint32_t indexCount;
+    uint32_t indexOffset;
+
+    vec3     min;
+    vec3     max;
+};
+
 struct JojoLevel {
     std::unique_ptr<BSP::BSPData> bsp;
+    std::vector<Leaf>             leafs;
 
     VkBuffer          vertex;
     VkBuffer          index;
-    VkBuffer          indexStaging;
     VmaAllocation     vertexMemory;
     VmaAllocation     indexMemory;
-    VmaAllocation     indexStagingMemory;
     VmaAllocationInfo indexInfo;
 
     Textures::Texture texDiffuse;
@@ -68,9 +75,9 @@ void cmdStageVertexData (
 
 void cmdBuildAndStageIndicesNaively (
     const VmaAllocator     allocator,
-    const VkDevice         device,
-    const JojoLevel       *level,
-    const VkCommandBuffer  transferCmd
+    const VkCommandBuffer  transferCmd,
+    JojoLevel             *level,
+    CleanupQueue          *cleanupQueue
 );
 
 void cmdLoadAndStageTextures (

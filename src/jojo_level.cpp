@@ -84,21 +84,6 @@ JojoLevel *alloc (
         &level->index, &level->indexMemory, nullptr
     ));
 
-    binfo.size = indexDataSize;
-    binfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    binfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-    allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-    allocInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-        | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
-
-    ASSERT_VULKAN (vmaCreateBuffer (
-        allocator, &binfo, &allocInfo,
-        &level->indexStaging, &level->indexStagingMemory,
-        &level->indexInfo
-    ));
-
     return level;
 }
 
@@ -121,7 +106,6 @@ void free (
     for (int i = 0; i < numBodies; i++)
         delete bodies[i];
 
-    vmaDestroyBuffer (allocator, level->indexStaging, level->indexStagingMemory);
     vmaDestroyBuffer (allocator, level->index, level->indexMemory);
     vmaDestroyBuffer (allocator, level->vertex, level->vertexMemory);
 
@@ -173,9 +157,6 @@ void cmdStageVertexData (
 
     VkBufferCopy bufferCopy = {};
     bufferCopy.size = vertexDataSize;
-    VkCommandBufferBeginInfo cmdBegin = {};
-    cmdBegin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    cmdBegin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkCmdCopyBuffer (transferCmd, staging, level->vertex, 1, &bufferCopy);
 
     // Add staging buffers to cleanup queue
@@ -183,37 +164,54 @@ void cmdStageVertexData (
 }
 
 void cmdBuildAndStageIndicesNaively (
-    const VmaAllocator     allocator,
-    const VkDevice         device,
-    const JojoLevel       *level,
-    const VkCommandBuffer  transferCmd
+    const VmaAllocator     allocator,    
+    const VkCommandBuffer  transferCmd,
+    JojoLevel             *level,
+    CleanupQueue          *cleanupQueue
 ) {
     const auto bsp           = level->bsp.get ();
     const auto indexCount    = bsp->indexCount;
     const auto indexDataSize = (uint32_t)(sizeof (uint32_t) * indexCount);
-    const auto allocInfo     = level->indexInfo;
-    auto indexData           = (uint32_t *)allocInfo.pMappedData;
+    level->leafs.reserve (bsp->leafCount);
+
+    VkBuffer staging;
+    VmaAllocation stagingMemory;
+
+    VkBufferCreateInfo stagingInfo = {};
+    stagingInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    stagingInfo.size = indexDataSize;
+    stagingInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    stagingInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    allocInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    ASSERT_VULKAN (vmaCreateBuffer (
+        allocator, &stagingInfo, &allocInfo,
+        &staging, &stagingMemory, nullptr
+    ));
+
+    uint32_t *indexData = nullptr;
+    ASSERT_VULKAN (vmaMapMemory (
+        allocator, stagingMemory,
+        (void **)&indexData
+    ));
 
     // Traverse BSP, generate indices and write them directly to staging buffer
     BSP::buildIndicesNaive (
         bsp->nodes, bsp->leafs, bsp->leafFaces, 
-        bsp->faces, bsp->meshVertices, indexData
+        bsp->faces, bsp->meshVertices,
+        level->leafs, indexData
     );
-
-    // Flush memory range if neccessary
-    VkMemoryPropertyFlags memFlags;
-    vmaGetMemoryTypeProperties (allocator, allocInfo.memoryType, &memFlags);
-    if ((memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
-        VkMappedMemoryRange memRange = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
-        memRange.memory = allocInfo.deviceMemory;
-        memRange.offset = allocInfo.offset;
-        memRange.size = allocInfo.size;
-        vkFlushMappedMemoryRanges (device, 1, &memRange);
-    }
+    vmaUnmapMemory (allocator, stagingMemory);
 
     VkBufferCopy bufferCopy = {};
     bufferCopy.size = indexDataSize;
-    vkCmdCopyBuffer (transferCmd, level->indexStaging, level->index, 1, &bufferCopy);
+    vkCmdCopyBuffer (transferCmd, staging, level->index, 1, &bufferCopy);
+
+    // Add staging buffers to cleanup queue
+    cleanupQueue->emplace_back (staging, stagingMemory);
 }
 
 void cmdLoadAndStageTextures (

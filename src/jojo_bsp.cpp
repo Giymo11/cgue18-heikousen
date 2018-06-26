@@ -92,20 +92,30 @@ void fillVertexBuffer (
 }
 
 static void buildIndicesNaiveLeaf (
-    const Leaf *leaf,
-    const LeafFace *leafFaces,
-    const Face *faces,
-    const MeshVertex *meshVerts,
-    uint32_t *indices,
-    size_t *nextIndex
+    const Leaf               *leaf,
+    const LeafFace           *leafFaces,
+    const Face               *faces,
+    const MeshVertex         *meshVerts,
+    std::vector<Level::Leaf> &drawLeafs,
+    uint32_t                 *indices,
+    size_t                   *nextIndex
 ) {
     // Only deal with visible leafs
     if (leaf->cluster < 0)
         return;
 
-    const auto baseFace = leaf->leafface;
-    const auto maxFace = baseFace + leaf->n_leaffaces;
+    const auto baseFace  = leaf->leafface;
+    const auto maxFace   = baseFace + leaf->n_leaffaces;
+    Level::Leaf drawLeaf = {};
+
     auto index = *nextIndex;
+    drawLeaf.indexOffset = index;
+    drawLeaf.min.x       = leaf->mins[0]  * GEOMSCALE;
+    drawLeaf.min.y       = leaf->mins[2]  * GEOMSCALE;
+    drawLeaf.min.z       = -leaf->mins[1] * GEOMSCALE;
+    drawLeaf.max.x       = leaf->maxs[0]  * GEOMSCALE;
+    drawLeaf.max.y       = leaf->maxs[2]  * GEOMSCALE;
+    drawLeaf.max.z       = -leaf->maxs[1] * GEOMSCALE;
 
     for (auto lface = baseFace; lface < maxFace; lface++) {
         const auto &face = faces[leafFaces[lface].face];
@@ -120,7 +130,11 @@ static void buildIndicesNaiveLeaf (
     }
 
     // Store next index
+    drawLeaf.indexCount = index - drawLeaf.indexOffset;
     *nextIndex = index;
+
+    // Store leaf for drawing
+    drawLeafs.emplace_back(std::move(drawLeaf));
 }
 
 static void buildIndicesNaiveRecursive (
@@ -131,13 +145,14 @@ static void buildIndicesNaiveRecursive (
     const MeshVertex *meshVerts,
     int32_t nodeIndex,
     int32_t depth,
+    std::vector<Level::Leaf> &drawLeafs,
     uint32_t *indices,
     size_t *nextIndex
 ) {
     if (nodeIndex < 0) {
         buildIndicesNaiveLeaf (
             &leafs[-(nodeIndex + 1)], leafFaces, faces,
-            meshVerts, indices, nextIndex
+            meshVerts, drawLeafs, indices, nextIndex
         );
         return;
     }
@@ -147,11 +162,13 @@ static void buildIndicesNaiveRecursive (
 
     buildIndicesNaiveRecursive (
         nodes, leafs, leafFaces, faces, meshVerts,
-        node.children[0], newDepth, indices, nextIndex
+        node.children[0], newDepth, drawLeafs,
+        indices, nextIndex
     );
     buildIndicesNaiveRecursive (
         nodes, leafs, leafFaces, faces, meshVerts,
-        node.children[1], newDepth, indices, nextIndex
+        node.children[1], newDepth, drawLeafs,
+        indices, nextIndex
     );
 }
 
@@ -161,13 +178,14 @@ void buildIndicesNaive (
     const LeafFace *leafFaces,
     const Face *faces,
     const MeshVertex *meshVerts,
+    std::vector<Level::Leaf> &drawLeafs,
     uint32_t *indices
 ) {
     size_t nextIndex = 0;
 
     buildIndicesNaiveRecursive (
         nodes, leafs, leafFaces, faces, meshVerts,
-        0, 0, indices, &nextIndex
+        0, 0, drawLeafs, indices, &nextIndex
     );
 }
 
@@ -252,7 +270,8 @@ BSPData::BSPData (
     std::vector<std::string> &&lightmapsIn,
     std::vector<int32_t>     &&lightmapLookupIn,
     std::vector<vec3>        &&lightPos,
-    uint32_t                   indexCount
+    uint32_t                   indexCount,
+    uint32_t                   leafCount
 ) :
     raw            (std::move (data)),
     textures       (std::move (texturesIn)),
@@ -272,7 +291,8 @@ BSPData::BSPData (
     brushSides     ((const BrushSide *)  (raw.data () + header->direntries[Brushsides].offset)),
     planes         ((const Plane *)      (raw.data () + header->direntries[Planes].offset)),
     textureData    ((const Texture *)    (raw.data () + header->direntries[Textures].offset)),
-    indexCount     (indexCount)
+    indexCount     (indexCount),
+    leafCount      (leafCount)
 {
 }
 
@@ -299,6 +319,7 @@ std::unique_ptr<BSPData> loadBSP (
     auto faces     = (Face *)     (buffer.data () + header->direntries[Faces].offset);
     auto vertices  = (Vertex *)   (buffer.data () + header->direntries[Vertices].offset);
     auto indexNum  = indexCount (header, leafs, leafFaces, faces);
+    auto leafCount = (uint32_t) (header->direntries[Leafs].length / sizeof (Leaf));
 
     // --------------------------------------------------------------
     // ENTITY INSPECTION BEGIN
@@ -433,7 +454,8 @@ std::unique_ptr<BSPData> loadBSP (
         std::move(lightmaps),
         std::move(lightmapLookup),
         std::move(lightPositions),
-        indexNum
+        indexNum,
+        leafCount
     );
 }
 

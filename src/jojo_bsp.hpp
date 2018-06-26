@@ -6,6 +6,7 @@
 
 namespace Level {
 struct Vertex;
+struct Leaf;
 }
 
 namespace BSP {
@@ -135,15 +136,16 @@ struct BSPData {
         std::vector<std::string> &&lightmaps,
         std::vector<int32_t>     &&lightmapLookup,
         std::vector<vec3>        &&lightPos,
-        uint32_t indexCount
+        uint32_t                   indexCount,
+        uint32_t                   leafCount
     );
 
-    const std::vector<uint8_t>  raw;
+    const std::vector<uint8_t>     raw;
     const std::vector<std::string> textures;
     const std::vector<std::string> normals;
     const std::vector<std::string> lightmaps;
-    const std::vector<int32_t> lightmapLookup;
-    const std::vector<glm::vec3> lightPos;
+    const std::vector<int32_t>     lightmapLookup;
+    const std::vector<glm::vec3>   lightPos;
 
     const Header     *header;
     const Node       *nodes;
@@ -158,6 +160,7 @@ struct BSPData {
     const MeshVertex *meshVertices;
     const Vertex     *vertices;
     const uint32_t    indexCount;
+    const uint32_t    leafCount;
 };
 
 std::unique_ptr<BSPData> loadBSP (
@@ -180,12 +183,13 @@ void fillVertexBuffer (
 );
 
 void buildIndicesNaive (
-    const Node       *nodes,
-    const Leaf       *leafs,
-    const LeafFace   *leafFaces,
-    const Face       *faces,
-    const MeshVertex *meshVerts,
-    uint32_t         *indices
+    const Node               *nodes,
+    const Leaf               *leafs,
+    const LeafFace           *leafFaces,
+    const Face               *faces,
+    const MeshVertex         *meshVerts,
+    std::vector<Level::Leaf> &drawLeafs,
+    uint32_t                 *indices
 );
 
 void buildColliders (
