@@ -683,21 +683,21 @@ void gameloop (
         double absXpos = glm::abs(relXpos);
         double absYpos = glm::abs(relYpos);
 
-        // if (absXpos > minX) {
-        //     if (absXpos > maxX) {
-        //         absXpos = maxX;
-        //     }
-        //     double torque = (absXpos - minX) / (maxX - minX) * glm::sign(relXpos) * -1;
-        //     relativeTorque = relativeTorque + btVector3(0, 0, static_cast<float>(torque));
-        // } 
+         if (absXpos > minX) {
+             if (absXpos > maxX) {
+                 absXpos = maxX;
+             }
+             double torque = (absXpos - minX) / (maxX - minX) * glm::sign(relXpos) * -1;
+             relativeTorque = relativeTorque + btVector3(0, 0, static_cast<float>(torque));
+         } 
 
-        // if (absYpos > minY) {
-        //     if (absYpos > maxY) {
-        //         absYpos = maxY;
-        //     }
-        //     double torque = (absYpos - minY) / (maxY - minY) * glm::sign(relYpos) * -1;
-        //     relativeTorque = relativeTorque + btVector3(static_cast<float>(torque), 0, 0);
-        // }
+         if (absYpos > minY) {
+             if (absYpos > maxY) {
+                 absYpos = maxY;
+             }
+             double torque = (absYpos - minY) / (maxY - minY) * glm::sign(relYpos) * -1;
+             relativeTorque = relativeTorque + btVector3(static_cast<float>(torque), 0, 0);
+         }
 
         double newXpos = absXpos * glm::sign(relXpos) + config.width / 2.0f;
         double newYpos = absYpos * glm::sign(relYpos) + config.height / 2.0f;
