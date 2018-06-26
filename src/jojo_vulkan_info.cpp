@@ -41,6 +41,8 @@ void printStats(const VkPhysicalDevice physicalDevice, const VkSurfaceKHR surfac
             );
     std::cout << "Device Type:               " << deviceTypeDescription << " (type " << deviceType << ")" << std::endl;
     std::cout << "discreteQueuePrioritis:    " << properties.limits.discreteQueuePriorities << std::endl;
+    std::cout << "maxFramebufferHeight:      " << properties.limits.maxFramebufferHeight << std::endl;
+    std::cout << "maxFramebufferWidth:       " << properties.limits.maxFramebufferWidth << std::endl;
 
 
     VkPhysicalDeviceFeatures features;
