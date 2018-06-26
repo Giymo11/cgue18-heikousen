@@ -1,8 +1,10 @@
 #include <array>
 #include "jojo_vulkan_pass.hpp"
 #include "jojo_vulkan_utils.hpp"
+#include "jojo_vulkan_data.hpp"
 #include "jojo_vulkan.hpp"
 #include "Rendering/DescriptorSets.h"
+#include <glm/gtx/fast_trigonometry.hpp>
 
 namespace Pass {
 
@@ -489,6 +491,31 @@ void freePasses (
     PassStorage        *passes
 ) {
     freePass (device, allocator, &passes->mrtPass);
+}
+
+void calcDoFTaps (
+    const Config       *config,
+    Data::DepthOfField *depth
+) {
+    const float RAD_SCALE = 0.5f;
+    const int   TAP_COUNT = config->dofTaps;
+    float       angle     = 0.0f;
+    float       radius    = RAD_SCALE;
+    float       width     = 1.f / (float)config->width;
+    float       height    = 1.f / (float)config->height;
+
+    for (int i = 0; i < TAP_COUNT; i++) {
+        glm::vec4 &t = depth->taps[i];
+        t.x = glm::fastCos(angle) * width * radius;
+        t.y = glm::fastSin(angle) * height * radius;
+        t.z = radius - 0.5f;
+        t.w = (float)(i + 1);
+
+        radius += RAD_SCALE/radius;
+        angle  += 2.39996323;
+    }
+
+    depth->tapCount = TAP_COUNT;
 }
 
 }

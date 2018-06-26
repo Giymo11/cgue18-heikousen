@@ -323,7 +323,7 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, Rendering::Set set) {
     // --------------------------------------------------------------
 
     {
-        const auto size = sizeof (DepthOfField);
+        const auto size = sizeof (Data::DepthOfField);
         allocInfo = {};
 
         binfo.size = size;

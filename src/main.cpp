@@ -83,6 +83,10 @@ void drawFrame (
             passes
         );
 
+        auto dofInfo = (Data::DepthOfField *)
+            mesh->alli_dofInfo.pMappedData;
+        Pass::calcDoFTaps(&config, dofInfo);
+
         /*
             throw away this frame, because after recreating the
             swapchain, the vkAcquireNexImageKHR is not signaling
@@ -492,6 +496,9 @@ void drawFrame (
             config.width, config.height,
             passes
         );
+        auto dofInfo = (Data::DepthOfField *)
+            mesh->alli_dofInfo.pMappedData;
+        Pass::calcDoFTaps(&config, dofInfo);
         return;
     }
     ASSERT_VULKAN (result);
@@ -527,7 +534,7 @@ static void updateMvp (
     glm::mat4 projection = glm::perspective (
         glm::radians(60.0f),
         config.width / (float) config.height,
-        0.1f, 1000.0f
+        0.1f, 100.0f
     );
     projection[1][1] *= -1;  // openGL has the z dir flipped
 
@@ -562,13 +569,8 @@ static void updateMvp (
     lightInfo->parameters.w = (float)numlights;
     lightInfo->playerPos = view * glm::vec4 (0.f, 0.f, 0.f, 1.);
 
-    auto dofInfo = (JojoVulkanMesh::DepthOfField *)
+    auto dofInfo = (Data::DepthOfField *)
         mesh->alli_dofInfo.pMappedData;
-    dofInfo->px.x          = 1.f / (float)config.width;
-    dofInfo->px.y          = 1.f / (float)config.height;
-    dofInfo->far           = 1000.f;
-    dofInfo->proj.x        = 1000.f / (1000.f - 0.1f);
-    dofInfo->proj.y        = (-1000.f * 0.1f) / (1000.f - 0.1f);
     dofInfo->dofEnable     = config.dofEnabled;
     dofInfo->focalDistance = config.dofFocalDistance;
     dofInfo->focalWidth    = config.dofFocalWidth;
@@ -1245,6 +1247,13 @@ int main(int argc, char *argv[]) {
 
             // Update descriptors
             Level::updateDescriptors (engine.descriptors, level);
+        }
+
+        {
+            // Calculate depth of field taps
+            auto dofInfo = (Data::DepthOfField *)
+                mesh.alli_dofInfo.pMappedData;
+            Pass::calcDoFTaps(&config, dofInfo);
         }
     }
 

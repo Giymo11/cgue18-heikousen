@@ -19,16 +19,16 @@ layout(binding = 1) uniform sampler2DArray diffuseTex1;
 layout(binding = 2) uniform sampler2DArray lightmap;
 
 layout(binding = 3) uniform DepthOfField {
-    vec2 proj;
-    vec2 px;
-    float far;
-    float focusPoint;
-    float focusScale;
     float dofEnable;
+    float focalDistance;
+    float focalWidth;
+    int tapCount;
+
+    vec4 taps[50];
 } dofInfo;
 
 float coc(float depth) {
-    return smoothstep(0, dofInfo.focusScale, abs(dofInfo.focusPoint - depth));
+    return smoothstep(0, dofInfo.focalWidth, abs(dofInfo.focalDistance - depth));
 }
 
 void main() {

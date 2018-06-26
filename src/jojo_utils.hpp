@@ -28,6 +28,7 @@ private:
            uint32_t refreshrate,
            float gamma,
            float hdrMode,
+           int dofTaps = 16,
            bool isFrametimeOutputEnabled = false,
            bool isWireframeEnabled = false);
 
@@ -38,9 +39,10 @@ public:
     bool isFrametimeOutputEnabled, isWireframeEnabled;
     std::function<void()> rebuildPipelines;
 
-    float dofEnabled       = 0.0f;
+    float dofEnabled       = 1.0f;
     float dofFocalDistance = 7.0f;
     float dofFocalWidth    = 10.0f;
+    int   dofTaps          = 16;
 
     static Config readFromFile(std::string filename);
 

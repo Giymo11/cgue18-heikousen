@@ -15,6 +15,17 @@
 #include "jojo_vulkan_textures.hpp"
 #include "Rendering/DescriptorSets.h"
 
+namespace Data {
+struct DepthOfField {
+    float dofEnable;
+    float focalDistance;
+    float focalWidth;
+    int tapCount;
+
+    glm::vec4 taps[50];
+};
+}
+
 class JojoVulkanMesh {
 public:
     struct LightSource {
@@ -45,15 +56,6 @@ public:
     struct ModelTransformations {
         glm::mat4 model;
         glm::mat4 normalMatrix;
-    };
-
-    struct DepthOfField {
-        glm::vec2 proj;
-        glm::vec2 px;
-        float far;
-        float focalDistance;
-        float focalWidth;
-        float dofEnable;
     };
 
     Scene::Scene *scene = nullptr;

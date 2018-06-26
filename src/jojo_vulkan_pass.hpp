@@ -7,6 +7,11 @@ namespace Rendering {
 class DescriptorSets;
 }
 
+class Config;
+namespace Data {
+struct DepthOfField;
+};
+
 namespace Pass {
 
 struct Attachment {
@@ -64,6 +69,11 @@ void freePasses (
     const VkDevice      device,
     const VmaAllocator  allocator,
     PassStorage        *passes
+);
+
+void calcDoFTaps (
+    const Config       *config,
+    Data::DepthOfField *depth
 );
 
 }

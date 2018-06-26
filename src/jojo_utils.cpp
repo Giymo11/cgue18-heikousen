@@ -35,7 +35,8 @@ Config Config::readFromFile(std::string filename) {
     bool fullscreen = reader.GetBoolean("window", "fullscreen", false);
     uint32_t refreshrate = reader.GetInteger("window", "refreshrate", 60);
     float gamma = static_cast<float>(reader.GetReal ("window", "gamma", 1.22));
-    return Config(width, height, 25, 2, vsync, fullscreen, refreshrate, gamma, 1.0);
+    int dofTaps = reader.GetInteger("postproc", "doftaps", 16);
+    return Config(width, height, 25, 2, vsync, fullscreen, refreshrate, gamma, 1.0, dofTaps);
 }
 
 Config::Config(uint32_t width,
@@ -47,6 +48,7 @@ Config::Config(uint32_t width,
                uint32_t refreshrate,
                float gamma,
                float hdrMode,
+               int dofTaps,
                bool isFrametimeOutputEnabled,
                bool isWireframeEnabled) : width(width),
                               height(height),
@@ -58,7 +60,8 @@ Config::Config(uint32_t width,
                               gamma(gamma),
                               hdrMode(hdrMode),
                               isFrametimeOutputEnabled(isFrametimeOutputEnabled),
-                              isWireframeEnabled(isWireframeEnabled){}
+                              isWireframeEnabled(isWireframeEnabled),
+                              dofTaps(dofTaps) {}
 
 
 void *alignedAlloc(size_t size, size_t alignment) {
