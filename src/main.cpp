@@ -511,7 +511,18 @@ void drawFrame (
                 1, &desc,
                 0, nullptr
             );
+            vkCmdDraw (deferredCmd, 6, 1, 0, 0);
 
+            auto textDescriptor = engine->descriptors->set (Rendering::Set::Text);
+            vkCmdBindPipeline (deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->text.pipeline);
+            vkCmdBindDescriptorSets (
+                deferredCmd,
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                pipelines->text.pipelineLayout,
+                0,
+                1, &textDescriptor,
+                0, nullptr
+            );
             vkCmdDraw (deferredCmd, 6, 1, 0, 0);
             vkCmdEndRenderPass (deferredCmd);
         }
@@ -1118,7 +1129,7 @@ int main(int argc, char *argv[]) {
             config, &engine,
             swapchain.swapchainRenderPass, "text",
             engine.descriptors->layout (Rendering::Set::Text),
-            1
+            1, {}, {}, false, false, true
         );
 
         pipelines.deferred.createPipelineHelper (
