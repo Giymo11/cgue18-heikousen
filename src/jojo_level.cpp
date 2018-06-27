@@ -187,7 +187,8 @@ void cmdBuildAndStageIndicesNaively (
     const VkDevice         device,
     const VkCommandBuffer  transferCmd,
     const vec3            &pos,
-    JojoLevel             *level
+    JojoLevel             *level,
+    bool                   swapOpaque
 ) {
     const auto bsp = level->bsp.get ();
     const auto indexCount = bsp->indexCount;
@@ -209,11 +210,19 @@ void cmdBuildAndStageIndicesNaively (
 
     // Generate indices for picked leafs
     for (int i = 0; i < leafCount; i++) {
-        BSP::buildIndicesLeafOpaque (
-            &bsp->leafs[drawQueue[i]], bsp->leafFaces,
-            bsp->faces, bsp->meshVertices, bsp->textureData,
-            indexData, &nextIndex, drawnFaces
-        );
+        if (swapOpaque) {
+            BSP::buildIndicesLeafTransparent (
+                &bsp->leafs[drawQueue[i]], bsp->leafFaces,
+                bsp->faces, bsp->meshVertices, bsp->textureData,
+                indexData, &nextIndex, drawnFaces
+            );
+        } else {
+            BSP::buildIndicesLeafOpaque (
+                &bsp->leafs[drawQueue[i]], bsp->leafFaces,
+                bsp->faces, bsp->meshVertices, bsp->textureData,
+                indexData, &nextIndex, drawnFaces
+            );
+        }
     }
     level->indexCount = (uint32_t)nextIndex;
 
@@ -230,11 +239,19 @@ void cmdBuildAndStageIndicesNaively (
     for (int i = 0; i < leafCount; i++) {
         const auto oldNumIndices = nextIndex;
 
-        BSP::buildIndicesLeafTransparent (
-            &bsp->leafs[drawQueue[i]], bsp->leafFaces,
-            bsp->faces, bsp->meshVertices, bsp->textureData,
-            indexData, &nextIndex, drawnFaces
-        );
+        if (swapOpaque) {
+            BSP::buildIndicesLeafTransparent (
+                &bsp->leafs[drawQueue[i]], bsp->leafFaces,
+                bsp->faces, bsp->meshVertices, bsp->textureData,
+                indexData, &nextIndex, drawnFaces
+            );
+        } else {
+            BSP::buildIndicesLeafOpaque (
+                &bsp->leafs[drawQueue[i]], bsp->leafFaces,
+                bsp->faces, bsp->meshVertices, bsp->textureData,
+                indexData, &nextIndex, drawnFaces
+            );
+        }
 
         if (nextIndex > oldNumIndices) {
             auto &trans = level->transparent[level->transparentCount];

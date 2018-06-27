@@ -84,7 +84,8 @@ void cmdBuildAndStageIndicesNaively (
     const VkDevice         device,
     const VkCommandBuffer  transferCmd,
     const vec3            &pos,
-    JojoLevel             *level
+    JojoLevel             *level,
+    bool                   swapOpaque
 );
 
 void cmdLoadAndStageTextures (
