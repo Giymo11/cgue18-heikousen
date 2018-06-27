@@ -43,6 +43,7 @@ void drawFrame (
     JojoEngine                  *engine,
     JojoWindow                  *window,
     JojoSwapchain               *swapchain,
+    Replay::Recorder            *replay,
     Pass::PassStorage           *passes,
     JojoVulkanMesh              *mesh,
     const Pipelines             *pipelines,
@@ -513,17 +514,21 @@ void drawFrame (
             );
             vkCmdDraw (deferredCmd, 6, 1, 0, 0);
 
-            auto textDescriptor = engine->descriptors->set (Rendering::Set::Text);
-            vkCmdBindPipeline (deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->text.pipeline);
-            vkCmdBindDescriptorSets (
-                deferredCmd,
-                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                pipelines->text.pipelineLayout,
-                0,
-                1, &textDescriptor,
-                0, nullptr
-            );
-            vkCmdDraw (deferredCmd, 6, 1, 0, 0);
+            if (replay->state () == Replay::RecorderState::Replaying
+                || replay->state () == Replay::RecorderState::ReplayFinished) {
+                auto textDescriptor = engine->descriptors->set (Rendering::Set::Text);
+                vkCmdBindPipeline (deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines->text.pipeline);
+                vkCmdBindDescriptorSets (
+                    deferredCmd,
+                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    pipelines->text.pipelineLayout,
+                    0,
+                    1, &textDescriptor,
+                    0, nullptr
+                );
+                vkCmdDraw (deferredCmd, 6, 1, 0, 0);
+            }
+            
             vkCmdEndRenderPass (deferredCmd);
         }
 
@@ -837,7 +842,7 @@ void gameloop (
         }
 
         drawFrame (
-            config, engine, jojoWindow, swapchain,
+            config, engine, jojoWindow, swapchain, jojoReplay,
             passes, mesh, pipelines, scene, level
         );
     }
