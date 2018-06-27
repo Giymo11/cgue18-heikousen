@@ -942,6 +942,9 @@ int main(int argc, char *argv[]) {
                 tfile.first, tfile.second, t, &scene
             );
         }
+
+        scene.templates[4].nodes[0].relative = glm::translate (glm::vec3(0.f, 0.f, -4.f));
+        scene.templates[0].nodes[0].children.push_back (scene.templates[4].nodes[0]);
     }
 
     // --------------------------------------------------------------
