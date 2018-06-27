@@ -301,8 +301,10 @@ VkResult createPipeline (
     const int                               height,
     const std::vector<VkVertexInputBindingDescription>     &vertexBindingDescriptions,
     const std::vector<VkVertexInputAttributeDescription>   &vertexAttributeDescriptions,
-    const std::vector<VkPipelineColorBlendAttachmentState> &blendAttachments, 
-    const bool                              isWireframeEnabled
+    const std::vector<VkPipelineColorBlendAttachmentState> &blendAttachments,
+    const bool                              isWireframeEnabled,
+    const bool                              testDepth,
+    const bool                              writeDepth
 ) {
     VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo;
     vertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -391,8 +393,8 @@ VkResult createPipeline (
     depthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     depthStencilStateCreateInfo.pNext = nullptr;
     depthStencilStateCreateInfo.flags = 0;
-    depthStencilStateCreateInfo.depthTestEnable = VK_TRUE;
-    depthStencilStateCreateInfo.depthWriteEnable = VK_TRUE;
+    depthStencilStateCreateInfo.depthTestEnable = testDepth;
+    depthStencilStateCreateInfo.depthWriteEnable = writeDepth;
     depthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS;
     depthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE;
     depthStencilStateCreateInfo.stencilTestEnable = VK_FALSE;

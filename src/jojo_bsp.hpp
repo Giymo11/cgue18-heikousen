@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <unordered_set>
 #include <glm/glm.hpp>
 
 namespace Level {
@@ -167,10 +168,24 @@ std::unique_ptr<BSPData> loadBSP (
     const std::string &name
 );
 
-int32_t findCameraLeaf (
-    const Node  *nodes,
-    const Plane *planes,
-    const vec3  &pos
+void traverseTreeRecursiveFront (
+    const Node    *nodes,
+    const Leaf    *leafs,
+    const Plane   *planes,
+    const vec3    &pos,
+    const int32_t  nodeIndex,
+    int32_t       *drawIndices,
+    int32_t       *drawIndexCount
+);
+
+void traverseTreeRecursiveBack (
+    const Node    *nodes,
+    const Leaf    *leafs,
+    const Plane   *planes,
+    const vec3    &pos,
+    const int32_t  nodeIndex,
+    int32_t       *drawIndices,
+    int32_t       *drawIndexCount
 );
 
 size_t vertexCount (
@@ -188,14 +203,26 @@ void fillVertexBuffer (
     Level::Vertex    *vertices
 );
 
-void buildIndicesNaive (
-    const Node               *nodes,
-    const Leaf               *leafs,
-    const LeafFace           *leafFaces,
-    const Face               *faces,
-    const MeshVertex         *meshVerts,
-    std::vector<Level::Leaf> &drawLeafs,
-    uint32_t                 *indices
+void buildIndicesLeafOpaque (
+    const Leaf                  *leaf,
+    const LeafFace              *leafFaces,
+    const Face                  *faces,
+    const MeshVertex            *meshVerts,
+    const Texture               *textures,
+    uint32_t                    *indices,
+    size_t                      *nextIndex,
+    std::unordered_set<int32_t> &drawnFaces
+);
+
+void buildIndicesLeafTransparent (
+    const Leaf                  *leaf,
+    const LeafFace              *leafFaces,
+    const Face                  *faces,
+    const MeshVertex            *meshVerts,
+    const Texture               *textures,
+    uint32_t                    *indices,
+    size_t                      *nextIndex,
+    std::unordered_set<int32_t> &drawnFaces
 );
 
 void buildColliders (

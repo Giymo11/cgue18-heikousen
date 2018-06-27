@@ -9,6 +9,7 @@ enum class Set : uint8_t {
   Dynamic,
   Text,
   Level,
+  Transparent,
   Deferred,
   Dof,
   Count

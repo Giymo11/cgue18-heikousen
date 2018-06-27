@@ -41,6 +41,8 @@ struct PassStorage {
     RenderPass                   deferredPass;
     std::vector<VkCommandBuffer> deferredCmd;
     VkSemaphore                  deferredSema;
+
+    RenderPass                   transPass;
 };
 
 void allocPassStorage (

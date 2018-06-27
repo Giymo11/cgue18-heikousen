@@ -22,7 +22,10 @@ void JojoPipeline::createPipelineHelper (
     VkDescriptorSetLayout  descriptorLayout,
     const uint32_t         attachmentCount,
     const std::vector<VkVertexInputBindingDescription> &vertexBindingDescriptions,
-    const std::vector<VkVertexInputAttributeDescription> &vertexAttributeDescriptions
+    const std::vector<VkVertexInputAttributeDescription> &vertexAttributeDescriptions,
+    bool testDepth,
+    bool writeDepth,
+    bool alpha
 ) {
     descriptorSetLayout = descriptorLayout;
 
@@ -69,6 +72,10 @@ void JojoPipeline::createPipelineHelper (
         attachmentCount, cbas
     );
 
+    if (alpha) {
+        blendAttStates[0].blendEnable = alpha;
+    }
+
     result = createPipeline (
         engine->device,
         shaderStages,
@@ -80,7 +87,9 @@ void JojoPipeline::createPipelineHelper (
         vertexBindingDescriptions,
         vertexAttributeDescriptions,
         blendAttStates,
-        config.isWireframeEnabled
+        config.isWireframeEnabled,
+        testDepth,
+        writeDepth
     );
 
     ASSERT_VULKAN(result)

@@ -59,6 +59,9 @@ JojoLevel *alloc (
     const auto vertexDataSize = (uint32_t)(sizeof (Vertex) * vertexCount);
     const auto indexDataSize = (uint32_t)(sizeof (uint32_t) * indexCount);
 
+    level->drawQueue.resize (bsp->leafCount);
+    level->transparent.resize (bsp->leafCount);
+
     binfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     binfo.size = vertexDataSize;
     binfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
@@ -84,6 +87,21 @@ JojoLevel *alloc (
         &level->index, &level->indexMemory, nullptr
     ));
 
+    binfo.size = indexDataSize;
+    binfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    binfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+    allocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    allocInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+
+    ASSERT_VULKAN (vmaCreateBuffer (
+        allocator, &binfo, &allocInfo,
+        &level->indexStaging, &level->indexStagingMemory,
+        &level->indexInfo
+    ));
+
     return level;
 }
 
@@ -91,21 +109,22 @@ void free (
     const VmaAllocator     allocator,
     JojoLevel             *level
 ) {
-    auto &shapes   = level->collisionShapes;
+    auto &shapes = level->collisionShapes;
     auto numShapes = shapes.size ();
     for (int i = 0; i < numShapes; i++)
         delete shapes[i];
 
-    auto &motionStates   = level->motionStates;
+    auto &motionStates = level->motionStates;
     auto numMotionStates = motionStates.size ();
     for (int i = 0; i < numMotionStates; i++)
         delete motionStates[i];
 
-    auto &bodies   = level->rigidBodies;
+    auto &bodies = level->rigidBodies;
     auto numBodies = bodies.size ();
     for (int i = 0; i < numBodies; i++)
         delete bodies[i];
 
+    vmaDestroyBuffer (allocator, level->indexStaging, level->indexStagingMemory);
     vmaDestroyBuffer (allocator, level->index, level->indexMemory);
     vmaDestroyBuffer (allocator, level->vertex, level->vertexMemory);
 
@@ -150,7 +169,7 @@ void cmdStageVertexData (
     BSP::fillVertexBuffer (
         bsp->header, bsp->leafs, bsp->leafFaces,
         bsp->faces, bsp->meshVertices, bsp->vertices,
-        bsp->lightmapLookup.data(), vertexData
+        bsp->lightmapLookup.data (), vertexData
     );
     vmaUnmapMemory (allocator, stagingMemory);
 
@@ -164,54 +183,85 @@ void cmdStageVertexData (
 }
 
 void cmdBuildAndStageIndicesNaively (
-    const VmaAllocator     allocator,    
+    const VmaAllocator     allocator,
+    const VkDevice         device,
     const VkCommandBuffer  transferCmd,
-    JojoLevel             *level,
-    CleanupQueue          *cleanupQueue
+    const vec3            &pos,
+    JojoLevel             *level
 ) {
-    const auto bsp           = level->bsp.get ();
-    const auto indexCount    = bsp->indexCount;
+    const auto bsp = level->bsp.get ();
+    const auto indexCount = bsp->indexCount;
     const auto indexDataSize = (uint32_t)(sizeof (uint32_t) * indexCount);
-    level->leafs.resize (bsp->leafCount);
+    const auto allocInfo = level->indexInfo;
+    auto indexData = (uint32_t *)allocInfo.pMappedData;
 
-    VkBuffer staging;
-    VmaAllocation stagingMemory;
+    std::unordered_set<int32_t> drawnFaces;
+    auto   &drawQueue = level->drawQueue;
+    int     leafCount = 0;
+    size_t  nextIndex = 0;
+    level->indexCount = 0;
 
-    VkBufferCreateInfo stagingInfo = {};
-    stagingInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    stagingInfo.size = indexDataSize;
-    stagingInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    stagingInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-    allocInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    ASSERT_VULKAN (vmaCreateBuffer (
-        allocator, &stagingInfo, &allocInfo,
-        &staging, &stagingMemory, nullptr
-    ));
-
-    uint32_t *indexData = nullptr;
-    ASSERT_VULKAN (vmaMapMemory (
-        allocator, stagingMemory,
-        (void **)&indexData
-    ));
-
-    // Traverse BSP, generate indices and write them directly to staging buffer
-    BSP::buildIndicesNaive (
-        bsp->nodes, bsp->leafs, bsp->leafFaces, 
-        bsp->faces, bsp->meshVertices,
-        level->leafs, indexData
+    // Find order of leafs to be drawn
+    BSP::traverseTreeRecursiveFront (
+        bsp->nodes, bsp->leafs, bsp->planes,
+        pos, 0, drawQueue.data (), &leafCount
     );
-    vmaUnmapMemory (allocator, stagingMemory);
+
+    // Generate indices for picked leafs
+    for (int i = 0; i < leafCount; i++) {
+        BSP::buildIndicesLeafOpaque (
+            &bsp->leafs[drawQueue[i]], bsp->leafFaces,
+            bsp->faces, bsp->meshVertices, bsp->textureData,
+            indexData, &nextIndex, drawnFaces
+        );
+    }
+    level->indexCount = (uint32_t)nextIndex;
+
+    leafCount = 0;
+    level->transparentCount = 0;
+
+    // Find order of leafs to be drawn
+    BSP::traverseTreeRecursiveBack (
+        bsp->nodes, bsp->leafs, bsp->planes,
+        pos, 0, drawQueue.data (), &leafCount
+    );
+
+    // Generate indices for picked transparent leafs
+    for (int i = 0; i < leafCount; i++) {
+        const auto oldNumIndices = nextIndex;
+
+        BSP::buildIndicesLeafTransparent (
+            &bsp->leafs[drawQueue[i]], bsp->leafFaces,
+            bsp->faces, bsp->meshVertices, bsp->textureData,
+            indexData, &nextIndex, drawnFaces
+        );
+
+        if (nextIndex > oldNumIndices) {
+            auto &trans = level->transparent[level->transparentCount];
+            trans.indexCount  = nextIndex - oldNumIndices;
+            trans.indexOffset = oldNumIndices;
+
+            level->transparentCount += 1;
+        }
+    }
+    
+    // Flush memory range if neccessary
+    VkMemoryPropertyFlags memFlags;
+    vmaGetMemoryTypeProperties (allocator, allocInfo.memoryType, &memFlags);
+    if ((memFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+        VkMappedMemoryRange memRange = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
+        memRange.memory = allocInfo.deviceMemory;
+        memRange.offset = allocInfo.offset;
+        memRange.size = (uint32_t)nextIndex * sizeof(uint32_t);
+        vkFlushMappedMemoryRanges (device, 1, &memRange);
+    }
 
     VkBufferCopy bufferCopy = {};
     bufferCopy.size = indexDataSize;
-    vkCmdCopyBuffer (transferCmd, staging, level->index, 1, &bufferCopy);
-
-    // Add staging buffers to cleanup queue
-    cleanupQueue->emplace_back (staging, stagingMemory);
+    vkCmdCopyBuffer (
+        transferCmd, level->indexStaging,
+        level->index, 1, &bufferCopy
+    );
 }
 
 void cmdLoadAndStageTextures (
@@ -221,9 +271,9 @@ void cmdLoadAndStageTextures (
     JojoLevel             *level,
     CleanupQueue          *cleanupQueue
 ) {
-    const auto bsp       = level->bsp.get ();
-    const auto textures  = bsp->textures;
-    const auto normals   = bsp->normals;
+    const auto bsp = level->bsp.get ();
+    const auto textures = bsp->textures;
+    const auto normals = bsp->normals;
     const auto lightmaps = bsp->lightmaps;
 
     VkBuffer stagingDiffuse;
@@ -263,14 +313,16 @@ void updateDescriptors (
 ) {
     auto diffuse512 = Textures::descriptor (&level->texDiffuse);
     descriptors->update (Rendering::Set::Level, 1, diffuse512);
+    descriptors->update (Rendering::Set::Transparent, 1, diffuse512);
     auto lightmap = Textures::descriptor (&level->texLightmap);
     descriptors->update (Rendering::Set::Level, 2, lightmap);
+    descriptors->update (Rendering::Set::Transparent, 2, lightmap);
 }
 
 void loadRigidBodies (
     JojoLevel               *level
 ) {
-    const auto bsp = level->bsp.get();
+    const auto bsp = level->bsp.get ();
 
     BSP::buildColliders (
         bsp->header, bsp->leafs, bsp->leafBrushes, bsp->brushes,
@@ -296,7 +348,7 @@ void removeRigidBodies (
 ) {
     const btVector3 zeroVector (0, 0, 0);
     const auto      numBodies = level->rigidBodies.size ();
-    auto           &bodies    = level->rigidBodies;
+    auto           &bodies = level->rigidBodies;
 
     btTransform startTransform;
     startTransform.setIdentity ();
@@ -310,7 +362,17 @@ void removeRigidBodies (
         bodies[i]->setAngularVelocity (zeroVector);
         bodies[i]->setWorldTransform (startTransform);
     }
-        
+
+}
+
+void cmdDraw (
+    const VkCommandBuffer    drawCmd,
+    const JojoLevel         *level
+) {
+    vkCmdDrawIndexed (
+        drawCmd, level->indexCount,
+        1, 0, 0, 0
+    );
 }
 
 }

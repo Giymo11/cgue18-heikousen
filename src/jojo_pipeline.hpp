@@ -31,6 +31,9 @@ public:
         VkDescriptorSetLayout  descriptorLayout,
         uint32_t               attachmentCount,
         const std::vector<VkVertexInputBindingDescription> &vertexBindingDescriptions = {},
-        const std::vector<VkVertexInputAttributeDescription> &vertexAttributeDescriptions = {}
+        const std::vector<VkVertexInputAttributeDescription> &vertexAttributeDescriptions = {},
+        bool testDepth = true,
+        bool writeDepth = true,
+        bool alpha = false
     );
 };

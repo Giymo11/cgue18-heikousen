@@ -26,7 +26,6 @@ layout (binding = 1) uniform sampler2D position;
 layout (binding = 2) uniform sampler2D normal;
 layout (binding = 3) uniform sampler2D albedo;
 layout (binding = 4) uniform sampler2D material;
-layout (binding = 5) uniform sampler2D depth;
 
 vec3 phong (
     vec3 objColor,
@@ -84,12 +83,12 @@ vec3 gamma_adjust(vec3 color, float gamma) {
 
 void main() {
     vec4 pos = texture(position, vert.uv);
-    vec2 nml = texture(normal, vert.uv).xy;
+    vec4 nml = texture(normal, vert.uv);
     vec4 col = texture(albedo, vert.uv);
     vec4 mat = texture(material, vert.uv) * 50.;
 
     /* Unpack normal */
-    vec3 nor = vec3(nml, 1.);
+    vec3 nor = vec3(nml.xy, 1.);
     nor.z    = sqrt(1. + dot(nor.xy, -nor.xy));
 
     /* Ambient */
@@ -112,10 +111,10 @@ void main() {
     float hdrExposure = lightInfo.parameters.z;
 
     if(hdrMode > 1.5) {
-        outColor = vec4(tonemaping_exposure(color, hdrExposure), pos.w);
+        outColor = vec4(tonemaping_exposure(color, hdrExposure), 1.);
     } else if (hdrMode > 0.5) {
-        outColor = vec4(tonemaping_reinhard(color), pos.w);
+        outColor = vec4(tonemaping_reinhard(color), 1.);
     } else {
-        outColor = vec4(color, pos.w);
+        outColor = vec4(color, 1.);
     }
 }

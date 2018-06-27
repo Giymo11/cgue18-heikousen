@@ -362,6 +362,7 @@ void JojoVulkanMesh::initializeBuffers(JojoEngine *engine, Rendering::Set set) {
     info.range = sizeof (GlobalTransformations);
     descriptors->update (set, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, info);
     descriptors->update (Rendering::Set::Level, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, info);
+    descriptors->update (Rendering::Set::Transparent, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, info);
 
     info = {};
     info.buffer = modelTrans;

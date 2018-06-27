@@ -33,6 +33,7 @@ struct Pipelines {
     JojoPipeline text;
     JojoPipeline deferred;
     JojoPipeline depth;
+    JojoPipeline transparent;
     JojoPipeline hdr;
 };
 
@@ -45,7 +46,7 @@ void drawFrame (
     JojoVulkanMesh              *mesh,
     const Pipelines             *pipelines,
     const Scene::Scene          *scene,
-    const Level::JojoLevel      *level
+    Level::JojoLevel            *level
 ) {
     const auto allocator     = engine->allocator;
     const auto device        = engine->device;
@@ -107,6 +108,14 @@ void drawFrame (
     const auto fence       = swapchain->commandBufferFences[imageIndex];
 
     // --------------------------------------------------------------
+    // BUILD DRAWING QUEUES BEGIN
+    // --------------------------------------------------------------
+
+    // --------------------------------------------------------------
+    // BUILD DRAWING QUEUES END
+    // --------------------------------------------------------------
+
+    // --------------------------------------------------------------
     // INITIALIZE COMMON STRUCT VALUES BEGIN
     // --------------------------------------------------------------
 
@@ -166,6 +175,17 @@ void drawFrame (
         
         result = beginCommandBuffer (transferCmd);
         ASSERT_VULKAN (result);
+
+        {
+            const auto lightInfo = (const JojoVulkanMesh::LightBlock *)
+                mesh->alli_lightInfo.pMappedData;
+            const auto &pos = lightInfo->playerPos;
+
+            Level::cmdBuildAndStageIndicesNaively (
+                allocator, device, transferCmd,
+                pos, level
+            );
+        }    
 
         {
             VkMemoryPropertyFlags memFlags   = {};
@@ -284,7 +304,7 @@ void drawFrame (
     // --------------------------------------------------------------
 
     {
-        ASSERT_VULKAN (beginCommandBuffer (gCmd));
+        ASSERT_VULKAN (beginCommandBuffer (deferredCmd));
 
         std::array<VkClearValue, 5> defClear;
         defClear[0].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
@@ -299,11 +319,11 @@ void drawFrame (
         passInfo.pClearValues    = defClear.data ();
 
         vkCmdBeginRenderPass (
-            gCmd, &passInfo,
+            deferredCmd, &passInfo,
             VK_SUBPASS_CONTENTS_INLINE
         );
-        vkCmdSetViewport (gCmd, 0, 1, &viewport);
-        vkCmdSetScissor (gCmd, 0, 1, &scissor);
+        vkCmdSetViewport (deferredCmd, 0, 1, &viewport);
+        vkCmdSetScissor (deferredCmd, 0, 1, &scissor);
 
         // --------------------------------------------------------------
         // LEVEL DRAWING BEGIN
@@ -313,11 +333,11 @@ void drawFrame (
             auto descriptor = engine->descriptors->set (Rendering::Set::Level);
 
             vkCmdBindPipeline (
-                gCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                 pipelines->level.pipeline
             );
             vkCmdBindDescriptorSets (
-                gCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                 pipelines->level.pipelineLayout,
                 0, 1, &descriptor, 0, nullptr
             );
@@ -325,17 +345,24 @@ void drawFrame (
             VkBuffer vertexBuffers[] = { level->vertex };
             VkDeviceSize offsets[] = { 0 };
             vkCmdBindVertexBuffers (
-                gCmd, 0, 1,
+                deferredCmd, 0, 1,
                 vertexBuffers, offsets
             );
             vkCmdBindIndexBuffer (
-                gCmd, level->index, 0,
+                deferredCmd, level->index, 0,
                 VK_INDEX_TYPE_UINT32
             );
-            vkCmdDrawIndexed (
-                gCmd, level->bsp->indexCount,
-                1, 0, 0, 0
-            );
+
+            Level::cmdDraw (deferredCmd, level);
+
+            /*const auto transparent = level->transparent.data ();
+            const auto transCount = level->transparentCount;
+            for (uint32_t i = 0; i < transCount; i++) {
+                vkCmdDrawIndexed (
+                    gCmd, transparent[i].indexCount, 1,
+                    transparent[i].indexOffset, 0, 0
+                );
+            }*/
         }
 
         // --------------------------------------------------------------
@@ -343,48 +370,20 @@ void drawFrame (
         // --------------------------------------------------------------
 
         vkCmdBindPipeline (
-            gCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+            deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
             pipelines->dynamic.pipeline
         );
-        Scene::cmdDrawInstances (
+        /*Scene::cmdDrawInstances (
             gCmd, pipelines->dynamic.pipelineLayout, mesh,
             scene->templates.data (), scene->instances.data (),
             scene->numInstances
-        );
+        );*/
 
-        vkCmdEndRenderPass (gCmd);
-        ASSERT_VULKAN (vkEndCommandBuffer (gCmd));
-
-        VkPipelineStageFlags  waitStageMask[] = {
-            VK_PIPELINE_STAGE_VERTEX_INPUT_BIT
-        };
-
-        submitInfo.pWaitDstStageMask = waitStageMask;
-        submitInfo.pWaitSemaphores   = &passes->transferSema;
-        submitInfo.pSignalSemaphores = &passes->mrtSema;
-        submitInfo.pCommandBuffers   = &gCmd;
-
-        ASSERT_VULKAN (vkQueueSubmit (
-            drawQueue,
-            1, &submitInfo,
-            VK_NULL_HANDLE
-        ));
-    }
-
-    // --------------------------------------------------------------
-    // GBUFFER PASS END
-    // --------------------------------------------------------------
-
-    // --------------------------------------------------------------
-    // DEFERRED PASS BEGIN
-    // --------------------------------------------------------------
-
-    {
-        ASSERT_VULKAN (beginCommandBuffer (deferredCmd));
+        vkCmdEndRenderPass (deferredCmd);
 
         {
             std::array<VkClearValue, 1> defClear;
-            defClear[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+            defClear[0].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
             passInfo.renderPass = passes->deferredPass.pass;
             passInfo.framebuffer = passes->deferredPass.fb;
@@ -412,6 +411,49 @@ void drawFrame (
                 0, nullptr
             );
             vkCmdDraw (deferredCmd, 6, 1, 0, 0);
+
+            // --------------------------------------------------------------
+            // TRANSPARENT DRAWING BEGIN
+            // --------------------------------------------------------------
+
+            {
+                auto descriptor = engine->descriptors->set (Rendering::Set::Transparent);
+
+                vkCmdBindPipeline (
+                    deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    pipelines->transparent.pipeline
+                );
+                vkCmdBindDescriptorSets (
+                    deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    pipelines->transparent.pipelineLayout,
+                    0, 1, &descriptor, 0, nullptr
+                );
+
+                VkBuffer vertexBuffers[] = { level->vertex };
+                VkDeviceSize offsets[] = { 0 };
+                vkCmdBindVertexBuffers (
+                    deferredCmd, 0, 1,
+                    vertexBuffers, offsets
+                );
+                vkCmdBindIndexBuffer (
+                    deferredCmd, level->index, 0,
+                    VK_INDEX_TYPE_UINT32
+                );
+
+                const auto transparent = level->transparent.data ();
+                const auto transCount = level->transparentCount;
+                for (uint32_t i = 0; i < transCount; i++) {
+                    vkCmdDrawIndexed (
+                        deferredCmd, transparent[i].indexCount, 1,
+                        transparent[i].indexOffset, 0, 0
+                    );
+                }
+            }
+
+            // --------------------------------------------------------------
+            // TRANSPARENT DRAWING END
+            // --------------------------------------------------------------
+
             vkCmdEndRenderPass (deferredCmd);
         }
 
@@ -452,10 +494,11 @@ void drawFrame (
         ASSERT_VULKAN (vkEndCommandBuffer (deferredCmd));
 
         VkPipelineStageFlags  waitStageMask[] = {
-            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
         };
 
-        submitInfo.pWaitSemaphores   = &passes->mrtSema;
+        submitInfo.pWaitDstStageMask = waitStageMask;
+        submitInfo.pWaitSemaphores   = &passes->transferSema;
         submitInfo.pSignalSemaphores = &swapchain->semaphoreRenderingDone;
         submitInfo.pCommandBuffers   = &deferredCmd;
 
@@ -515,7 +558,7 @@ static void updateMvp (
     Physics::Physics            *physics,
     JojoVulkanMesh              *mesh,
     const Scene::Scene *scene,
-    const Level::JojoLevel      *level
+    Level::JojoLevel            *level
 ) {
     auto world = physics->world;
 
@@ -564,7 +607,7 @@ static void updateMvp (
     lightInfo->parameters.y = config.hdrMode; // HDR enable
     lightInfo->parameters.z = 1.0f;           // HDR exposure
     lightInfo->parameters.w = (float)numlights;
-    lightInfo->playerPos = view * glm::vec4 (0.f, 0.f, 0.f, 1.);
+    lightInfo->playerPos = playerTrans->model * glm::vec4 (0.f, 0.f, 0.f, 1.);
 
     auto dofInfo = (Data::DepthOfField *)
         mesh->alli_dofInfo.pMappedData;
@@ -584,7 +627,7 @@ void gameloop (
     JojoVulkanMesh              *mesh,
     const Pipelines             *pipelines,
     const Scene::Scene          *scene,
-    const Level::JojoLevel      *level,
+    Level::JojoLevel            *level,
     Physics::Physics            *physics
 ) {
     // TODO: extract a bunch of this to JojoWindow
@@ -783,13 +826,18 @@ void Rendering::DescriptorSets::createLayouts ()
     addLayout (level, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (level));
 
+    std::vector<VkDescriptorSetLayoutBinding> transparent;
+    addLayout (transparent, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    addLayout (transparent, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (transparent, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    layouts.push_back (createLayout (transparent));
+
     std::vector<VkDescriptorSetLayoutBinding> deferred;
     addLayout (deferred, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addLayout (deferred, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addLayout (deferred, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addLayout (deferred, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addLayout (deferred, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addLayout (deferred, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (deferred));
 
     std::vector<VkDescriptorSetLayoutBinding> depth;
@@ -906,7 +954,7 @@ int main(int argc, char *argv[]) {
     {
         const auto allocator = engine.allocator;
         
-        level = Level::alloc (allocator, "1");
+        level = Level::alloc (allocator, "2");
         Level::loadRigidBodies (level);
     }
 
@@ -1015,6 +1063,16 @@ int main(int argc, char *argv[]) {
             Level::vertexAttributes ()
         );
 
+        pipelines.transparent.createPipelineHelper (
+            config, &engine,
+            passes.deferredPass.pass, "transparent",
+            engine.descriptors->layout (Rendering::Set::Transparent),
+            (uint32_t)passes.deferredPass.attachments.size () - 1,
+            { Level::vertexInputBinding () },
+            Level::vertexAttributes (),
+            false, false, true
+        );
+
         pipelines.text.createPipelineHelper (
             config, &engine,
             swapchain.swapchainRenderPass, "text",
@@ -1026,7 +1084,8 @@ int main(int argc, char *argv[]) {
             config, &engine,
             passes.deferredPass.pass, "deferred",
             engine.descriptors->layout (Rendering::Set::Deferred),
-            (uint32_t)passes.deferredPass.attachments.size ()
+            (uint32_t)passes.deferredPass.attachments.size () - 1,
+            {}, {}, false, false, false
         );
 
         pipelines.depth.createPipelineHelper (
@@ -1077,6 +1136,16 @@ int main(int argc, char *argv[]) {
             (uint32_t)passes.mrtPass.attachments.size () - 1,
             { Level::vertexInputBinding () },
             Level::vertexAttributes ()
+        );
+        pipelines.transparent.destroyPipeline (&engine);
+        pipelines.transparent.createPipelineHelper (
+            config, &engine,
+            passes.deferredPass.pass, "transparent",
+            engine.descriptors->layout (Rendering::Set::Transparent),
+            (uint32_t)passes.deferredPass.attachments.size () - 1,
+            { Level::vertexInputBinding () },
+            Level::vertexAttributes (),
+            false, true
         );
     });
 
@@ -1170,9 +1239,6 @@ int main(int argc, char *argv[]) {
             Level::cmdLoadAndStageTextures (
                 allocator, engine.device, cmd,
                 level, &levelCleanupQueue
-            );
-            Level::cmdBuildAndStageIndicesNaively (
-                allocator, cmd, level, &levelCleanupQueue
             );
         }
 

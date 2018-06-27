@@ -111,10 +111,10 @@ static void createMrtPass (
         &attachments[0]
     );
 
-    /* NORMALS */
+    /* NORMALS & DOF INFO */
     allocAttachment (
         device, allocator,
-        VK_FORMAT_R16G16_SFLOAT,
+        VK_FORMAT_R16G16B16A16_SFLOAT,
         width, height,
         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         &attachments[1]
@@ -244,13 +244,15 @@ static void createDeferredPass (
     const VmaAllocator  allocator,
     const uint32_t      width,
     const uint32_t      height,
+    RenderPass         *mrtPass,
     RenderPass         *pass
 ) {
-    const uint32_t numAtt = 1;
+    const uint32_t numAtt = 2;
     const uint32_t numCol = 1;
 
     std::array<VkAttachmentDescription, numAtt> att = {};
     std::array<VkAttachmentReference, numCol>   color = {};
+    VkAttachmentReference                       depth = {};
 
     VkSubpassDescription               subpass = {};
     std::array<VkSubpassDependency, 2> dependencies = {};
@@ -271,6 +273,26 @@ static void createDeferredPass (
         &attachments[0]
     );
 
+    /* DEPTH */
+    attachments[1] = mrtPass->attachments.back ();
+
+    VkImageViewCreateInfo ivinfo = {};
+    ivinfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    ivinfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    ivinfo.format = attachments[1].format;
+    ivinfo.image = attachments[1].image;
+    ivinfo.subresourceRange = {};
+    ivinfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    ivinfo.subresourceRange.baseMipLevel = 0;
+    ivinfo.subresourceRange.levelCount = 1;
+    ivinfo.subresourceRange.baseArrayLayer = 0;
+    ivinfo.subresourceRange.layerCount = 1;
+
+    ASSERT_VULKAN (vkCreateImageView (
+        device, &ivinfo,
+        nullptr, &attachments[1].imageView
+    ));
+
     for (uint32_t i = 0; i < numAtt; i++) {
         att[i].format = attachments[i].format;
         attachViews[i] = attachments[i].imageView;
@@ -286,13 +308,19 @@ static void createDeferredPass (
         att[i].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
 
+    att.back ().loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    att.back ().storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    att.back ().finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
     color[0].attachment = 0;
     color[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    depth.attachment = 1;
+    depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.pColorAttachments = color.data ();
     subpass.colorAttachmentCount = (uint32_t)color.size ();
-    subpass.pDepthStencilAttachment = nullptr;
+    subpass.pDepthStencilAttachment = &depth;
     dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
     dependencies[0].dstSubpass = 0;
     dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
@@ -455,11 +483,14 @@ void allocPasses (
         info.sampler = pass->sampler;
         info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        const auto numAtt = (uint32_t)pass->attachments.size ();
+        const auto numAtt = (uint32_t)pass->attachments.size () - 1;
         for (uint32_t i = 0; i < numAtt; i++) {
             info.imageView = pass->attachments[i].imageView;
             descriptors->update (set, i + 1, info);
         }
+
+        info.imageView = pass->attachments[1].imageView;
+        descriptors->update (Rendering::Set::Dof, 2, info);
     }
 
     {
@@ -469,7 +500,7 @@ void allocPasses (
         createDeferredPass (
             device, allocator,
             width, height,
-            pass
+            &passes->mrtPass, pass
         );
 
         VkDescriptorImageInfo info;
@@ -478,10 +509,6 @@ void allocPasses (
         info.sampler   = pass->sampler;
         info.imageView = pass->attachments[0].imageView;
         descriptors->update (set, 1, info);
-
-        info.sampler   = passes->mrtPass.sampler;
-        info.imageView = passes->mrtPass.attachments.back ().imageView;
-        descriptors->update (set, 2, info);
     }
 }
 
@@ -490,6 +517,8 @@ void freePasses (
     const VmaAllocator  allocator,
     PassStorage        *passes
 ) {
+    passes->deferredPass.attachments.resize (1);
+    freePass (device, allocator, &passes->deferredPass);
     freePass (device, allocator, &passes->mrtPass);
 }
 

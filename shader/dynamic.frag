@@ -10,7 +10,7 @@ layout(location = 0) in VertexData {
 } vert;
 
 layout(location = 0) out vec4 outPosition;
-layout(location = 1) out vec2 outNormal;
+layout(location = 1) out vec4 outNormal;
 layout(location = 2) out vec4 outColor;
 layout(location = 3) out vec4 outMaterial;
 
@@ -44,13 +44,11 @@ float coc(float depth) {
 void main() {
     vec4 objColor = texture(tex, vec3(vert.uv, materialInfo.texture));
 
-    // Hack for alpha blending right now
-    if (objColor.a < 0.99)
-        discard;
-
-    outPosition = vec4(vert.position, coc(vert.linearDepth));
-    outNormal   = normalize(vert.normal).xy;
-    outColor    = vec4(objColor.rgb, materialInfo.diffuse);
+    outPosition = vec4(vert.position, 1.);
+    outNormal.xy= normalize(vert.normal).xy;
+    outNormal.z = coc(vert.linearDepth);
+    outNormal.w = vert.linearDepth;
+    outColor    = vec4(objColor.rgb, 1.0);
     outMaterial = vec4 (
         materialInfo.ambient,
         materialInfo.diffuse,
