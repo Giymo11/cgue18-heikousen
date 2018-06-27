@@ -369,6 +369,7 @@ static void loadTemplateFromGLB (
         for (uint32_t i = 0; i < numMaterials; ++i) {
             const auto &m  = materials[i];
             const auto &v  = m.values;
+            const auto &av = m.additionalValues;
             auto       &sm = sceneMaterials[dynMatBase + i];
 
             sm.ambient  = 0.01f;
@@ -379,7 +380,6 @@ static void loadTemplateFromGLB (
             sm.normal   = 1.0f;
 
             const auto baseColorTexture = v.find ("baseColorTexture");
-            const auto normalTexture    = v.find ("normalTexture");
             const auto roughness        = v.find ("roughnessFactor");
             const auto metallic         = v.find ("metallicFactor");
 
@@ -389,9 +389,11 @@ static void loadTemplateFromGLB (
                 ].source;
             }
 
-            if (normalTexture != v.end ()) {
-                sm.texture = textureOffset + textures[
-                    baseColorTexture->second.TextureIndex ()
+            const auto normalTexture    = av.find ("normalTexture");
+
+            if (normalTexture != av.end ()) {
+                sm.normal = textureOffset + textures[
+                    normalTexture->second.TextureIndex ()
                 ].source;
             }
 

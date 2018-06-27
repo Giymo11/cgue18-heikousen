@@ -24,6 +24,11 @@ layout(binding = 3) uniform DepthOfField {
     float focalWidth;
     int tapCount;
 
+    int param0;
+    int param1;
+    int param2;
+    int param3;
+
     vec4 taps[50];
 } dofInfo;
 

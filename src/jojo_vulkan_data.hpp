@@ -22,6 +22,11 @@ struct DepthOfField {
     float focalWidth;
     int tapCount;
 
+    int param0;
+    int param1;
+    int param2;
+    int param3;
+
     glm::vec4 taps[50];
 };
 }

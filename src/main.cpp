@@ -571,6 +571,8 @@ static void updateMvp (
     dofInfo->dofEnable     = config.dofEnabled;
     dofInfo->focalDistance = config.dofFocalDistance;
     dofInfo->focalWidth    = config.dofFocalWidth;
+
+    dofInfo->param0 = config.normalMode;
 }
 
 

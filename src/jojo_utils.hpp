@@ -29,11 +29,12 @@ private:
            float gamma,
            float hdrMode,
            int dofTaps = 16,
+           int normalMode = 1,
            bool isFrametimeOutputEnabled = false,
            bool isWireframeEnabled = false);
 
 public:
-    uint32_t width, height, navigationScreenPercentage, deadzoneScreenPercentage, refreshrate;
+    uint32_t width, height, navigationScreenPercentage, deadzoneScreenPercentage, refreshrate, normalMode;
     const bool vsync, fullscreen;
     float gamma, hdrMode;
     bool isFrametimeOutputEnabled, isWireframeEnabled;

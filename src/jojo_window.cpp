@@ -57,6 +57,20 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
         }
     }
 
+    // toggle HDR
+    if(key == GLFW_KEY_F6 && action == GLFW_PRESS) {
+        if(config->normalMode > 1.5) {
+            config->normalMode = 0;
+            std::cout << "Normal Mode Off" << std::endl;
+        } else if(config->normalMode > 0.5) {
+            config->normalMode = 2;
+            std::cout << "Normal Mode Multiplication" << std::endl;
+        } else {
+            config->normalMode = 1;
+            std::cout << "Normal Mode Substitution" << std::endl;
+        }
+    }
+
     if (action == GLFW_PRESS) {
         switch (key) {
         case GLFW_KEY_F5:
