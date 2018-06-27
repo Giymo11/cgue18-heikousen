@@ -102,7 +102,6 @@ void drawFrame (
     // CHECK SWAPCHAIN REBUILD END
     // --------------------------------------------------------------
 
-    const auto gCmd        = passes->mrtCmd[imageIndex];
     const auto transferCmd = swapchain->commandBuffers[imageIndex];
     const auto deferredCmd = passes->deferredCmd[imageIndex];
     const auto fence       = swapchain->commandBufferFences[imageIndex];
@@ -354,15 +353,6 @@ void drawFrame (
             );
 
             Level::cmdDraw (deferredCmd, level);
-
-            /*const auto transparent = level->transparent.data ();
-            const auto transCount = level->transparentCount;
-            for (uint32_t i = 0; i < transCount; i++) {
-                vkCmdDrawIndexed (
-                    gCmd, transparent[i].indexCount, 1,
-                    transparent[i].indexOffset, 0, 0
-                );
-            }*/
         }
 
         // --------------------------------------------------------------
@@ -373,16 +363,16 @@ void drawFrame (
             deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
             pipelines->dynamic.pipeline
         );
-        /*Scene::cmdDrawInstances (
-            gCmd, pipelines->dynamic.pipelineLayout, mesh,
+        Scene::cmdDrawInstances (
+            deferredCmd, pipelines->dynamic.pipelineLayout, mesh,
             scene->templates.data (), scene->instances.data (),
             scene->numInstances
-        );*/
+        );
 
         vkCmdEndRenderPass (deferredCmd);
 
         {
-            std::array<VkClearValue, 1> defClear;
+            std::array<VkClearValue, 2> defClear;
             defClear[0].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
             passInfo.renderPass = passes->deferredPass.pass;
@@ -1070,7 +1060,7 @@ int main(int argc, char *argv[]) {
             (uint32_t)passes.deferredPass.attachments.size () - 1,
             { Level::vertexInputBinding () },
             Level::vertexAttributes (),
-            false, false, true
+            true, false, true
         );
 
         pipelines.text.createPipelineHelper (
@@ -1145,7 +1135,7 @@ int main(int argc, char *argv[]) {
             (uint32_t)passes.deferredPass.attachments.size () - 1,
             { Level::vertexInputBinding () },
             Level::vertexAttributes (),
-            false, true
+            true, false, true
         );
     });
 

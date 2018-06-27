@@ -38,7 +38,7 @@ void main() {
     outPosition  = vec4(vert.position, 1.);
     outNormal.xy = normalize(vert.normal).xy;
     outNormal.z  = coc(vert.linearDepth);
-    outNormal.w  = vert.linearDepth;
+    outNormal.w  = vert.linearDepth / 100.0f;
     outColor     = vec4(objColor.rgb * lightmap, 1.);
     outMaterial  = vec4(1.4, 0., 0., 1.) / 50.;
 }

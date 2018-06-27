@@ -44,10 +44,13 @@ float coc(float depth) {
 void main() {
     vec4 objColor = texture(tex, vec3(vert.uv, materialInfo.texture));
 
+	if (objColor.a < 0.99)
+		discard;
+
     outPosition = vec4(vert.position, 1.);
     outNormal.xy= normalize(vert.normal).xy;
     outNormal.z = coc(vert.linearDepth);
-    outNormal.w = vert.linearDepth;
+    outNormal.w = vert.linearDepth / 100.0f;
     outColor    = vec4(objColor.rgb, 1.0);
     outMaterial = vec4 (
         materialInfo.ambient,

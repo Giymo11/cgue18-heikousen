@@ -276,23 +276,6 @@ static void createDeferredPass (
     /* DEPTH */
     attachments[1] = mrtPass->attachments.back ();
 
-    VkImageViewCreateInfo ivinfo = {};
-    ivinfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    ivinfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    ivinfo.format = attachments[1].format;
-    ivinfo.image = attachments[1].image;
-    ivinfo.subresourceRange = {};
-    ivinfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-    ivinfo.subresourceRange.baseMipLevel = 0;
-    ivinfo.subresourceRange.levelCount = 1;
-    ivinfo.subresourceRange.baseArrayLayer = 0;
-    ivinfo.subresourceRange.layerCount = 1;
-
-    ASSERT_VULKAN (vkCreateImageView (
-        device, &ivinfo,
-        nullptr, &attachments[1].imageView
-    ));
-
     for (uint32_t i = 0; i < numAtt; i++) {
         att[i].format = attachments[i].format;
         attachViews[i] = attachments[i].imageView;
@@ -310,6 +293,7 @@ static void createDeferredPass (
 
     att.back ().loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     att.back ().storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    att.back ().initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     att.back ().finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     color[0].attachment = 0;

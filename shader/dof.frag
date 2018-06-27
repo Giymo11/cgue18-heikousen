@@ -19,24 +19,25 @@ layout(binding = 0) uniform DepthOfField {
 } dofInfo;
 
 layout (binding = 1) uniform sampler2D lightImage;
-layout (binding = 2) uniform sampler2D depth;
-layout (binding = 3) uniform sampler2D coc;
+layout (binding = 2) uniform sampler2D normals;
 
 vec3 depthOfField(vec2 texCoord) {
     const int   TAP_COUNT       = dofInfo.tapCount;
     const float MAX_BLUR_RADIUS = dofInfo.taps[TAP_COUNT - 1].z + 0.5;
 
     vec4  color         = texture(lightImage, texCoord);
-    float centerDepth   = texture(depth, texCoord).r;
-    float centerSize    = color.a * MAX_BLUR_RADIUS;
+	vec2  center        = texture(normals, texCoord).wz;
+    float centerDepth   = center.x;
+    float centerSize    = center.y * MAX_BLUR_RADIUS;
     float doubleCenter  = centerSize * 2.0;
 
     for (int i = 0; i < TAP_COUNT; i++) {
         vec4 tap = dofInfo.taps[i];
 
         vec4 sampleColor  = texture(lightImage, texCoord + tap.xy);
-        float sampleDepth = texture(depth, texCoord + tap.xy).r;
-        float sampleSize  = sampleColor.a * MAX_BLUR_RADIUS;
+		vec2 smp          = texture(normals, texCoord + tap.xy).wz;
+        float sampleDepth = smp.x;
+        float sampleSize  = smp.y * MAX_BLUR_RADIUS;
 
         if (sampleDepth > centerDepth)
             sampleSize = max(sampleSize, doubleCenter);

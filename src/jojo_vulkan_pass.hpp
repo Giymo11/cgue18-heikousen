@@ -43,6 +43,12 @@ struct PassStorage {
     VkSemaphore                  deferredSema;
 
     RenderPass                   transPass;
+
+    RenderPass                   depthPickPass;
+    std::vector<VkCommandBuffer> depthPickCmd;
+    
+    //RenderP
+    //RenderPass                   luminancePickPass;
 };
 
 void allocPassStorage (
