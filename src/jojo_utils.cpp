@@ -19,7 +19,7 @@ std::vector<char> readFile(const std::string &filename) {
         file.close();
         return fileBuffer;
     } else {
-        throw std::runtime_error("Failed to open file");
+        throw std::runtime_error("Failed to open file" + filename);
     }
 }
 

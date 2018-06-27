@@ -27,6 +27,11 @@
 #include "jojo_level.hpp"
 #include "jojo_vulkan_pass.hpp"
 
+#include "jojo_text.hpp"
+
+
+
+
 struct Pipelines {
     JojoPipeline dynamic;
     JojoPipeline level;
@@ -45,7 +50,8 @@ void drawFrame (
     JojoVulkanMesh              *mesh,
     const Pipelines             *pipelines,
     const Scene::Scene          *scene,
-    const Level::JojoLevel      *level
+    const Level::JojoLevel      *level,
+    TextOverlay                 *textOverlay
 ) {
     const auto allocator     = engine->allocator;
     const auto device        = engine->device;
@@ -55,7 +61,7 @@ void drawFrame (
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR (
         device, swapchain->swapchain,
-        std::numeric_limits<uint64_t>::max(),
+        10000000000000,
         swapchain->semaphoreImageAvailable,
         VK_NULL_HANDLE,
         &imageIndex
@@ -470,6 +476,8 @@ void drawFrame (
     // DEFERRED PASS END
     // --------------------------------------------------------------
 
+    textOverlay->submit(drawQueue, imageIndex);
+
     result = vkQueuePresentKHR (drawQueue, &presentInfo);
 
     // --------------------------------------------------------------
@@ -587,7 +595,8 @@ void gameloop (
     const Pipelines             *pipelines,
     const Scene::Scene          *scene,
     const Level::JojoLevel      *level,
-    Physics::Physics            *physics
+    Physics::Physics            *physics,
+    TextOverlay                 *textOverlay
 ) {
     // TODO: extract a bunch of this to JojoWindow
 
@@ -755,11 +764,15 @@ void gameloop (
                 config, engine,
                 physics, mesh, scene, level
             );
+
+            textOverlay->beginTextUpdate();
+            textOverlay->addText("Hello", 5.0f, 5.0f, TextOverlay::alignLeft);
+            textOverlay->endTextUpdate();
         }
 
         drawFrame (
             config, engine, jojoWindow, swapchain,
-            passes, mesh, pipelines, scene, level
+            passes, mesh, pipelines, scene, level, textOverlay
         );
     }
 }
@@ -875,6 +888,7 @@ int main(int argc, char *argv[]) {
     engine.startVulkan();
     engine.initializeDescriptorPool(100, 100, 100);
 
+
     JojoVulkanMesh mesh;
     mesh.scene = &scene;
 
@@ -897,6 +911,28 @@ int main(int argc, char *argv[]) {
         engine.descriptors,
         config.width, config.height,
         &passes
+    );
+
+
+    VkShaderModule textVert, textFrag;
+
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+    shaderStages.resize(2);
+    ASSERT_VULKAN(createShaderStageCreateInfo(engine.device, "shader/text_simplest.vert.spv", VK_SHADER_STAGE_VERTEX_BIT,
+            &shaderStages[0], &textVert));
+    ASSERT_VULKAN(createShaderStageCreateInfo(engine.device, "shader/text_simplest.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT,
+            &shaderStages[1], &textFrag));
+
+    TextOverlay textOverlay(
+            engine.device,
+            engine.chosenDevice,
+            engine.queue,
+            swapchain.framebuffers,
+            VK_FORMAT_B8G8R8A8_UNORM, // is hardcoded in swapchain creation
+            passes.depthFormat,
+            config.width,
+            config.height,
+            shaderStages
     );
 
     // --------------------------------------------------------------
@@ -1262,7 +1298,7 @@ int main(int argc, char *argv[]) {
 
     gameloop (
         config, &engine, &window, &swapchain, &passes, &jojoReplay,
-        &mesh, &pipelines, &scene, level, &physics
+        &mesh, &pipelines, &scene, level, &physics, &textOverlay
     );
 
     VkResult result = vkDeviceWaitIdle(engine.device);
