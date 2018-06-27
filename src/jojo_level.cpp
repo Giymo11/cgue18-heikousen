@@ -239,7 +239,7 @@ void cmdBuildAndStageIndicesNaively (
     for (int i = 0; i < leafCount; i++) {
         const auto oldNumIndices = nextIndex;
 
-        if (swapOpaque) {
+        if (!swapOpaque) {
             BSP::buildIndicesLeafTransparent (
                 &bsp->leafs[drawQueue[i]], bsp->leafFaces,
                 bsp->faces, bsp->meshVertices, bsp->textureData,
