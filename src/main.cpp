@@ -34,6 +34,7 @@ struct Pipelines {
     JojoPipeline deferred;
     JojoPipeline depth;
     JojoPipeline transparent;
+    JojoPipeline logluv;
     JojoPipeline hdr;
 };
 
@@ -451,8 +452,8 @@ void drawFrame (
             std::array<VkClearValue, 1> defClear;
             defClear[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
-            passInfo.renderPass = swapchain->swapchainRenderPass;
-            passInfo.framebuffer = swapchain->framebuffers[imageIndex];
+            passInfo.renderPass = passes->depthPass.pass;
+            passInfo.framebuffer = passes->depthPass.fb;
             passInfo.clearValueCount = (uint32_t)defClear.size ();
             passInfo.pClearValues = defClear.data ();
 
@@ -472,6 +473,40 @@ void drawFrame (
                 deferredCmd,
                 VK_PIPELINE_BIND_POINT_GRAPHICS,
                 pipelines->depth.pipelineLayout,
+                0,
+                1, &desc,
+                0, nullptr
+            );
+
+            vkCmdDraw (deferredCmd, 6, 1, 0, 0);
+            vkCmdEndRenderPass (deferredCmd);
+        }
+
+        {
+            std::array<VkClearValue, 1> defClear;
+            defClear[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+
+            passInfo.renderPass = swapchain->swapchainRenderPass;
+            passInfo.framebuffer = swapchain->framebuffers[imageIndex];
+            passInfo.clearValueCount = (uint32_t)defClear.size ();
+            passInfo.pClearValues = defClear.data ();
+
+            vkCmdBeginRenderPass (
+                deferredCmd, &passInfo,
+                VK_SUBPASS_CONTENTS_INLINE
+            );
+            vkCmdSetViewport (deferredCmd, 0, 1, &viewport);
+            vkCmdSetScissor (deferredCmd, 0, 1, &scissor);
+
+            vkCmdBindPipeline (
+                deferredCmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                pipelines->hdr.pipeline
+            );
+            auto desc = engine->descriptors->set (Rendering::Set::Hdr);
+            vkCmdBindDescriptorSets (
+                deferredCmd,
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                pipelines->hdr.pipelineLayout,
                 0,
                 1, &desc,
                 0, nullptr
@@ -835,6 +870,20 @@ void Rendering::DescriptorSets::createLayouts ()
     addLayout (depth, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addLayout (depth, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     layouts.push_back (createLayout (depth));
+
+    std::vector<VkDescriptorSetLayoutBinding> depthPick;
+    addLayout (depthPick, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    layouts.push_back (createLayout (depthPick));
+
+    std::vector<VkDescriptorSetLayoutBinding> logLuv;
+    addLayout (logLuv, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    layouts.push_back (createLayout (logLuv));
+
+    std::vector<VkDescriptorSetLayoutBinding> hdr;
+    addLayout (hdr, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (hdr, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    addLayout (hdr, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    layouts.push_back (createLayout (hdr));
 }
 
 int main(int argc, char *argv[]) {
@@ -1080,8 +1129,22 @@ int main(int argc, char *argv[]) {
 
         pipelines.depth.createPipelineHelper (
             config, &engine,
-            swapchain.swapchainRenderPass, "dof",
+            passes.depthPass.pass, "dof",
             engine.descriptors->layout (Rendering::Set::Dof),
+            1
+        );
+
+        pipelines.logluv.createPipelineHelper (
+            config, &engine,
+            passes.luminancePickPass.pass, "logluv",
+            engine.descriptors->layout (Rendering::Set::LogLuv),
+            1
+        );
+
+        pipelines.hdr.createPipelineHelper (
+            config, &engine,
+            swapchain.swapchainRenderPass, "hdr",
+            engine.descriptors->layout (Rendering::Set::Hdr),
             1
         );
     }
@@ -1182,6 +1245,11 @@ int main(int argc, char *argv[]) {
         bufferInfo.range = mesh.alli_lightInfo.size;
         desc->update (
             Rendering::Set::Deferred,
+            0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            bufferInfo
+        );
+        desc->update (
+            Rendering::Set::Hdr,
             0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             bufferInfo
         );

@@ -12,6 +12,9 @@ enum class Set : uint8_t {
   Transparent,
   Deferred,
   Dof,
+  DepthPick,
+  LogLuv,
+  Hdr,
   Count
 };
 
