@@ -10,7 +10,7 @@ layout(location = 0) in VertexData {
 } vert;
 
 layout(location = 0) out vec4 outPosition;
-layout(location = 1) out vec2 outNormal;
+layout(location = 1) out vec4 outNormal;
 layout(location = 2) out vec4 outColor;
 layout(location = 3) out vec4 outMaterial;
 
@@ -51,22 +51,21 @@ void main() {
     vec4 objColor = texture(tex, vec3(vert.uv, materialInfo.texture));
     vec3 normalsFromTexture = texture(tex, vec3(vert.uv, materialInfo.normal)).rgb;
 
-
     if(dofInfo.param0 > 1.5) {
-        outNormal = normalize((normalsFromTexture * 2.0 - 1.0) * vert.normal).xy;
+        outNormal.xy = normalize((normalsFromTexture * 2.0 - 1.0) * vert.normal).xy;
     } else if(dofInfo.param0 > 0.5) {
-        outNormal = normalize(normalsFromTexture * 2.0 - 1.0).xy;
+        outNormal.xy = normalize(normalsFromTexture * 2.0 - 1.0).xy;
     } else {
-        outNormal   = normalize(vert.normal).xy;
+        outNormal.xy = normalize(vert.normal).xy;
     }
 
-    // Hack for alpha blending right now
-    if (objColor.a < 0.99)
-        discard;
+	if (objColor.a < 0.99)
+		discard;
 
-    outPosition = vec4(vert.position, coc(vert.linearDepth));
-    outColor    = vec4(objColor.rgb, materialInfo.diffuse);
-    // outColor = vec4(normalsFromTexture, 1.0);
+    outPosition = vec4(vert.position, 1.);
+    outNormal.z = coc(vert.linearDepth);
+    outNormal.w = vert.linearDepth / 100.0f;
+    outColor    = vec4(objColor.rgb, 1.0);
     outMaterial = vec4 (
         materialInfo.ambient,
         materialInfo.diffuse,

@@ -64,7 +64,9 @@ VkResult createPipeline (
     const std::vector<VkVertexInputBindingDescription>     &vertexBindingDescriptions,
     const std::vector<VkVertexInputAttributeDescription>   &vertexAttributeDescriptions,
     const std::vector<VkPipelineColorBlendAttachmentState> &blendAttachments,
-    bool                                    isWireframeEnabled
+    bool                                    isWireframeEnabled,
+    bool                                    testDepth,
+    bool                                    writeDepth
 );
 
 

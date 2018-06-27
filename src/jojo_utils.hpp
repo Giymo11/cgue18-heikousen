@@ -42,7 +42,7 @@ public:
 
     float dofEnabled       = 1.0f;
     float dofFocalDistance = 7.0f;
-    float dofFocalWidth    = 4.0f;
+    float dofFocalWidth    = 4.5f;
     int   dofTaps          = 16;
 
     static Config readFromFile(std::string filename);

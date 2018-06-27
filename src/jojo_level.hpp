@@ -38,16 +38,18 @@ struct Leaf {
 
 struct JojoLevel {
     std::unique_ptr<BSP::BSPData> bsp;
-    std::vector<Leaf>             leafs;
-
     std::vector<int>              drawQueue;
-    int                           drawQueueSize;
+    std::vector<Leaf>             transparent;
 
     VkBuffer          vertex;
     VkBuffer          index;
+    VkBuffer          indexStaging;
     VmaAllocation     vertexMemory;
     VmaAllocation     indexMemory;
+    VmaAllocation     indexStagingMemory;
     VmaAllocationInfo indexInfo;
+    uint32_t          indexCount;
+    uint32_t          transparentCount;
 
     Textures::Texture texDiffuse;
     Textures::Texture texNormal;
@@ -79,9 +81,10 @@ void cmdStageVertexData (
 
 void cmdBuildAndStageIndicesNaively (
     const VmaAllocator     allocator,
+    const VkDevice         device,
     const VkCommandBuffer  transferCmd,
-    JojoLevel             *level,
-    CleanupQueue          *cleanupQueue
+    const vec3            &pos,
+    JojoLevel             *level
 );
 
 void cmdLoadAndStageTextures (
@@ -109,6 +112,11 @@ void addRigidBodies (
 void removeRigidBodies (
     JojoLevel               *level,
     btDiscreteDynamicsWorld *world
+);
+
+void cmdDraw (
+    const VkCommandBuffer    drawCmd,
+    const JojoLevel         *level
 );
 
 }
