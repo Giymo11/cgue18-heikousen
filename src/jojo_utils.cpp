@@ -36,7 +36,8 @@ Config Config::readFromFile(std::string filename) {
     uint32_t refreshrate = reader.GetInteger("window", "refreshrate", 60);
     float gamma = static_cast<float>(reader.GetReal ("window", "gamma", 1.22));
     int dofTaps = reader.GetInteger("postproc", "doftaps", 16);
-    return Config(width, height, 25, 2, vsync, fullscreen, refreshrate, gamma, 1.0, dofTaps);
+    auto map = reader.Get("gameplay", "map", "2");
+    return Config(width, height, 25, 2, vsync, fullscreen, refreshrate, gamma, 1.0, map, dofTaps);
 }
 
 Config::Config(uint32_t width,
@@ -48,6 +49,7 @@ Config::Config(uint32_t width,
                uint32_t refreshrate,
                float gamma,
                float hdrMode,
+               std::string map,
                int dofTaps,
                int normalMode,
                bool isFrametimeOutputEnabled,
@@ -63,6 +65,7 @@ Config::Config(uint32_t width,
                               normalMode(normalMode),
                               isFrametimeOutputEnabled(isFrametimeOutputEnabled),
                               isWireframeEnabled(isWireframeEnabled),
+                              map(map),
                               dofTaps(dofTaps) {}
 
 

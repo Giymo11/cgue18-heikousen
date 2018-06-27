@@ -28,8 +28,9 @@ private:
            uint32_t refreshrate,
            float gamma,
            float hdrMode,
+           std::string map,
            int dofTaps = 16,
-           int normalMode = 1,
+           int normalMode = 2,
            bool isFrametimeOutputEnabled = false,
            bool isWireframeEnabled = false);
 
@@ -39,6 +40,7 @@ public:
     float gamma, hdrMode;
     bool isFrametimeOutputEnabled, isWireframeEnabled;
     std::function<void()> rebuildPipelines;
+    std::string map;
 
     float dofEnabled       = 1.0f;
     float dofFocalDistance = 7.0f;

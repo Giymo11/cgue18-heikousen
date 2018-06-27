@@ -599,11 +599,7 @@ void loadTemplate (
     }
         break;
     case Object::Player:
-        temp.shape = new btBoxShape (btVector3 (
-            1.5f,
-            0.8f,
-            1.8f
-        ));
+        temp.shape = new btSphereShape(1.5f);
         break;
     case Object::Convex:
     default:
