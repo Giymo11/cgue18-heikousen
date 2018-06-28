@@ -60,20 +60,20 @@ start replay: spacebar
 1. [-] script engine
 1. [x] movement in planning phase
 1. [x] bullet based win condition
-1. [/] movement tracking / replay system
+1. [x] movement tracking / replay system
 1. [x] model loading
 1. [x] textures (multiple maps)
 1. [x] level design (= moving objects)
-1. [ ] GAME DAY
+1. [x] GAME DAY
 1. [ ] Frustum Culling
-1. [/] Hierarchical Animation Using Physics Engine
+1. [ ] Hierarchical Animation Using Physics Engine
 1. [/] HDR
 1. [/] HUD
-1. [/] BSP
-1. [ ] DoF
-1. [ ] normal maps
-1. [ ] level design
-1. [ ] GAME DAY
+1. [x] BSP
+1. [x] DoF
+1. [x] normal maps
+1. [/] level design
+1. [x] GAME DAY
 1. [ ] sound design
 1. [ ] polishing
 
